@@ -1,0 +1,320 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// storage.ts  (canonical name: router-repository.ts re-exports this)
+//
+// Repository pattern for all persistent router state. Two implementations:
+//
+//   CloudflareRepository  — Cloudflare D1 (SQL) + KV (blob storage)
+//   MemoryRepository      — In-process fallback for local dev / testing
+//
+// getRouterRepository() auto-selects the implementation based on whether
+// ROUTER_DB and ROUTER_KV bindings are present at runtime.
+//
+// D1 tables used (see infra/d1/schema.sql):
+//   router_config         — versioned router config blobs
+//   routing_explanations  — per-request routing decisions (for /explanations)
+//   ingestion_runs        — history of catalog ingestion jobs
+//   thread_pins           — model pinning for multi-turn threads
+//
+// KV keys used:
+//   router:active:meta              — { version: string }
+//   router:active:catalog:<version> — CatalogItem[]
+// ─────────────────────────────────────────────────────────────────────────────
+
+import {
+  InMemoryPinStore,
+  type CatalogItem,
+  type PinStore,
+  type RouterConfig,
+  type RoutingExplanation,
+  type ThreadPin
+} from "@auto-router/core";
+
+import type { D1Database, KVNamespace } from "./cloudflare-types";
+import { DEFAULT_CATALOG, DEFAULT_ROUTER_CONFIG } from "./defaults";
+import { getRuntimeBindings } from "./runtime";
+
+const ACTIVE_META_KEY = "router:active:meta";
+const ACTIVE_CATALOG_KEY = (version: string) => `router:active:catalog:${version}`;
+
+export interface IngestionRunSummary {
+  id: string;
+  status: "ok" | "error" | "running";
+  startedAt: string;
+  finishedAt?: string;
+  error?: string;
+  artifactVersion?: string;
+}
+
+export interface RouterRepository {
+  getConfig(): Promise<RouterConfig>;
+  setConfig(config: RouterConfig): Promise<void>;
+  getCatalog(): Promise<CatalogItem[]>;
+  setCatalog(version: string, catalog: CatalogItem[]): Promise<void>;
+  getExplanation(requestId: string): Promise<RoutingExplanation | null>;
+  putExplanation(explanation: RoutingExplanation): Promise<void>;
+  listRuns(limit?: number): Promise<IngestionRunSummary[]>;
+  putRun(run: IngestionRunSummary): Promise<void>;
+  getPinStore(): PinStore;
+}
+
+const memoryState = {
+  config: { ...DEFAULT_ROUTER_CONFIG } as RouterConfig,
+  catalog: [...DEFAULT_CATALOG] as CatalogItem[],
+  explanations: new Map<string, RoutingExplanation>(),
+  runs: [] as IngestionRunSummary[],
+  pinStore: new InMemoryPinStore()
+};
+
+function parseJson<T>(value: string | null | undefined): T | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}
+
+class MemoryRepository implements RouterRepository {
+  async getConfig(): Promise<RouterConfig> {
+    return memoryState.config;
+  }
+
+  async setConfig(config: RouterConfig): Promise<void> {
+    memoryState.config = config;
+  }
+
+  async getCatalog(): Promise<CatalogItem[]> {
+    return memoryState.catalog;
+  }
+
+  async setCatalog(version: string, catalog: CatalogItem[]): Promise<void> {
+    memoryState.catalog = catalog;
+  }
+
+  async getExplanation(requestId: string): Promise<RoutingExplanation | null> {
+    return memoryState.explanations.get(requestId) ?? null;
+  }
+
+  async putExplanation(explanation: RoutingExplanation): Promise<void> {
+    memoryState.explanations.set(explanation.requestId, explanation);
+  }
+
+  async listRuns(limit = 20): Promise<IngestionRunSummary[]> {
+    return memoryState.runs.slice(0, limit);
+  }
+
+  async putRun(run: IngestionRunSummary): Promise<void> {
+    memoryState.runs = [run, ...memoryState.runs].slice(0, 100);
+  }
+
+  getPinStore(): PinStore {
+    return memoryState.pinStore;
+  }
+}
+
+class D1PinStore implements PinStore {
+  constructor(private readonly db: D1Database) { }
+
+  async get(threadKey: string) {
+    const row = await this.db
+      .prepare(
+        "SELECT model_id, request_id, pinned_at, expires_at, turn_count FROM thread_pins WHERE thread_key = ?1 LIMIT 1"
+      )
+      .bind(threadKey)
+      .first<{
+        model_id: string;
+        request_id: string;
+        pinned_at: string;
+        expires_at: string;
+        turn_count: number;
+      }>();
+
+    if (!row) {
+      return null;
+    }
+
+    if (Date.parse(row.expires_at) <= Date.now()) {
+      await this.clear(threadKey);
+      return null;
+    }
+
+    return {
+      threadKey,
+      modelId: row.model_id,
+      requestId: row.request_id,
+      pinnedAt: row.pinned_at,
+      expiresAt: row.expires_at,
+      turnCount: row.turn_count
+    };
+  }
+
+  async set(pin: ThreadPin): Promise<void> {
+    await this.db
+      .prepare(
+        `INSERT INTO thread_pins (thread_key, model_id, request_id, pinned_at, expires_at, turn_count)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT(thread_key) DO UPDATE SET
+         model_id = excluded.model_id,
+         request_id = excluded.request_id,
+         pinned_at = excluded.pinned_at,
+         expires_at = excluded.expires_at,
+         turn_count = excluded.turn_count`
+      )
+      .bind(
+        pin.threadKey,
+        pin.modelId,
+        pin.requestId,
+        pin.pinnedAt,
+        pin.expiresAt,
+        pin.turnCount
+      )
+      .run();
+  }
+
+  async clear(threadKey: string): Promise<void> {
+    await this.db
+      .prepare("DELETE FROM thread_pins WHERE thread_key = ?1")
+      .bind(threadKey)
+      .run();
+  }
+}
+
+class CloudflareRepository implements RouterRepository {
+  private readonly pinStore: PinStore;
+
+  constructor(
+    private readonly db: D1Database,
+    private readonly kv: KVNamespace
+  ) {
+    this.pinStore = new D1PinStore(db);
+  }
+
+  async getConfig(): Promise<RouterConfig> {
+    const row = await this.db
+      .prepare(
+        "SELECT config_json FROM router_config ORDER BY updated_at DESC LIMIT 1"
+      )
+      .first<{ config_json: string }>();
+
+    const parsed = parseJson<RouterConfig>(row?.config_json);
+    return parsed ?? { ...DEFAULT_ROUTER_CONFIG };
+  }
+
+  async setConfig(config: RouterConfig): Promise<void> {
+    await this.db
+      .prepare(
+        "INSERT INTO router_config (version, config_json, updated_at) VALUES (?1, ?2, ?3)"
+      )
+      .bind(config.version, JSON.stringify(config), new Date().toISOString())
+      .run();
+  }
+
+  async getCatalog(): Promise<CatalogItem[]> {
+    const metaRaw = await this.kv.get(ACTIVE_META_KEY, { type: "text" });
+    const meta = parseJson<{ version?: string }>(
+      typeof metaRaw === "string" ? metaRaw : undefined
+    );
+
+    if (!meta?.version) {
+      return [];
+    }
+
+    const catalogRaw = await this.kv.get(ACTIVE_CATALOG_KEY(meta.version), { type: "text" });
+    const catalog = parseJson<CatalogItem[]>(
+      typeof catalogRaw === "string" ? catalogRaw : undefined
+    );
+
+    return catalog ?? [...DEFAULT_CATALOG];
+  }
+
+  async setCatalog(version: string, catalog: CatalogItem[]): Promise<void> {
+    await this.kv.put(ACTIVE_CATALOG_KEY(version), JSON.stringify(catalog));
+    await this.kv.put(ACTIVE_META_KEY, JSON.stringify({ version }));
+  }
+
+  async getExplanation(requestId: string): Promise<RoutingExplanation | null> {
+    const row = await this.db
+      .prepare(
+        "SELECT explanation_json FROM routing_explanations WHERE request_id = ?1 LIMIT 1"
+      )
+      .bind(requestId)
+      .first<{ explanation_json: string }>();
+
+    return parseJson<RoutingExplanation>(row?.explanation_json) ?? null;
+  }
+
+  async putExplanation(explanation: RoutingExplanation): Promise<void> {
+    await this.db
+      .prepare(
+        "INSERT OR REPLACE INTO routing_explanations (request_id, explanation_json, created_at) VALUES (?1, ?2, ?3)"
+      )
+      .bind(explanation.requestId, JSON.stringify(explanation), explanation.createdAt)
+      .run();
+  }
+
+  async listRuns(limit = 20): Promise<IngestionRunSummary[]> {
+    const { results } = await this.db
+      .prepare(
+        "SELECT id, status, started_at, finished_at, error, artifact_version FROM ingestion_runs ORDER BY started_at DESC LIMIT ?1"
+      )
+      .bind(limit)
+      .all<{
+        id: string;
+        status: IngestionRunSummary["status"];
+        started_at: string;
+        finished_at: string | null;
+        error: string | null;
+        artifact_version: string | null;
+      }>();
+
+    return results.map((row) => ({
+      id: row.id,
+      status: row.status,
+      startedAt: row.started_at,
+      finishedAt: row.finished_at ?? undefined,
+      error: row.error ?? undefined,
+      artifactVersion: row.artifact_version ?? undefined
+    }));
+  }
+
+  async putRun(run: IngestionRunSummary): Promise<void> {
+    await this.db
+      .prepare(
+        "INSERT OR REPLACE INTO ingestion_runs (id, status, started_at, finished_at, error, artifact_version) VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
+      )
+      .bind(
+        run.id,
+        run.status,
+        run.startedAt,
+        run.finishedAt ?? null,
+        run.error ?? null,
+        run.artifactVersion ?? null
+      )
+      .run();
+  }
+
+  getPinStore(): PinStore {
+    return this.pinStore;
+  }
+}
+
+let cachedRepository: RouterRepository | null = null;
+
+export function getRouterRepository(): RouterRepository {
+  if (cachedRepository) {
+    return cachedRepository;
+  }
+
+  const bindings = getRuntimeBindings();
+
+  if (bindings.ROUTER_DB && bindings.ROUTER_KV) {
+    cachedRepository = new CloudflareRepository(bindings.ROUTER_DB, bindings.ROUTER_KV);
+    return cachedRepository;
+  }
+
+  cachedRepository = new MemoryRepository();
+  return cachedRepository;
+}

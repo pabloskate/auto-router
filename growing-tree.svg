@@ -1,0 +1,292 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="100%" height="100%">
+  <defs>
+    <style>
+      :root {
+        --trunk-color: #2d1b15;
+        --leaf-color-1: #1e5631;
+        --leaf-color-2: #4c9a2a;
+        --leaf-color-3: #76ba1b;
+        --leaf-color-4: #a4de02;
+      }
+      
+      @keyframes drawLine {
+        from { stroke-dashoffset: 1; }
+        to { stroke-dashoffset: 0; }
+      }
+      
+      @keyframes popIn {
+        0% { transform: scale(0); opacity: 0; }
+        70% { transform: scale(1.1); opacity: 1; }
+        100% { transform: scale(1); opacity: 0.9; }
+      }
+
+      @keyframes floatLeaf {
+        0%, 100% { transform: rotate(0deg) translate(0, 0); }
+        50% { transform: rotate(4deg) translate(3px, -3px); }
+      }
+
+      @keyframes bloom {
+        0% { transform: scale(0) rotate(0deg); opacity: 0; }
+        50% { transform: scale(1.2) rotate(45deg); opacity: 1; }
+        100% { transform: scale(1) rotate(90deg); opacity: 0.9; }
+      }
+
+      @keyframes fadeParticles {
+        0% { opacity: 0; }
+        100% { opacity: 1; }
+      }
+
+      @keyframes floatUp {
+        0% { transform: translateY(0) scale(0); opacity: 0; }
+        20% { transform: translateY(-20px) scale(1); opacity: 0.6; }
+        80% { transform: translateY(-80px) scale(1); opacity: 0.6; }
+        100% { transform: translateY(-100px) scale(0); opacity: 0; }
+      }
+
+      .branch {
+        fill: none;
+        stroke: var(--trunk-color);
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
+        animation: drawLine 2.5s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+      }
+
+      .leaf-group {
+        transform-origin: center;
+        opacity: 0;
+        animation: popIn 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      }
+      
+      .leaf-float {
+        animation: floatLeaf 5s ease-in-out infinite alternate;
+      }
+
+      .flower {
+        transform-origin: center;
+        opacity: 0;
+        animation: bloom 2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      }
+
+      .particles {
+        opacity: 0;
+        animation: fadeParticles 2s ease-out 6s forwards;
+      }
+      
+      .particle {
+        fill: #ffeb3b;
+        filter: blur(2px);
+      }
+
+      /* Timing classes - branches */
+      .t1 { animation-delay: 0.5s; }
+      .t2 { animation-delay: 1.5s; }
+      .t3 { animation-delay: 2.2s; }
+      .t4 { animation-delay: 2.8s; }
+      .t5 { animation-delay: 3.4s; }
+      .t6 { animation-delay: 4.0s; }
+      
+      /* Leaf timing */
+      .lt2 { animation-delay: 2.0s; }
+      .lt3 { animation-delay: 2.8s; }
+      .lt4 { animation-delay: 3.5s; }
+      .lt5 { animation-delay: 4.2s; }
+      .lt6 { animation-delay: 4.8s; }
+
+      .sun {
+        animation: rise 5s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+      }
+      @keyframes rise {
+        from { transform: translateY(500px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      
+      @keyframes pulseAura {
+        0%, 100% { r: 120; opacity: 0.4; }
+        50% { r: 140; opacity: 0.6; }
+      }
+      .sun-aura {
+        animation: pulseAura 4s ease-in-out infinite;
+      }
+    </style>
+
+    <!-- Gradients -->
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#141e30"/>
+      <stop offset="40%" stop-color="#243b55"/>
+      <stop offset="100%" stop-color="#e29587"/>
+    </linearGradient>
+
+    <!-- Leaf template -->
+    <g id="leaf1">
+      <path d="M0,0 C-15,-15 -25,-40 0,-60 C25,-40 15,-15 0,0 Z" fill="url(#leaf-grad-1)"/>
+    </g>
+    <g id="leaf2">
+      <path d="M0,0 C-20,-10 -35,-25 -45,-45 C-25,-45 -10,-30 0,0 Z" fill="url(#leaf-grad-2)"/>
+    </g>
+    <g id="leaf3">
+      <path d="M0,0 C20,-10 35,-25 45,-45 C25,-45 10,-30 0,0 Z" fill="url(#leaf-grad-3)"/>
+    </g>
+    <g id="leaf4">
+      <circle cx="0" cy="-20" r="15" fill="url(#leaf-grad-4)" opacity="0.8"/>
+    </g>
+
+    <linearGradient id="leaf-grad-1" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="var(--leaf-color-1)"/>
+      <stop offset="100%" stop-color="var(--leaf-color-4)"/>
+    </linearGradient>
+    <linearGradient id="leaf-grad-2" x1="1" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="var(--leaf-color-1)"/>
+      <stop offset="100%" stop-color="var(--leaf-color-2)"/>
+    </linearGradient>
+    <linearGradient id="leaf-grad-3" x1="-1" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="var(--leaf-color-1)"/>
+      <stop offset="100%" stop-color="var(--leaf-color-3)"/>
+    </linearGradient>
+    <radialGradient id="leaf-grad-4" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="var(--leaf-color-4)"/>
+      <stop offset="100%" stop-color="var(--leaf-color-1)"/>
+    </radialGradient>
+
+    <!-- Flower Template -->
+    <g id="flower-petal">
+      <path d="M0,0 C-15,-15 -10,-35 0,-40 C10,-35 15,-15 0,0 Z" fill="url(#flower-grad)"/>
+    </g>
+    <radialGradient id="flower-grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffb74d"/>
+      <stop offset="40%" stop-color="#ff4081"/>
+      <stop offset="100%" stop-color="#c51162"/>
+    </radialGradient>
+    
+    <g id="blossom">
+      <use href="#flower-petal" transform="rotate(0)"/>
+      <use href="#flower-petal" transform="rotate(72)"/>
+      <use href="#flower-petal" transform="rotate(144)"/>
+      <use href="#flower-petal" transform="rotate(216)"/>
+      <use href="#flower-petal" transform="rotate(288)"/>
+      <circle cx="0" cy="0" r="8" fill="#ffeb3b"/>
+      <circle cx="0" cy="0" r="4" fill="#f57f17"/>
+    </g>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="1000" fill="url(#bg)"/>
+  
+  <!-- Sun -->
+  <g class="sun" transform="translate(500, 450)">
+    <circle cx="0" cy="0" r="120" fill="#ffeb3b" class="sun-aura" filter="blur(20px)"/>
+    <circle cx="0" cy="0" r="80" fill="#fff9c4"/>
+  </g>
+
+  <!-- Stars / Far background -->
+  <g opacity="0.5">
+    <circle cx="150" cy="200" r="1.5" fill="#fff" />
+    <circle cx="850" cy="150" r="2" fill="#fff" />
+    <circle cx="300" cy="100" r="1" fill="#fff" />
+    <circle cx="700" cy="250" r="1.5" fill="#fff" />
+    <circle cx="500" cy="150" r="2" fill="#fff" opacity="0.8"/>
+    <circle cx="100" cy="350" r="1" fill="#fff" />
+    <circle cx="900" cy="300" r="1.5" fill="#fff" />
+  </g>
+
+  <!-- Ground -->
+  <path d="M0,850 Q250,780 500,820 T1000,780 L1000,1000 L0,1000 Z" fill="#0d2b14"/>
+  <path d="M0,880 Q300,820 600,870 T1000,830 L1000,1000 L0,1000 Z" fill="#1e5631"/>
+  <path d="M0,920 Q400,880 700,940 T1000,890 L1000,1000 L0,1000 Z" fill="#2e7d32"/>
+
+  <!-- Tree Container -->
+  <g transform="translate(500, 870)">
+    
+    <!-- Roots -->
+    <path d="M0,0 Q-60,30 -90,90" class="branch t1" stroke-width="24" pathLength="1"/>
+    <path d="M0,0 Q60,15 120,60" class="branch t1" stroke-width="20" pathLength="1"/>
+    <path d="M0,0 Q-15,45 -30,120" class="branch t1" stroke-width="16" pathLength="1"/>
+    <path d="M0,0 Q20,30 40,100" class="branch t1" stroke-width="12" pathLength="1"/>
+
+    <!-- Main Trunk -->
+    <path d="M0,0 Q15,-150 -30,-350 T0,-650" class="branch t1" stroke-width="50" pathLength="1"/>
+    
+    <!-- First level branches (from bottom to top) -->
+    <!-- Branch 1 (Right) -->
+    <path d="M-5,-220 Q60,-300 180,-330 T300,-450" class="branch t2" stroke-width="30" pathLength="1"/>
+    <!-- Branch 2 (Left) -->
+    <path d="M-22,-300 Q-120,-380 -220,-360 T-330,-480" class="branch t3" stroke-width="26" pathLength="1"/>
+    <!-- Branch 3 (Right higher) -->
+    <path d="M-15,-450 Q90,-520 150,-630 T220,-720" class="branch t4" stroke-width="20" pathLength="1"/>
+    <!-- Branch 4 (Left higher) -->
+    <path d="M-8,-520 Q-90,-600 -130,-670 T-180,-780" class="branch t4" stroke-width="16" pathLength="1"/>
+    
+    <!-- Second level branches -->
+    <!-- Off Branch 1 -->
+    <path d="M120,-305 Q180,-220 240,-250" class="branch t3" stroke-width="14" pathLength="1"/>
+    <path d="M220,-365 Q270,-300 360,-330" class="branch t4" stroke-width="10" pathLength="1"/>
+    
+    <!-- Off Branch 2 -->
+    <path d="M-150,-350 Q-210,-270 -270,-300" class="branch t4" stroke-width="14" pathLength="1"/>
+    <path d="M-270,-405 Q-340,-360 -420,-390" class="branch t5" stroke-width="10" pathLength="1"/>
+
+    <!-- Off Branch 3 -->
+    <path d="M90,-555 Q180,-570 240,-540" class="branch t5" stroke-width="12" pathLength="1"/>
+
+    <!-- Top details -->
+    <path d="M0,-650 Q45,-690 30,-780" class="branch t5" stroke-width="12" pathLength="1"/>
+    <path d="M0,-650 Q-30,-730 -60,-800" class="branch t5" stroke-width="10" pathLength="1"/>
+
+    <!-- Leaves placement -->
+    <!-- Function to position leaves. We use lt2-lt6 for leaf timings -->
+    
+    <!-- Branch 1 leaves -->
+    <g transform="translate(240, -250)"><g class="leaf-group lt2"><g class="leaf-float" style="animation-delay: 0.1s"><use href="#leaf1" transform="scale(1.2) rotate(45)"/><use href="#leaf2" transform="scale(0.9)"/><use href="#leaf3" transform="scale(1)"/></g></g></g>
+    <g transform="translate(360, -330)"><g class="leaf-group lt3"><g class="leaf-float" style="animation-delay: 0.3s"><use href="#leaf1" transform="scale(1.5) rotate(60)"/><use href="#leaf2" transform="scale(1.3)"/><use href="#leaf3" transform="scale(1.1)"/></g></g></g>
+    <g transform="translate(300, -450)"><g class="leaf-group lt4"><g class="leaf-float" style="animation-delay: 0.5s"><use href="#leaf1" transform="scale(1.8) rotate(30)"/><use href="#leaf2" transform="scale(1.5)"/><use href="#leaf3" transform="scale(1.6)"/></g></g></g>
+    
+    <!-- Branch 2 leaves -->
+    <g transform="translate(-270, -300)"><g class="leaf-group lt3"><g class="leaf-float" style="animation-delay: 0.2s"><use href="#leaf1" transform="scale(1.2) rotate(-30)"/><use href="#leaf2" transform="scale(0.9)"/><use href="#leaf3" transform="scale(1)"/></g></g></g>
+    <g transform="translate(-420, -390)"><g class="leaf-group lt4"><g class="leaf-float" style="animation-delay: 0.4s"><use href="#leaf1" transform="scale(1.5) rotate(-60)"/><use href="#leaf2" transform="scale(1.3)"/><use href="#leaf3" transform="scale(1.1)"/></g></g></g>
+    <g transform="translate(-330, -480)"><g class="leaf-group lt4"><g class="leaf-float" style="animation-delay: 0.6s"><use href="#leaf1" transform="scale(1.9) rotate(-45)"/><use href="#leaf2" transform="scale(1.8)"/><use href="#leaf3" transform="scale(1.5)"/></g></g></g>
+    
+    <!-- Branch 3 & 4 leaves -->
+    <g transform="translate(240, -540)"><g class="leaf-group lt5"><g class="leaf-float" style="animation-delay: 0.7s"><use href="#leaf1" transform="scale(1.4) rotate(70)"/><use href="#leaf2" transform="scale(1.2)"/><use href="#leaf3" transform="scale(1)"/></g></g></g>
+    <g transform="translate(220, -720)"><g class="leaf-group lt5"><g class="leaf-float" style="animation-delay: 0.9s"><use href="#leaf1" transform="scale(1.8) rotate(20)"/><use href="#leaf2" transform="scale(1.6)"/><use href="#leaf3" transform="scale(1.8)"/></g></g></g>
+    <g transform="translate(-180, -780)"><g class="leaf-group lt5"><g class="leaf-float" style="animation-delay: 0.8s"><use href="#leaf1" transform="scale(1.8) rotate(-20)"/><use href="#leaf2" transform="scale(1.5)"/><use href="#leaf3" transform="scale(1.6)"/></g></g></g>
+    
+    <!-- Top leaves -->
+    <g transform="translate(30, -780)"><g class="leaf-group lt6"><g class="leaf-float" style="animation-delay: 1.1s"><use href="#leaf1" transform="scale(2.1) rotate(10)"/><use href="#leaf2" transform="scale(1.8)"/><use href="#leaf3" transform="scale(1.9)"/></g></g></g>
+    <g transform="translate(-60, -800)"><g class="leaf-group lt6"><g class="leaf-float" style="animation-delay: 1.0s"><use href="#leaf1" transform="scale(1.6) rotate(-15)"/><use href="#leaf2" transform="scale(1.5)"/><use href="#leaf3" transform="scale(1.6)"/></g></g></g>
+    <g transform="translate(0, -650)"><g class="leaf-group lt6"><g class="leaf-float" style="animation-delay: 1.2s"><use href="#leaf1" transform="scale(2.5) rotate(0)"/><use href="#leaf2" transform="scale(2)"/><use href="#leaf3" transform="scale(2.2)"/></g></g></g>
+
+    <!-- Additional fill-in leaves -->
+    <g transform="translate(80, -400)"><g class="leaf-group lt4"><g class="leaf-float" style="animation-delay: 1.3s"><use href="#leaf4" transform="scale(2.5)"/></g></g></g>
+    <g transform="translate(-80, -450)"><g class="leaf-group lt5"><g class="leaf-float" style="animation-delay: 1.4s"><use href="#leaf4" transform="scale(3)"/></g></g></g>
+    <g transform="translate(-20, -550)"><g class="leaf-group lt6"><g class="leaf-float" style="animation-delay: 1.5s"><use href="#leaf4" transform="scale(3.5)"/></g></g></g>
+    <g transform="translate(100, -500)"><g class="leaf-group lt5"><g class="leaf-float" style="animation-delay: 1.6s"><use href="#leaf4" transform="scale(2)"/></g></g></g>
+
+    <!-- Flowers -->
+    <g transform="translate(270, -360) scale(0.6)"><g class="flower" style="animation-delay: 5.5s"><use href="#blossom"/></g></g>
+    <g transform="translate(-300, -420) scale(0.8)"><g class="flower" style="animation-delay: 5.8s"><use href="#blossom"/></g></g>
+    <g transform="translate(180, -660) scale(0.7)"><g class="flower" style="animation-delay: 6.1s"><use href="#blossom"/></g></g>
+    <g transform="translate(-120, -720) scale(0.9)"><g class="flower" style="animation-delay: 6.4s"><use href="#blossom"/></g></g>
+    <g transform="translate(0, -820) scale(1)"><g class="flower" style="animation-delay: 6.7s"><use href="#blossom"/></g></g>
+    <g transform="translate(-360, -330) scale(0.5)"><g class="flower" style="animation-delay: 7.0s"><use href="#blossom"/></g></g>
+    <g transform="translate(330, -420) scale(0.6)"><g class="flower" style="animation-delay: 7.3s"><use href="#blossom"/></g></g>
+    
+    <!-- Magical Particles -->
+    <g class="particles">
+      <!-- We will create several particles with different delays and positions -->
+      <circle cx="100" cy="-200" r="4" class="particle" style="animation-delay: 0s; animation-duration: 3s;"/>
+      <circle cx="-150" cy="-300" r="3" class="particle" style="animation-delay: 1s; animation-duration: 4s;"/>
+      <circle cx="200" cy="-400" r="5" class="particle" style="animation-delay: 0.5s; animation-duration: 5s;"/>
+      <circle cx="-50" cy="-500" r="4" class="particle" style="animation-delay: 2s; animation-duration: 3.5s;"/>
+      <circle cx="300" cy="-250" r="3" class="particle" style="animation-delay: 1.5s; animation-duration: 4.5s;"/>
+      <circle cx="-250" cy="-450" r="5" class="particle" style="animation-delay: 0.8s; animation-duration: 5s;"/>
+      <circle cx="50" cy="-700" r="4" class="particle" style="animation-delay: 2.5s; animation-duration: 4s;"/>
+      <circle cx="-100" cy="-600" r="6" class="particle" style="animation-delay: 1.2s; animation-duration: 6s;"/>
+      <circle cx="150" cy="-550" r="3" class="particle" style="animation-delay: 0.3s; animation-duration: 3.8s;"/>
+      <circle cx="-200" cy="-200" r="4" class="particle" style="animation-delay: 1.8s; animation-duration: 4.2s;"/>
+      <circle cx="0" cy="-400" r="7" class="particle" style="animation-delay: 2.2s; animation-duration: 5.5s;"/>
+      <circle cx="-300" cy="-350" r="3" class="particle" style="animation-delay: 0.7s; animation-duration: 3.2s;"/>
+    </g>
+
+  </g>
+</svg>
