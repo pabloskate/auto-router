@@ -223,67 +223,79 @@
   transform: translateY(-1px);
 }
 
-/* Hero code block */
-.hero-code {
-  max-width: 560px;
+/* Hero visual */
+.hero-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
   margin: 0 auto;
-  text-align: left;
+  max-width: 700px;
   animation: fadeIn 600ms ease-out 400ms both;
 }
 
-.hero-code-window {
-  border-radius: 14px;
-  overflow: hidden;
-  border: 1px solid var(--line-bright);
-  background: var(--surface-1);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px var(--cyan-dim);
+@media (max-width: 640px) {
+  .hero-visual {
+    flex-direction: column;
+  }
+  .hero-arrow {
+    transform: rotate(90deg);
+  }
 }
 
-.hero-code-bar {
+.hero-card {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  min-width: 240px;
+  text-align: left;
+}
+
+.hero-card.highlight {
+  border-color: var(--cyan);
+  background: linear-gradient(135deg, var(--surface-2), rgba(34, 211, 238, 0.05));
+  box-shadow: 0 0 32px var(--cyan-dim);
+}
+
+.hero-card-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--line);
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
 }
 
-.hero-code-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.hero-code-bar span {
-  margin-left: auto;
-  font-family: var(--font-mono);
+.hero-card-label {
   font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
-  letter-spacing: 0.04em;
 }
 
-.hero-code-body {
-  padding: 1.25rem 1.5rem;
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  line-height: 1.75;
-  overflow-x: auto;
-}
-
-.hero-code-body .kw { color: var(--indigo); }
-.hero-code-body .fn { color: #67e8f9; }
-.hero-code-body .str { color: var(--green); }
-.hero-code-body .prop { color: var(--text-primary); }
-.hero-code-body .cmt { color: var(--text-muted); font-style: italic; }
-.hero-code-body .punc { color: var(--text-secondary); }
-.hero-code-body .accent { color: var(--cyan); }
-.hero-code-body .line-highlight {
-  display: block;
+.hero-card-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--cyan);
   background: var(--cyan-dim);
-  margin: 0 -1.5rem;
-  padding: 0 1.5rem;
-  border-left: 2px solid var(--cyan);
+  padding: 0.25rem 0.625rem;
+  border-radius: 6px;
+}
+
+.hero-card-body {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.hero-card-body.small {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.hero-arrow {
+  color: var(--cyan);
+  opacity: 0.6;
 }
 
 /* ─── Trust Bar ───────────────────────────────────────────────────────────── */
@@ -514,6 +526,39 @@
   overflow-x: auto;
 }
 
+.flow-code.simple {
+  max-width: 380px;
+}
+
+.flow-pills {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.flow-pill {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  padding: 0.5rem 0.875rem;
+  border-radius: 8px;
+}
+
+.flow-quote {
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border-left: 3px solid var(--cyan);
+  border-radius: 0 10px 10px 0;
+  font-style: italic;
+}
+
 /* ─── Features Grid ───────────────────────────────────────────────────────── */
 .features-grid {
   display: grid;
@@ -631,6 +676,33 @@
 
 .compare-body .add {
   color: var(--green);
+}
+
+.compare-body.plain {
+  font-family: inherit;
+  font-size: 0.9375rem;
+  line-height: 1.8;
+}
+
+.compare-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.compare-item:last-child {
+  margin-bottom: 0;
+}
+
+.compare-x {
+  color: #ef4444;
+  flex-shrink: 0;
+}
+
+.compare-check {
+  color: var(--green);
+  flex-shrink: 0;
 }
 
 /* ─── Profiles Preview ────────────────────────────────────────────────────── */

@@ -65,47 +65,43 @@ export default function LandingPage() {
         <div className="hero-badge">OpenAI-Compatible LLM Router</div>
 
         <h1>
-          Your models. Your rules.<br />
-          <span className="gradient-text">Routed automatically.</span>
+          Never pick a model again.<br />
+          <span className="gradient-text">Just write prompts.</span>
         </h1>
 
         <p className="hero-sub">
-          Define your model catalog and routing conditions once.
-          Auto Router follows your strategy for every request &mdash; with fallbacks,
-          thread pinning, and guardrails built in.
+          Auto Router reads every prompt and sends it to the right model from your catalog.
+          Claude for code. GPT for chat. Gemini for reasoning. One endpoint, zero if-statements.
         </p>
 
         <div className="hero-actions">
           <a href="/admin" className="hero-btn-primary">
-            Configure Your Router <ArrowRight />
+            Start Routing Free <ArrowRight />
           </a>
           <a href="#how-it-works" className="hero-btn-secondary">
-            <GitHubIcon /> View Source
+            See How It Works
           </a>
         </div>
 
-        <div className="hero-code">
-          <div className="hero-code-window">
-            <div className="hero-code-bar">
-              <div className="hero-code-dot" />
-              <div className="hero-code-dot" />
-              <div className="hero-code-dot" />
-              <span>your catalog</span>
+        <div className="hero-visual">
+          <div className="hero-card">
+            <div className="hero-card-header">
+              <span className="hero-card-label">Incoming request</span>
             </div>
-            <div className="hero-code-body">
-              <span className="punc">{"["}</span>{"\n"}
-              {"  "}<span className="punc">{"{"}</span>{"\n"}
-              {"    "}<span className="prop">id</span><span className="punc">:</span>{" "}<span className="str">&quot;anthropic/claude-sonnet-4&quot;</span><span className="punc">,</span>{"\n"}
-              {"    "}<span className="prop">thinking</span><span className="punc">:</span>{" "}<span className="str">&quot;high&quot;</span><span className="punc">,</span>{"\n"}
-              <span className="line-highlight">{"    "}<span className="prop">whenToUse</span><span className="punc">:</span>{" "}<span className="str">&quot;Complex coding, architecture, debugging&quot;</span></span>
-              {"  "}<span className="punc">{"}"}</span><span className="punc">,</span>{"\n"}
-              {"  "}<span className="punc">{"{"}</span>{"\n"}
-              {"    "}<span className="prop">id</span><span className="punc">:</span>{" "}<span className="str">&quot;openai/gpt-4.1-mini&quot;</span><span className="punc">,</span>{"\n"}
-              {"    "}<span className="prop">thinking</span><span className="punc">:</span>{" "}<span className="str">&quot;none&quot;</span><span className="punc">,</span>{"\n"}
-              <span className="line-highlight">{"    "}<span className="prop">whenToUse</span><span className="punc">:</span>{" "}<span className="str">&quot;Simple Q&amp;A, summaries, quick tasks&quot;</span></span>
-              {"  "}<span className="punc">{"}"}</span><span className="punc">,</span>{"\n"}
-              {"  "}<span className="cmt">// ...your other models</span>{"\n"}
-              <span className="punc">{"]"}</span>
+            <div className="hero-card-body">
+              "Refactor this Python function to use async/await"
+            </div>
+          </div>
+          <div className="hero-arrow">
+            <ArrowRight />
+          </div>
+          <div className="hero-card highlight">
+            <div className="hero-card-header">
+              <span className="hero-card-label">Routed to</span>
+              <span className="hero-card-badge">Claude Sonnet 4</span>
+            </div>
+            <div className="hero-card-body small">
+              Best model for code tasks
             </div>
           </div>
         </div>
@@ -169,11 +165,10 @@ export default function LandingPage() {
       {/* ─── How It Works ────────────────────────────────────────────── */}
       <section className="landing-section" id="how-it-works">
         <div className="section-label">How It Works</div>
-        <h2 className="section-heading">Configure once. Route every request.</h2>
+        <h2 className="section-heading">One line in your code. All the smarts in ours.</h2>
         <p className="section-desc">
-          You define your model catalog with guidance on when to use each model.
-          The router&rsquo;s LLM classifier reads every incoming prompt and matches it to the
-          right model from <em>your</em> list.
+          Tell us which models you trust and when to use them. We handle the rest:
+          reading prompts, picking models, failing over, and keeping conversations on track.
         </p>
 
         <div className="flow-container">
@@ -183,18 +178,16 @@ export default function LandingPage() {
               <div className="flow-line" />
             </div>
             <div className="flow-content">
-              <h3>Define your model catalog</h3>
+              <h3>Pick your models</h3>
               <p>
-                List the models you want available. For each one, describe when it should be used,
-                its strengths, and its capabilities. This is your routing &ldquo;constitution.&rdquo;
+                Add the models you want to use. Claude for code, GPT for quick chat,
+                Gemini for long context—whatever fits your needs.
               </p>
-              <div className="flow-code">
-                <span style={{ color: "var(--cyan)" }}>anthropic/claude-sonnet-4</span>{"\n"}
-                {"  "}thinking: high &middot; vision: yes{"\n"}
-                {"  "}use: <span style={{ color: "var(--green)" }}>&quot;Complex code, debugging, architecture&quot;</span>{"\n\n"}
-                <span style={{ color: "var(--cyan)" }}>openai/gpt-4.1-mini</span>{"\n"}
-                {"  "}thinking: none &middot; vision: no{"\n"}
-                {"  "}use: <span style={{ color: "var(--green)" }}>&quot;Simple Q&amp;A, summaries, translations&quot;</span>
+              <div className="flow-pills">
+                <span className="flow-pill">Claude Sonnet 4</span>
+                <span className="flow-pill">GPT-4.1 Mini</span>
+                <span className="flow-pill">o3</span>
+                <span className="flow-pill">Gemini 2.5</span>
               </div>
             </div>
           </div>
@@ -205,18 +198,13 @@ export default function LandingPage() {
               <div className="flow-line" />
             </div>
             <div className="flow-content">
-              <h3>Write your routing instructions</h3>
+              <h3>Tell us the rules—in plain English</h3>
               <p>
-                Give the classifier plain-language rules. &ldquo;Prefer Claude for code.&rdquo;
-                &ldquo;Use the cheapest model for simple questions.&rdquo;
-                &ldquo;Never use models without thinking for math.&rdquo; The classifier follows your instructions.
+                No JSON. No code. Just describe when to use each model.
+                "Use Claude for anything with code." "Use the cheapest model for simple questions."
               </p>
-              <div className="flow-code">
-                <span style={{ color: "var(--text-muted)" }}># Routing Instructions</span>{"\n"}
-                <span style={{ color: "var(--text-primary)" }}>- Use Claude for any coding or architecture task</span>{"\n"}
-                <span style={{ color: "var(--text-primary)" }}>- Use GPT-4.1-mini for simple questions and chat</span>{"\n"}
-                <span style={{ color: "var(--text-primary)" }}>- Always prefer thinking models for math/logic</span>{"\n"}
-                <span style={{ color: "var(--text-primary)" }}>- If the user sends an image, pick a vision model</span>
+              <div className="flow-quote">
+                &ldquo;Prefer Claude for code. Use GPT-4.1-mini for chat. Pick thinking models for math.&rdquo;
               </div>
             </div>
           </div>
@@ -227,22 +215,16 @@ export default function LandingPage() {
               <div className="flow-line" />
             </div>
             <div className="flow-content">
-              <h3>Deploy and every request follows your rules</h3>
+              <h3>Send prompts. Get answers.</h3>
               <p>
-                Point your OpenAI SDK at the router, set <code className="code">model: &quot;auto&quot;</code>.
-                The classifier reads each prompt, picks the model from your catalog
-                that best fits your instructions, and proxies the request. Thread
-                pinning, fallbacks, and guardrails happen automatically.
+                Use <code className="code">model: &quot;auto&quot;</code> in your OpenAI SDK.
+                We read each prompt, route it to the right model, and handle failures automatically.
               </p>
-              <div className="flow-code">
-                <span style={{ color: "var(--text-muted)" }}>{"// your app code — nothing changes"}</span>{"\n"}
-                <span style={{ color: "var(--indigo)" }}>const</span> res = <span style={{ color: "var(--indigo)" }}>await</span> client.chat.completions.<span style={{ color: "#67e8f9" }}>create</span>({"{"}{"\n"}
+              <div className="flow-code simple">
+                <span style={{ color: "var(--indigo)" }}>await</span> openai.chat.completions.create({"{"}{"\n"}
                 {"  "}model: <span style={{ color: "var(--green)" }}>&quot;auto&quot;</span>,{"\n"}
-                {"  "}messages,{"\n"}
-                {"}"});{"\n\n"}
-                <span style={{ color: "var(--text-muted)" }}>{"// response headers tell you what happened"}</span>{"\n"}
-                <span style={{ color: "var(--cyan)" }}>x-router-model-selected</span>: anthropic/claude-sonnet-4{"\n"}
-                <span style={{ color: "var(--cyan)" }}>x-router-request-id</span>: router_a1b2c3d4
+                {"  "}messages{"\n"}
+                {"}"})
               </div>
             </div>
           </div>
@@ -251,71 +233,71 @@ export default function LandingPage() {
 
       {/* ─── Features ────────────────────────────────────────────────── */}
       <section className="landing-section" id="features">
-        <div className="section-label centered">Features</div>
-        <h2 className="section-heading centered">You set the strategy. The router handles the rest.</h2>
+        <div className="section-label centered">What You Get</div>
+        <h2 className="section-heading centered">Smart routing. Zero headaches.</h2>
         <p className="section-desc centered">
-          Model selection, fallbacks, thread management, and circuit breaking &mdash;
-          all driven by the catalog and rules you define.
+          Everything you need to stop worrying about model selection—
+          so you can focus on building.
         </p>
 
         <div className="features-grid">
           <div className="feature-cell">
             <div className="feature-icon-row">
               <div className="feature-dot cyan" />
-              <h3>Custom Model Catalog</h3>
+              <h3>Right Model, Every Time</h3>
             </div>
             <p>
-              Define exactly which models are available, with metadata like thinking level, vision support, and natural-language guidance on when to use each one.
+              Our classifier reads your prompts and routes them to the best model from your catalog. Code goes to Claude, summaries to GPT.
             </p>
           </div>
 
           <div className="feature-cell">
             <div className="feature-icon-row">
               <div className="feature-dot indigo" />
-              <h3>Natural-Language Rules</h3>
+              <h3>Plain English Rules</h3>
             </div>
             <p>
-              Write routing instructions in plain English. The LLM classifier reads your rules alongside the prompt and picks the model that fits.
+              Just tell us "Use Claude for code" or "Pick the cheapest model for simple questions." No JSON, no code, no redeploys.
             </p>
           </div>
 
           <div className="feature-cell">
             <div className="feature-icon-row">
               <div className="feature-dot green" />
-              <h3>Thread Stickiness</h3>
+              <h3>Conversations Stay Coherent</h3>
             </div>
             <p>
-              Once a model is selected for a conversation, it stays pinned. Agent tool-call loops never switch mid-chain. Caches are preserved.
+              Once a model handles a thread, it stays pinned. Multi-turn chats don't switch models mid-conversation. Context is preserved.
             </p>
           </div>
 
           <div className="feature-cell">
             <div className="feature-icon-row">
               <div className="feature-dot amber" />
-              <h3>Routing Profiles</h3>
+              <h3>Profiles for Different Needs</h3>
             </div>
             <p>
-              Create named strategies like <code className="code">auto-cheap</code> or <code className="code">auto-coding</code> that override the catalog, default model, and instructions.
+              Create <code className="code">auto-cheap</code> for internal tools, <code className="code">auto-coding</code> for your IDE, and <code className="code">auto-fast</code> for customer support.
             </p>
           </div>
 
           <div className="feature-cell">
             <div className="feature-icon-row">
               <div className="feature-dot cyan" />
-              <h3>Circuit Breakers</h3>
+              <h3>Automatic Failover</h3>
             </div>
             <p>
-              Three triggers &mdash; error rate, fallback rate, latency spike &mdash; automatically disable degraded models and recover after cooldown.
+              If a provider is down or slow, we automatically try the next best model. Your users never see a 500.
             </p>
           </div>
 
           <div className="feature-cell">
             <div className="feature-icon-row">
               <div className="feature-dot indigo" />
-              <h3>Full Observability</h3>
+              <h3>See Every Decision</h3>
             </div>
             <p>
-              Every routing decision is stored with the classifier&rsquo;s confidence, signals, and fallback chain. Query any request by ID to see exactly why.
+              Query any request ID to see exactly why a model was chosen, what the confidence was, and what the fallback chain looked like.
             </p>
           </div>
         </div>
@@ -323,47 +305,55 @@ export default function LandingPage() {
 
       {/* ─── The Config ──────────────────────────────────────────────── */}
       <section className="landing-section">
-        <div className="section-label">Your Configuration</div>
-        <h2 className="section-heading">Everything lives in the dashboard. Not in your code.</h2>
+        <div className="section-label">Configuration</div>
+        <h2 className="section-heading">Change models without changing code.</h2>
         <p className="section-desc">
-          Change models, update routing rules, add profiles &mdash; all from the admin UI.
-          No deploys required. Your app just sends <code className="code">model: &quot;auto&quot;</code> and
-          the router reads your latest config.
+          Add a new model, update your rules, or create a new profile—all from the dashboard.
+          Your code never changes. It just keeps sending <code className="code">model: &quot;auto&quot;</code>.
         </p>
 
         <div className="compare">
           <div className="compare-pane">
-            <div className="compare-header before">&#x2718; Without Auto Router</div>
-            <div className="compare-body">
-              <span className="del">{"const model = task === 'code'"}</span>{"\n"}
-              <span className="del">{"  ? 'anthropic/claude-sonnet-4'"}</span>{"\n"}
-              <span className="del">{"  : task === 'math'"}</span>{"\n"}
-              <span className="del">{"  ? 'openai/o3'"}</span>{"\n"}
-              <span className="del">{"  : task === 'vision'"}</span>{"\n"}
-              <span className="del">{"  ? 'openai/gpt-4o'"}</span>{"\n"}
-              <span className="del">{"  : 'openai/gpt-4.1-mini';"}</span>{"\n"}
-              {"\n"}
-              <span className="del">{"try {"}</span>{"\n"}
-              <span className="del">{"  result = await call(model, prompt);"}</span>{"\n"}
-              <span className="del">{"} catch {"}</span>{"\n"}
-              <span className="del">{"  result = await call(FALLBACK, prompt);"}</span>{"\n"}
-              <span className="del">{"}"}</span>{"\n"}
-              {"\n"}
-              <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>{"// new model? edit code. redeploy."}</span>
+            <div className="compare-header before">Without Auto Router</div>
+            <div className="compare-body plain">
+              <div className="compare-item">
+                <span className="compare-x">&#x2718;</span>
+                <span>Write if-statements for every model decision</span>
+              </div>
+              <div className="compare-item">
+                <span className="compare-x">&#x2718;</span>
+                <span>Handle failures and retries yourself</span>
+              </div>
+              <div className="compare-item">
+                <span className="compare-x">&#x2718;</span>
+                <span>Redeploy to add a new model</span>
+              </div>
+              <div className="compare-item">
+                <span className="compare-x">&#x2718;</span>
+                <span>Context lost when switching models mid-chat</span>
+              </div>
             </div>
           </div>
 
           <div className="compare-pane">
-            <div className="compare-header after">&#x2714; With Auto Router</div>
-            <div className="compare-body">
-              <span className="add">{"const res = await client.chat.completions.create({"}</span>{"\n"}
-              <span className="add">{"  model: \"auto\","}</span>{"\n"}
-              <span className="add">{"  messages: [{ role: \"user\", content: prompt }],"}</span>{"\n"}
-              <span className="add">{"});"}</span>{"\n"}
-              {"\n"}
-              <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>{"// model catalog + routing rules live in"}</span>{"\n"}
-              <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>{"// the dashboard. update anytime."}</span>{"\n"}
-              <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>{"// no code changes. no redeploys."}</span>
+            <div className="compare-header after">With Auto Router</div>
+            <div className="compare-body plain">
+              <div className="compare-item">
+                <span className="compare-check">&#x2714;</span>
+                <span>One line: <code>model: "auto"</code></span>
+              </div>
+              <div className="compare-item">
+                <span className="compare-check">&#x2714;</span>
+                <span>Automatic failover when models fail</span>
+              </div>
+              <div className="compare-item">
+                <span className="compare-check">&#x2714;</span>
+                <span>Update models in the dashboard instantly</span>
+              </div>
+              <div className="compare-item">
+                <span className="compare-check">&#x2714;</span>
+                <span>Conversations stay on one model</span>
+              </div>
             </div>
           </div>
         </div>
