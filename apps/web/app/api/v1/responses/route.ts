@@ -1,8 +1,9 @@
-import { authenticateRequest } from "@/src/lib/auth";
+import { authenticateRequest, authenticateSession } from "@/src/lib/auth";
 import { json } from "@/src/lib/http";
 import { routeAndProxy } from "@/src/lib/router-service";
 import { responsesSchema } from "@/src/lib/schemas";
 import { getRuntimeBindings } from "@/src/lib/runtime";
+import { isSameOriginRequest } from "@/src/lib/csrf";
 
 export async function POST(request: Request): Promise<Response> {
   const bindings = getRuntimeBindings();
@@ -11,7 +12,13 @@ export async function POST(request: Request): Promise<Response> {
     return json({ error: "Server misconfigured: missing database." }, 500);
   }
 
-  const auth = await authenticateRequest(request, bindings.ROUTER_DB);
+  let auth = await authenticateRequest(request, bindings.ROUTER_DB);
+
+  // Browser tester fallback: allow authenticated same-origin session calls.
+  if (!auth && isSameOriginRequest(request)) {
+    auth = await authenticateSession(request, bindings.ROUTER_DB);
+  }
+
   if (!auth) {
     return json({ error: "Unauthorized. Provide a valid API key via Authorization: Bearer <key>." }, 401);
   }
@@ -44,8 +51,13 @@ export async function POST(request: Request): Promise<Response> {
       defaultModel: auth.defaultModel,
       classifierModel: auth.classifierModel,
       routingInstructions: auth.routingInstructions,
-      blocklist: auth.blocklist
-    }
+      blocklist: auth.blocklist,
+      profiles: auth.profiles,
+      upstreamBaseUrl: auth.upstreamBaseUrl,
+      upstreamApiKeyEnc: auth.upstreamApiKeyEnc,
+      classifierBaseUrl: auth.classifierBaseUrl,
+      classifierApiKeyEnc: auth.classifierApiKeyEnc,
+    },
   });
 
   return result.response;

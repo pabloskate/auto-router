@@ -1,7 +1,9 @@
-// default open-next.config.ts file created by @opennextjs/cloudflare
+// Uses static-assets incremental cache — no R2 required.
+// Revalidation (ISR) is not supported; use r2IncrementalCache + R2 bucket if needed.
 import { defineCloudflareConfig } from "@opennextjs/cloudflare/config";
-import r2IncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/r2-incremental-cache";
+import staticAssetsIncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/static-assets-incremental-cache";
 
 export default defineCloudflareConfig({
-	incrementalCache: r2IncrementalCache,
+	incrementalCache: staticAssetsIncrementalCache,
+	enableCacheInterception: true,
 });

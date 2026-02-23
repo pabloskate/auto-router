@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+export const routerProfileSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  defaultModel: z.string().optional(),
+  classifierModel: z.string().optional(),
+  routingInstructions: z.string().optional(),
+  blocklist: z.array(z.string()).optional(),
+  catalogFilter: z.array(z.string()).optional(),
+});
+
 const categoryWeightsSchema = z.object({
   quality: z.number().min(0).max(1),
   speed: z.number().min(0).max(1),

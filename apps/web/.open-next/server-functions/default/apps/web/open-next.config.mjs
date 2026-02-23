@@ -288,74 +288,55 @@ var debugCache = (name, ...args) => {
   }
 };
 var FALLBACK_BUILD_ID = "no-build-id";
-var DEFAULT_PREFIX = "incremental-cache";
-function computeCacheKey(key, options) {
-  const { cacheType = "cache", prefix = DEFAULT_PREFIX, buildId = FALLBACK_BUILD_ID } = options;
-  const hash = createHash("sha256").update(key).digest("hex");
-  return `${prefix}/${buildId}/${hash}.${cacheType}`.replace(/\/+/g, "/");
-}
 
-// ../../node_modules/@opennextjs/cloudflare/dist/api/overrides/incremental-cache/r2-incremental-cache.js
-var NAME = "cf-r2-incremental-cache";
-var BINDING_NAME = "NEXT_INC_CACHE_R2_BUCKET";
-var PREFIX_ENV_NAME = "NEXT_INC_CACHE_R2_PREFIX";
-var R2IncrementalCache = class {
+// ../../node_modules/@opennextjs/cloudflare/dist/api/overrides/incremental-cache/static-assets-incremental-cache.js
+var CACHE_DIR = "cdn-cgi/_next_cache";
+var NAME = "cf-static-assets-incremental-cache";
+var StaticAssetsIncrementalCache = class {
   constructor() {
     __publicField(this, "name", NAME);
   }
   async get(key, cacheType) {
-    const r2 = getCloudflareContext().env[BINDING_NAME];
-    if (!r2)
-      throw new IgnorableError("No R2 bucket");
-    debugCache("R2IncrementalCache", `get ${key}`);
+    const assets = getCloudflareContext().env.ASSETS;
+    if (!assets)
+      throw new IgnorableError("No Static Assets");
+    debugCache("StaticAssetsIncrementalCache", `get ${key}`);
     try {
-      const r2Object = await r2.get(this.getR2Key(key, cacheType));
-      if (!r2Object)
+      const response = await assets.fetch(this.getAssetUrl(key, cacheType));
+      if (!response.ok) {
+        await response.body?.cancel();
         return null;
+      }
       return {
-        value: await r2Object.json(),
-        lastModified: r2Object.uploaded.getTime()
+        value: await response.json(),
+        lastModified: globalThis.__BUILD_TIMESTAMP_MS__
       };
     } catch (e) {
       error("Failed to get from cache", e);
       return null;
     }
   }
-  async set(key, value, cacheType) {
-    const r2 = getCloudflareContext().env[BINDING_NAME];
-    if (!r2)
-      throw new IgnorableError("No R2 bucket");
-    debugCache("R2IncrementalCache", `set ${key}`);
-    try {
-      await r2.put(this.getR2Key(key, cacheType), JSON.stringify(value));
-    } catch (e) {
-      error("Failed to set to cache", e);
-    }
+  async set(key, _value, cacheType) {
+    error(`StaticAssetsIncrementalCache: Failed to set to read-only cache key=${key} type=${cacheType}`);
   }
-  async delete(key) {
-    const r2 = getCloudflareContext().env[BINDING_NAME];
-    if (!r2)
-      throw new IgnorableError("No R2 bucket");
-    debugCache("R2IncrementalCache", `delete ${key}`);
-    try {
-      await r2.delete(this.getR2Key(key));
-    } catch (e) {
-      error("Failed to delete from cache", e);
-    }
+  async delete() {
+    error("StaticAssetsIncrementalCache: Failed to delete from read-only cache");
   }
-  getR2Key(key, cacheType) {
-    return computeCacheKey(key, {
-      prefix: getCloudflareContext().env[PREFIX_ENV_NAME],
-      buildId: process.env.NEXT_BUILD_ID,
-      cacheType
-    });
+  getAssetUrl(key, cacheType) {
+    if (cacheType === "composable") {
+      throw new Error("Composable cache is not supported in static assets incremental cache");
+    }
+    const buildId = process.env.NEXT_BUILD_ID ?? FALLBACK_BUILD_ID;
+    const name = (cacheType === "fetch" ? `${CACHE_DIR}/__fetch/${buildId}/${key}` : `${CACHE_DIR}/${buildId}/${key}.cache`).replace(/\/+/g, "/");
+    return `http://assets.local/${name}`;
   }
 };
-var r2_incremental_cache_default = new R2IncrementalCache();
+var static_assets_incremental_cache_default = new StaticAssetsIncrementalCache();
 
 // open-next.config.ts
 var open_next_config_default = defineCloudflareConfig({
-  incrementalCache: r2_incremental_cache_default
+  incrementalCache: static_assets_incremental_cache_default,
+  enableCacheInterception: true
 });
 export {
   open_next_config_default as default

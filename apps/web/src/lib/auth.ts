@@ -21,6 +21,7 @@
 
 import type { D1Database } from "./cloudflare-types";
 import { AUTH } from "./constants";
+import { ensureUserUpstreamCredentialsTable } from "./user-upstream-store";
 
 // Alias constants so the rest of the file reads naturally
 const SESSION_COOKIE_NAME = AUTH.SESSION_COOKIE_NAME;
@@ -58,6 +59,11 @@ export interface AuthResult {
     routingInstructions: string | null;
     blocklist: string[] | null;
     customCatalog: any[] | null;
+    profiles: any[] | null;  // RouterProfile[] — named routing configurations
+    upstreamBaseUrl: string | null;
+    upstreamApiKeyEnc: string | null;
+    classifierBaseUrl: string | null;
+    classifierApiKeyEnc: string | null;
 }
 
 interface AuthRow {
@@ -69,6 +75,11 @@ interface AuthRow {
     routing_instructions: string | null;
     blocklist: string | null;
     custom_catalog: string | null;
+    profiles: string | null;
+    upstream_base_url: string | null;
+    upstream_api_key_enc: string | null;
+    classifier_base_url: string | null;
+    classifier_api_key_enc: string | null;
 }
 
 function parseJsonArray(value: string | null): any[] | null {
@@ -103,7 +114,12 @@ function rowToAuthResult(row: AuthRow): AuthResult {
         classifierModel: row.classifier_model,
         routingInstructions: row.routing_instructions,
         blocklist: parseStringArray(row.blocklist),
-        customCatalog: parseJsonArray(row.custom_catalog)
+        customCatalog: parseJsonArray(row.custom_catalog),
+        profiles: parseJsonArray(row.profiles),
+        upstreamBaseUrl: row.upstream_base_url,
+        upstreamApiKeyEnc: row.upstream_api_key_enc,
+        classifierBaseUrl: row.classifier_base_url,
+        classifierApiKeyEnc: row.classifier_api_key_enc,
     };
 }
 
@@ -208,11 +224,15 @@ export async function authenticateRequest(
 
     const keyHash = await hashKey(rawKey);
 
+    await ensureUserUpstreamCredentialsTable(db);
+
     const row = await db
         .prepare(
-            `SELECT ak.user_id, u.name, u.preferred_models, u.default_model, u.classifier_model, u.routing_instructions, u.blocklist, u.custom_catalog
+            `SELECT ak.user_id, u.name, u.preferred_models, u.default_model, u.classifier_model, u.routing_instructions, u.blocklist, u.custom_catalog, u.profiles,
+                    uc.upstream_base_url, uc.upstream_api_key_enc, uc.classifier_base_url, uc.classifier_api_key_enc
        FROM api_keys ak
        JOIN users u ON u.id = ak.user_id
+       LEFT JOIN user_upstream_credentials uc ON uc.user_id = u.id
        WHERE ak.key_hash = ?1 AND ak.revoked_at IS NULL
        LIMIT 1`
         )
@@ -317,13 +337,16 @@ export async function authenticateSession(request: Request, db: D1Database): Pro
         return null;
     }
     const sessionTokenHash = await hashKey(sessionToken);
+    await ensureUserUpstreamCredentialsTable(db);
 
     const now = new Date().toISOString();
 
     const row = await db.prepare(`
-        SELECT s.user_id, u.name, u.preferred_models, u.default_model, u.classifier_model, u.routing_instructions, u.blocklist, u.custom_catalog
+        SELECT s.user_id, u.name, u.preferred_models, u.default_model, u.classifier_model, u.routing_instructions, u.blocklist, u.custom_catalog, u.profiles,
+               uc.upstream_base_url, uc.upstream_api_key_enc, uc.classifier_base_url, uc.classifier_api_key_enc
         FROM user_sessions s
         JOIN users u ON u.id = s.user_id
+        LEFT JOIN user_upstream_credentials uc ON uc.user_id = u.id
         WHERE s.id = ?1 AND s.expires_at > ?2
         LIMIT 1
     `).bind(sessionTokenHash, now).first<AuthRow>();

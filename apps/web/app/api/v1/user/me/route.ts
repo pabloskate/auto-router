@@ -2,6 +2,15 @@ import { json } from "@/src/lib/http";
 import { authenticateSession } from "@/src/lib/auth";
 import { getRuntimeBindings } from "@/src/lib/runtime";
 import { isSameOriginRequest } from "@/src/lib/csrf";
+import { routerProfileSchema } from "@/src/lib/schemas";
+import { encryptByokSecret, resolveByokEncryptionSecret } from "@/src/lib/byok-crypto";
+import { normalizeAndValidateUpstreamBaseUrl } from "@/src/lib/upstream";
+import { getUserUpstreamCredentials, upsertUserUpstreamCredentials } from "@/src/lib/user-upstream-store";
+import { z } from "zod";
+
+function hasOwn(body: Record<string, unknown>, key: string): boolean {
+    return Object.prototype.hasOwnProperty.call(body, key);
+}
 
 export async function GET(request: Request): Promise<Response> {
     const bindings = getRuntimeBindings();
@@ -23,7 +32,12 @@ export async function GET(request: Request): Promise<Response> {
             classifierModel: auth.classifierModel,
             routingInstructions: auth.routingInstructions,
             blocklist: auth.blocklist,
-            customCatalog: auth.customCatalog
+            customCatalog: auth.customCatalog,
+            profiles: auth.profiles,
+            upstreamBaseUrl: auth.upstreamBaseUrl,
+            classifierBaseUrl: auth.classifierBaseUrl,
+            upstreamApiKeyConfigured: Boolean(auth.upstreamApiKeyEnc),
+            classifierApiKeyConfigured: Boolean(auth.classifierApiKeyEnc),
         }
     });
 }
@@ -56,19 +70,132 @@ export async function PUT(request: Request): Promise<Response> {
     const classifierModel = typeof body.classifier_model === "string" ? body.classifier_model : null;
     const routingInstructions = typeof body.routing_instructions === "string" ? body.routing_instructions : null;
     const customCatalog = Array.isArray(body.custom_catalog) ? body.custom_catalog : null;
+    const clearUpstreamApiKey = body.clear_upstream_api_key === true;
+    const clearClassifierApiKey = body.clear_classifier_api_key === true;
+
+    // Validate and sanitise profiles array
+    const profilesParsed = Array.isArray(body.profiles)
+        ? z.array(routerProfileSchema).safeParse(body.profiles)
+        : null;
+    const profiles = profilesParsed?.success ? profilesParsed.data : null;
+
+    const byokSecret = resolveByokEncryptionSecret({
+        byokSecret: bindings.BYOK_ENCRYPTION_SECRET ?? null,
+        adminSecret: bindings.ADMIN_SECRET ?? null,
+    });
+    const upstreamApiKeyRaw =
+        hasOwn(body, "upstream_api_key") && typeof body.upstream_api_key === "string"
+            ? body.upstream_api_key.trim()
+            : null;
+    const classifierApiKeyRaw =
+        hasOwn(body, "classifier_api_key") && typeof body.classifier_api_key === "string"
+            ? body.classifier_api_key.trim()
+            : null;
+    const needsEncryption = (upstreamApiKeyRaw && upstreamApiKeyRaw.length > 0) || (classifierApiKeyRaw && classifierApiKeyRaw.length > 0);
+    if (needsEncryption && !byokSecret) {
+        return json({ error: "Server misconfigured: missing BYOK encryption secret." }, 500);
+    }
+    const encryptionSecret = byokSecret ?? "";
+
+    const existingCredentials = await getUserUpstreamCredentials(bindings.ROUTER_DB, auth.userId);
+
+    let upstreamBaseUrl = existingCredentials?.upstream_base_url ?? null;
+    if (hasOwn(body, "upstream_base_url")) {
+        if (body.upstream_base_url !== null && typeof body.upstream_base_url !== "string") {
+            return json({ error: "Invalid upstream_base_url." }, 400);
+        }
+
+        const candidate = typeof body.upstream_base_url === "string" ? body.upstream_base_url.trim() : "";
+        if (candidate.length === 0) {
+            upstreamBaseUrl = null;
+        } else {
+            const normalized = normalizeAndValidateUpstreamBaseUrl(candidate);
+            if (!normalized) {
+                return json(
+                    { error: "Invalid upstream_base_url. Use an https URL without query/hash/embedded credentials." },
+                    400
+                );
+            }
+            upstreamBaseUrl = normalized;
+        }
+    }
+
+    let classifierBaseUrl = existingCredentials?.classifier_base_url ?? null;
+    if (hasOwn(body, "classifier_base_url")) {
+        if (body.classifier_base_url !== null && typeof body.classifier_base_url !== "string") {
+            return json({ error: "Invalid classifier_base_url." }, 400);
+        }
+
+        const candidate = typeof body.classifier_base_url === "string" ? body.classifier_base_url.trim() : "";
+        if (candidate.length === 0) {
+            classifierBaseUrl = null;
+        } else {
+            const normalized = normalizeAndValidateUpstreamBaseUrl(candidate);
+            if (!normalized) {
+                return json(
+                    { error: "Invalid classifier_base_url. Use an https URL without query/hash/embedded credentials." },
+                    400
+                );
+            }
+            classifierBaseUrl = normalized;
+        }
+    }
+
+    let upstreamApiKeyEnc = existingCredentials?.upstream_api_key_enc ?? null;
+    if (clearUpstreamApiKey) {
+        upstreamApiKeyEnc = null;
+    }
+    if (hasOwn(body, "upstream_api_key")) {
+        if (body.upstream_api_key !== null && typeof body.upstream_api_key !== "string") {
+            return json({ error: "Invalid upstream_api_key." }, 400);
+        }
+        if (typeof body.upstream_api_key === "string") {
+            const candidate = body.upstream_api_key.trim();
+            if (candidate.length > 0) {
+                upstreamApiKeyEnc = await encryptByokSecret({
+                    plaintext: candidate,
+                    secret: encryptionSecret,
+                });
+            }
+        } else if (body.upstream_api_key === null) {
+            upstreamApiKeyEnc = null;
+        }
+    }
+
+    let classifierApiKeyEnc = existingCredentials?.classifier_api_key_enc ?? null;
+    if (clearClassifierApiKey) {
+        classifierApiKeyEnc = null;
+    }
+    if (hasOwn(body, "classifier_api_key")) {
+        if (body.classifier_api_key !== null && typeof body.classifier_api_key !== "string") {
+            return json({ error: "Invalid classifier_api_key." }, 400);
+        }
+        if (typeof body.classifier_api_key === "string") {
+            const candidate = body.classifier_api_key.trim();
+            if (candidate.length > 0) {
+                classifierApiKeyEnc = await encryptByokSecret({
+                    plaintext: candidate,
+                    secret: encryptionSecret,
+                });
+            }
+        } else if (body.classifier_api_key === null) {
+            classifierApiKeyEnc = null;
+        }
+    }
 
     const now = new Date().toISOString();
     await bindings.ROUTER_DB
         .prepare(
-            `UPDATE users 
-             SET preferred_models = ?1, 
-                 blocklist = ?2, 
-                 default_model = ?3, 
-                 classifier_model = ?4, 
-                 routing_instructions = ?5, 
+            `UPDATE users
+             SET preferred_models = ?1,
+                 blocklist = ?2,
+                 default_model = ?3,
+                 classifier_model = ?4,
+                 routing_instructions = ?5,
                  custom_catalog = ?6,
-                 updated_at = ?7 
-             WHERE id = ?8`
+                 profiles = ?7,
+                 updated_at = ?8
+             WHERE id = ?9`
         )
         .bind(
             preferredModels.length > 0 ? JSON.stringify(preferredModels) : null,
@@ -77,10 +204,20 @@ export async function PUT(request: Request): Promise<Response> {
             classifierModel,
             routingInstructions,
             customCatalog ? JSON.stringify(customCatalog) : null,
+            profiles ? JSON.stringify(profiles) : null,
             now,
             auth.userId
         )
         .run();
+
+    await upsertUserUpstreamCredentials({
+        db: bindings.ROUTER_DB,
+        userId: auth.userId,
+        upstreamBaseUrl,
+        upstreamApiKeyEnc,
+        classifierBaseUrl,
+        classifierApiKeyEnc,
+    });
 
     return json({ ok: true }, 200);
 }

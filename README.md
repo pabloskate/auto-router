@@ -18,6 +18,18 @@ Transparent OpenRouter routing with benchmark-aware scorecards, first-call-only 
 - Router opt-in only when `model=auto` or `model=router/auto`.
 - No required custom fields.
 
+### BYOK (per account, no custom headers)
+
+Each user connects their own OpenRouter (or compatible) key once in the admin UI.
+After that, clients like Cursor can call your OpenAI-compatible endpoints normally:
+
+- `POST /api/v1/chat/completions`
+- `POST /api/v1/responses`
+
+with `model: "auto"` and your router API key only.
+
+If a user has not connected BYOK, routed requests fail with `400` instead of falling back to server credits.
+
 ## Key Features
 
 - Weighted model scoring by category (`coding`, `math`, `general`, `long_context`, `creative`).

@@ -1,16 +1,7 @@
-const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+import { UPSTREAM } from "./constants";
+import { callOpenAiCompatible, type UpstreamCallResult } from "./upstream";
 
-export type OpenRouterCallResult =
-  | {
-      ok: true;
-      status: number;
-      response: Response;
-    }
-  | {
-      ok: false;
-      status: number;
-      errorBody: string;
-    };
+export type OpenRouterCallResult = UpstreamCallResult;
 
 export async function callOpenRouter(args: {
   apiPath: "/chat/completions" | "/responses";
@@ -19,29 +10,12 @@ export async function callOpenRouter(args: {
   requestId: string;
   fetchImpl?: typeof fetch;
 }): Promise<OpenRouterCallResult> {
-  const fetchImpl = args.fetchImpl ?? fetch;
-  const response = await fetchImpl(`${OPENROUTER_BASE_URL}${args.apiPath}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${args.apiKey}`,
-      "Content-Type": "application/json",
-      "X-Title": "auto-router",
-      "X-Router-Request-Id": args.requestId
-    },
-    body: JSON.stringify(args.payload)
+  return callOpenAiCompatible({
+    apiPath: args.apiPath,
+    payload: args.payload,
+    apiKey: args.apiKey,
+    requestId: args.requestId,
+    baseUrl: UPSTREAM.DEFAULT_BASE_URL,
+    fetchImpl: args.fetchImpl,
   });
-
-  if (response.ok) {
-    return {
-      ok: true,
-      status: response.status,
-      response
-    };
-  }
-
-  return {
-    ok: false,
-    status: response.status,
-    errorBody: await response.text()
-  };
 }

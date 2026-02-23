@@ -18,6 +18,7 @@
 
 import type { LlmRoutingResult } from "@auto-router/core";
 import { CLASSIFIER } from "./constants";
+import { joinUpstreamUrl } from "./upstream";
 
 type CatalogEntry = {
   id: string;
@@ -26,6 +27,16 @@ type CatalogEntry = {
   description?: string;
   modality?: string;
 };
+
+const CLASSIFIER_OUTPUT_SCHEMA_NAME = "router_classifier_output";
+const CLASSIFIER_DEBUG_PREVIEW_CHARS = 600;
+
+function truncateForLog(text: string): string {
+  const compact = text.replace(/\s+/g, " ").trim();
+  return compact.length > CLASSIFIER_DEBUG_PREVIEW_CHARS
+    ? `${compact.slice(0, CLASSIFIER_DEBUG_PREVIEW_CHARS)}…`
+    : compact;
+}
 
 function buildPrompt(args: {
   input: string;
@@ -51,33 +62,48 @@ function buildPrompt(args: {
     ? `\nCRITICAL STATUS QUO BIAS:\nThe user is currently using the model '${args.currentModel}'. You MUST select this exact same model AGAIN, unless the user's latest message represents a massive shift in complexity or task type that this model physically cannot handle. We want to preserve their cache!\n`
     : "";
 
-  return `You are a routing classifier for an LLM router.
+  return `You are an advanced routing classifier for an LLM router, powered by GLM-5's deep reasoning.
 
-Your job is to read the user's request and pick exactly one optimal model from the provided OpenRouter catalog.
+Your job is to analyze the user's request with deep reasoning and select the optimal model from the catalog.
 
-Here are the custom routing instructions/hints to follow (if any):
+## Your Reasoning Process
+1. First, analyze the user's request to understand: the task type, complexity, required capabilities
+2. Consider: coding tasks, reasoning depth, vision needs, long context requirements, output length
+3. Match against available models' strengths and whenToUse hints
+4. Make your selection${statusQuoBias}
+
+## Custom Routing Instructions (follow closely if provided)
 ====================
 ${args.routingInstructions || "No explicit routing instructions provided."}
 ====================
 
-Available Models (Pick EXACTLY one from this list):
+## Available Models (select EXACTLY one)
 ${modelList}
 
-Decision Rules:
-1) Output valid JSON only.
-2) If the user specifically asks for a model that exists in the catalog, use it.
-3) Follow the routing instructions closely.
-4) If no routing instructions apply and no model is requested, try to pick a model suitable for the task.${statusQuoBias}
+## Decision Guidelines
+- Output valid JSON only
+- If user specifically requests a model that exists in catalog, use it
+- For code tasks: prefer models with "coding" in their whenToUse
+- For deep reasoning: select models optimized for thinking
+- For vision/image tasks: only select models with vision:yes
+- For long documents: prefer models with larger context windows${statusQuoBias}
+- selectedModel MUST be an exact byte-for-byte match to one of the available model IDs
 
-Return JSON with shape:
-{"selectedModel":"anthropic/claude-3-opus","confidence":0.87,"signals":["routing_hint:coding","matched:claude-3"]}
+## Output Format
+Return JSON with:
+- selectedModel: exact model ID from the catalog
+- confidence: 0-1 score reflecting certainty in this routing decision
+- signals: array of reasoning factors (e.g., "task_type:coding", "complexity:high", "matched:glm-4")
 
-User request context:
+Example: {"selectedModel":"anthropic/claude-3-opus","confidence":0.87,"signals":["task_type:coding","complexity:high","matched:claude-3-opus"]}
+
+## User Request
 ${args.input}`;
 }
 
 export async function routeWithFrontierModel(args: {
   apiKey: string;
+  baseUrl: string;
   input: string;
   catalog: CatalogEntry[];
   routingInstructions?: string;
@@ -87,29 +113,95 @@ export async function routeWithFrontierModel(args: {
 }): Promise<LlmRoutingResult | null> {
   const fetchImpl = args.fetchImpl ?? fetch;
 
-  const response = await fetchImpl(CLASSIFIER.OPENROUTER_CHAT_URL, {
+  const baseRequest = {
+    model: args.model ?? CLASSIFIER.DEFAULT_MODEL,
+    messages: [{ role: "user", content: buildPrompt(args) }],
+    temperature: CLASSIFIER.TEMPERATURE,
+    max_tokens: CLASSIFIER.MAX_TOKENS,
+  };
+
+  const schemaResponse = await fetchImpl(joinUpstreamUrl(args.baseUrl, "/chat/completions"), {
     method: "POST",
     headers: {
       Authorization: `Bearer ${args.apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: args.model ?? CLASSIFIER.DEFAULT_MODEL,
-      messages: [{ role: "user", content: buildPrompt(args) }],
-      response_format: { type: "json_object" },
-      temperature: CLASSIFIER.TEMPERATURE,
-      max_tokens: CLASSIFIER.MAX_TOKENS,
+      ...baseRequest,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: CLASSIFIER_OUTPUT_SCHEMA_NAME,
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              selectedModel: {
+                type: "string",
+                enum: args.catalog.map((m) => m.id),
+              },
+              confidence: {
+                type: "number",
+                minimum: 0,
+                maximum: 1,
+              },
+              signals: {
+                type: "array",
+                items: { type: "string" },
+              },
+            },
+            required: ["selectedModel"],
+            additionalProperties: false,
+          },
+        },
+      },
     }),
   });
+  if (!schemaResponse.ok) {
+    const schemaErrorPreview = truncateForLog(await schemaResponse.clone().text());
+    console.log(
+      `[router-classifier] schema_request_failed status=${schemaResponse.status} model=${baseRequest.model} body=${schemaErrorPreview}`
+    );
+  }
 
-  if (!response.ok) return null;
+  // Some classifier models/providers may not support json_schema.
+  // Fall back to plain json_object mode so routing remains available.
+  const response = schemaResponse.ok
+    ? schemaResponse
+    : await fetchImpl(joinUpstreamUrl(args.baseUrl, "/chat/completions"), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${args.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...baseRequest,
+          response_format: { type: "json_object" },
+        }),
+      });
+
+  if (!response.ok) {
+    const errorPreview = truncateForLog(await response.clone().text());
+    console.log(
+      `[router-classifier] request_failed status=${response.status} model=${baseRequest.model} body=${errorPreview}`
+    );
+    return null;
+  }
 
   const payload = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
 
   const content = payload.choices?.[0]?.message?.content;
-  if (!content) return null;
+  if (!content) {
+    console.log(`[router-classifier] empty_content model=${baseRequest.model}`);
+    return null;
+  }
+
+  const rawOutputPreview = truncateForLog(content);
+  console.log(
+    `[router-classifier] raw_output model=${baseRequest.model} content=${rawOutputPreview}`
+  );
 
   try {
     const parsed = JSON.parse(content) as {
@@ -118,16 +210,27 @@ export async function routeWithFrontierModel(args: {
       signals?: string[];
     };
 
-    if (!parsed.selectedModel || typeof parsed.selectedModel !== "string") return null;
+    if (!parsed.selectedModel || typeof parsed.selectedModel !== "string") {
+      console.log(`[router-classifier] parsed_missing_selected_model model=${baseRequest.model}`);
+      return null;
+    }
+    if (!args.catalog.some((m) => m.id === parsed.selectedModel)) {
+      console.log(
+        `[router-classifier] parsed_invalid_model model=${baseRequest.model} selectedModel=${parsed.selectedModel}`
+      );
+      return null;
+    }
 
     return {
       selectedModel: parsed.selectedModel,
       confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.7,
-      signals: Array.isArray(parsed.signals)
+      signals: (Array.isArray(parsed.signals)
         ? parsed.signals.filter((s): s is string => typeof s === "string")
-        : ["frontier_classification"],
+        : ["frontier_classification"]).concat(`classifier_raw:${rawOutputPreview}`),
     };
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_parse_error";
+    console.log(`[router-classifier] parse_failed model=${baseRequest.model} error=${message}`);
     return null;
   }
 }

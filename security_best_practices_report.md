@@ -1,207 +1,115 @@
 # Security Best Practices Report
 
+Date: 2026-02-23
+
 ## Executive Summary
 
-The project has multiple high-impact security gaps on internet-facing routes. The most severe issues are unauthenticated privileged endpoints and an outdated vulnerable `next` runtime (`15.1.4`) with known critical advisories. Combined, these issues can allow unauthorized configuration changes, service abuse/cost amplification, and framework-level exploitation risk.
+This audit focused on the Next.js/TypeScript web app and Cloudflare worker paths in `apps/web` and `apps/ingest-worker`, plus dependency posture.
 
-I found **9 findings** total:
-- Critical: 3
-- High: 3
+I found **4 actionable findings**:
+- High: 1
 - Medium: 2
 - Low: 1
 
----
-
-## Critical Findings
-
-### AR-SEC-001
-- Rule ID: `NEXT-AUTH-001`
-- Severity: Critical
-- Location:
-  - `apps/web/app/api/v1/router/config/route.ts:12`
-  - `apps/web/app/api/v1/router/catalog/route.ts:11`
-  - `apps/web/app/api/v1/router/catalog/[modelId]/route.ts:4`
-  - `apps/web/app/api/v1/router/recompute/route.ts:10`
-- Evidence:
-  - `apps/web/app/api/v1/router/config/route.ts:33` calls `repository.setConfig(parsed.data)` with no auth check.
-  - `apps/web/app/api/v1/router/catalog/route.ts:36` calls `repository.setCatalog(...)` with no auth check.
-  - `apps/web/app/api/v1/router/catalog/[modelId]/route.ts:19` calls `repository.setCatalog(...)` with no auth check.
-  - `apps/web/app/api/v1/router/recompute/route.ts:24` triggers ingestion and writes catalog with no auth check.
-- Impact: **Any unauthenticated caller can modify global routing behavior and catalog state for all users.**
-- Fix:
-  - Require server-side authz for all `/api/v1/router/*` mutating endpoints.
-  - Enforce role checks (admin-only) before `setConfig`, `setCatalog`, and recompute actions.
-  - Return `401/403` on missing or insufficient privilege.
-- Mitigation:
-  - Temporarily restrict these routes at Cloudflare (WAF/Access/IP allowlist) until code-level auth is implemented.
-- False positive notes:
-  - If these routes are intentionally private behind an external access gateway, verify that protection is mandatory in all environments.
-
-### AR-SEC-002
-- Rule ID: `NEXT-SUPPLY-001`
-- Severity: Critical
-- Location:
-  - `apps/web/package.json:16`
-- Evidence:
-  - `next` is pinned to `15.1.4`.
-  - `npm audit --omit=dev --json` reports critical advisories affecting this version, including:
-    - GHSA-9qr9-h5gf-34mp (RCE in React flight protocol)
-    - GHSA-f82v-jwr5-mffw (authorization bypass in middleware)
-  - Audit indicates fix available at `15.5.12`.
-- Impact: **Known critical vulnerabilities in framework runtime can permit remote compromise or auth bypass.**
-- Fix:
-  - Upgrade `next` to `>=15.5.12` (or latest supported patched minor).
-  - Re-run integration tests and deploy with patched runtime.
-- Mitigation:
-  - If upgrade cannot be immediate, isolate exposure with strict edge ACLs and reduce public route surface.
-- False positive notes:
-  - Verify final lockfile actually resolves the patched version across workspaces.
-
-### AR-SEC-003
-- Rule ID: `NEXT-AUTH-001`
-- Severity: Critical
-- Location:
-  - `apps/ingest-worker/src/index.ts:140`
-- Evidence:
-  - `POST /run` executes ingestion (`executeIngestion`) without any authn/authz guard.
-- Impact: **Any caller can repeatedly trigger costly ingestion jobs, causing financial abuse and availability degradation.**
-- Fix:
-  - Require a signed secret (HMAC) or Cloudflare Access/JWT validation for `/run`.
-  - Reject unauthorized requests before job execution.
-- Mitigation:
-  - Disable public routing to `/run` or restrict by IP until authentication is added.
-- False positive notes:
-  - If the worker is bound only to private/internal routes, verify it is not publicly reachable.
+No direct unauthenticated admin bypasses were found in current route handlers. Production dependency audit (`npm audit --omit=dev`) returned **0 known vulnerabilities**.
 
 ---
 
 ## High Findings
 
-### AR-SEC-004
-- Rule ID: `NEXT-SESS-002`
+### AR-SEC-001
+- Rule ID: `NEXT-AUTH-001`, `NEXT-DOS-001`
 - Severity: High
 - Location:
-  - `apps/web/src/lib/auth.ts:170`
-  - `apps/web/src/lib/auth.ts:181`
-  - `apps/web/src/lib/auth.ts:194`
-  - `apps/web/src/lib/auth.ts:205`
+  - `apps/web/src/lib/auth.ts:251`
+  - `apps/web/app/api/v1/router/config/route.ts:13`
+  - `apps/web/app/api/v1/router/catalog/route.ts:13`
+  - `apps/web/app/api/v1/router/catalog/[modelId]/route.ts:15`
+  - `apps/web/app/api/v1/router/recompute/route.ts:18`
+  - `apps/web/app/api/v1/router/runs/route.ts:12`
+  - `apps/web/app/api/v1/router/explanations/[requestId]/route.ts:15`
+  - `apps/web/app/api/v1/router/kv-debug/route.ts:12`
+  - `.env.example:33`
 - Evidence:
-  - Session token is generated and stored directly in DB as `user_sessions.id`.
-  - Session auth uses raw bearer token lookup (`WHERE s.id = ?1`).
-- Impact:
-  - A DB read leak immediately enables session replay/account takeover until expiry.
+  - Admin authorization is a single static shared secret check (`verifyAdminSecret`) with no entropy/quality enforcement.
+  - Most admin routes gate only on this secret and do not apply per-IP or per-secret attempt throttling.
+  - The example env value is a well-known placeholder: `ADMIN_SECRET=change-me-in-production`.
+- Impact: If `ADMIN_SECRET` is weak/default or leaked, an attacker gets full admin control (router config, catalog mutation, recompute, debug/operational data reads).
 - Fix:
-  - Store only a hash of session tokens (same pattern as API keys).
-  - Compare hashed token on request; rotate tokens on login.
+  - Enforce minimum secret quality at startup (length + entropy checks; reject known placeholders).
+  - Add rate limiting to all admin-secret-protected routes, not just `/api/v1/admin/verify`.
+  - Consider migrating admin auth from a shared static secret to managed identity (session role, Cloudflare Access, or signed JWT).
 - Mitigation:
-  - Shorten session lifetime and implement server-side revocation endpoint.
+  - Restrict admin routes at edge (IP allowlist/Access policy) until app-level controls are added.
 - False positive notes:
-  - If DB is fully isolated and encrypted, residual risk still exists from accidental query/log exposure.
-
-### AR-SEC-005
-- Rule ID: `NEXT-DOS-001`
-- Severity: High
-- Location:
-  - `apps/web/app/api/v1/auth/login/route.ts:5`
-  - `apps/web/app/api/v1/auth/signup/route.ts:5`
-  - `apps/web/app/api/v1/admin/verify/route.ts:4`
-- Evidence:
-  - No request throttling, lockout, or abuse controls on auth/admin verification endpoints.
-- Impact:
-  - Enables brute-force and credential-stuffing attempts; increases resource exhaustion risk.
-- Fix:
-  - Add per-IP and per-identifier rate limiting with exponential backoff.
-  - Add lockout/cooldown policies and monitoring alerts.
-- Mitigation:
-  - Enforce Cloudflare rate-limiting rules immediately.
-- False positive notes:
-  - If an upstream gateway already rate-limits these routes, validate exact thresholds and coverage.
-
-### AR-SEC-006
-- Rule ID: `NEXT-SESS-002`
-- Severity: High
-- Location:
-  - `apps/web/src/components/admin-console.tsx:97`
-  - `apps/web/src/components/admin-console.tsx:106`
-  - `apps/web/src/components/admin-console.tsx:75`
-- Evidence:
-  - Session token persisted in `sessionStorage` and read by client JS for Authorization headers.
-- Impact:
-  - Any successful XSS in origin context can exfiltrate active session tokens.
-- Fix:
-  - Move session handling to `HttpOnly` + `Secure` + `SameSite` cookies.
-  - Keep session tokens inaccessible to browser JS.
-- Mitigation:
-  - Harden CSP and eliminate inline/eval script vectors while migrating auth transport.
-- False positive notes:
-  - If app is guaranteed non-browser and no script execution risk exists, impact is reduced (rare for web app deployments).
+  - If every deployment always injects a long random admin secret and admin routes are edge-restricted, practical risk is reduced.
 
 ---
 
 ## Medium Findings
 
-### AR-SEC-007
-- Rule ID: `NEXT-HEADERS-001`, `NEXT-CSP-001`
+### AR-SEC-002
+- Rule ID: `NEXT-CSRF-001`
 - Severity: Medium
 - Location:
-  - `apps/web/next.config.mjs:2`
+  - `apps/web/src/lib/csrf.ts:3`
+  - `apps/web/app/api/v1/user/me/route.ts:51`
+  - `apps/web/app/api/v1/user/keys/route.ts:40`
+  - `apps/web/app/api/v1/user/keys/route.ts:96`
+  - `apps/web/app/api/v1/auth/logout/route.ts:16`
 - Evidence:
-  - No configured security headers/CSP in Next config; no header-setting middleware found.
-- Impact:
-  - Increases exploitability of XSS/clickjacking and weakens browser-side protections.
+  - CSRF helper returns success when `Origin` is missing: `if (!origin) return true;`.
+  - State-changing session endpoints rely on this same-origin check.
+- Impact: CSRF protection is fail-open for requests without `Origin` (some clients/proxies/privacy modes), weakening defense on session-authenticated mutations.
 - Fix:
-  - Add baseline headers (`Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options` or `frame-ancestors`, `Referrer-Policy`).
-  - Prefer nonce/hash-based CSP in production.
+  - For unsafe methods (`POST/PUT/PATCH/DELETE`), fail closed when `Origin` is missing.
+  - Add strict `Referer` fallback validation and/or explicit CSRF token validation.
 - Mitigation:
-  - Set equivalent headers at Cloudflare edge if app-level changes are delayed.
+  - Keep `SameSite=Lax` (already set) and add endpoint-specific anti-CSRF tokens for high-value mutations.
 - False positive notes:
-  - If all headers are injected by edge config, verify policy is present and tested in production responses.
+  - Modern browsers usually send `Origin` on cross-site unsafe requests, so exploitability varies by client behavior.
 
-### AR-SEC-008
-- Rule ID: `NEXT-AUTH-001`
+### AR-SEC-003
+- Rule ID: `NEXT-DOS-001`
 - Severity: Medium
 - Location:
-  - `apps/web/app/api/v1/router/kv-debug/route.ts:4`
-  - `apps/web/app/api/v1/router/runs/route.ts:4`
-  - `apps/web/app/api/v1/router/explanations/[requestId]/route.ts:4`
+  - `apps/web/src/lib/rate-limit.ts:68`
+  - `apps/web/app/api/v1/auth/login/route.ts:13`
+  - `apps/web/app/api/v1/auth/signup/route.ts:13`
+  - `apps/web/app/api/v1/admin/verify/route.ts:13`
 - Evidence:
-  - Read-oriented internal/debug endpoints are accessible without authentication.
-- Impact:
-  - Leaks operational metadata helpful for reconnaissance and abuse tuning.
+  - Rate limiter catches any DB/schema failure and returns `allowed: true` (fail-open).
+- Impact: During DB migration/outage/error conditions, brute-force protection on auth-sensitive endpoints is silently disabled.
 - Fix:
-  - Require authentication/authorization for internal operational endpoints.
-  - Disable debug endpoints outside development.
+  - Use fail-closed mode for authentication/admin rate limits, or make fail-open behavior explicitly configurable per route.
+  - Emit security logs/metrics on limiter failures.
 - Mitigation:
-  - Restrict route exposure at edge until access control is added.
+  - Enforce backup edge rate limiting independent of app DB state.
 - False positive notes:
-  - If these endpoints are intentionally public, ensure returned data is strictly non-sensitive.
+  - If Cloudflare edge-level limits are strictly enforced, exposure is lower.
 
 ---
 
 ## Low Findings
 
-### AR-SEC-009
-- Rule ID: `NEXT-AUTH-001`
+### AR-SEC-004
+- Rule ID: `NEXT-CSP-001`
 - Severity: Low
 - Location:
-  - `apps/web/src/lib/auth.ts:114`
-  - `apps/web/src/lib/auth.ts:165`
-  - `apps/web/app/api/v1/admin/verify/route.ts:19`
+  - `apps/web/next.config.mjs:4`
 - Evidence:
-  - Secret/hash comparisons use direct string equality.
-- Impact:
-  - Potential timing side-channel exposure (generally low risk over network noise but avoidable).
+  - CSP currently allows inline scripts: `script-src 'self' 'unsafe-inline'`.
+- Impact: Browser-side XSS containment is materially weaker than a nonce/hash-based CSP.
 - Fix:
-  - Use constant-time comparison for secret/token/hash checks.
+  - Move to nonce- or hash-based script policy and remove `'unsafe-inline'` for scripts.
 - Mitigation:
-  - Keep strong rate limits to reduce practical exploitability.
+  - Keep existing additional headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`) while tightening CSP.
 - False positive notes:
-  - For remote-only attackers this is usually lower impact than authz and dependency issues above.
+  - If no inline script execution exists today, this is mainly hardening rather than an active exploit path.
 
 ---
 
-## Additional Notes
+## Dependency Notes
 
-- `.env.local` contains non-empty API key values in this workspace (`OPENROUTER_API_KEY`, `AA_API_KEY`). I could not verify VCS tracking/history because the directory is not currently a git repository.
-- `npm audit --json` reports additional dev-tool advisories (eslint/wrangler/vitest chains). These are lower runtime risk than the production `next` vulnerabilities but should be scheduled for dependency hygiene.
-
+- `npm audit --omit=dev --json` (runtime dependencies): **0 vulnerabilities**.
+- `npm audit --json` (including dev tooling): 27 issues (mostly eslint/wrangler/vitest/open-next dependency chains). These are lower production risk but should be tracked for CI/build supply-chain hygiene.

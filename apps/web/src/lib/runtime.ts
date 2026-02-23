@@ -19,6 +19,8 @@ export interface RouterRuntimeBindings {
   ROUTER_DB?: D1Database;
   ROUTER_KV?: KVNamespace;
   OPENROUTER_API_KEY?: string;
+  OPENAI_COMPAT_BASE_URL?: string;
+  BYOK_ENCRYPTION_SECRET?: string;
   AA_API_KEY?: string;
   ROUTER_CLASSIFIER_MODEL?: string;
   ADMIN_SECRET?: string;
@@ -57,6 +59,10 @@ export function getRuntimeBindings(): RouterRuntimeBindings {
     ROUTER_KV: fromGlobal?.ROUTER_KV,
     OPENROUTER_API_KEY:
       fromGlobal?.OPENROUTER_API_KEY ?? process.env.OPENROUTER_API_KEY ?? process.env.OPENROUTER_KEY,
+    OPENAI_COMPAT_BASE_URL:
+      fromGlobal?.OPENAI_COMPAT_BASE_URL ?? process.env.OPENAI_COMPAT_BASE_URL ?? process.env.OPENROUTER_API_URL,
+    BYOK_ENCRYPTION_SECRET:
+      fromGlobal?.BYOK_ENCRYPTION_SECRET ?? process.env.BYOK_ENCRYPTION_SECRET,
     AA_API_KEY: fromGlobal?.AA_API_KEY ?? process.env.AA_API_KEY,
     ROUTER_CLASSIFIER_MODEL:
       fromGlobal?.ROUTER_CLASSIFIER_MODEL ?? process.env.ROUTER_CLASSIFIER_MODEL,

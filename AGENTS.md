@@ -108,7 +108,6 @@ PUT  /api/v1/router/config     → verifyAdminSecret
 | `ApiKeyPanel.tsx` | Generate, list, revoke API keys |
 | `RouterConfigPanel.tsx` | Default model, classifier model, routing instructions, blocklist |
 | `CatalogEditorPanel.tsx` | Per-user model catalog editor ("constitution") |
-| `chat-tester.tsx` | Standalone chat UI for testing routing decisions |
 
 ### `packages/core/src/`
 

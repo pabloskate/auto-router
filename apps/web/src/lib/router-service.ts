@@ -16,35 +16,15 @@
 
 import { RouterEngine, type RouteDecision, type RouterRequestLike } from "@auto-router/core";
 
+import { decryptByokSecret, resolveByokEncryptionSecret } from "./byok-crypto";
+import { UPSTREAM } from "./constants";
 import { routeWithFrontierModel } from "./frontier-router-classifier";
 import { guardrailKey, isDisabled, recordEvent } from "./guardrail-manager";
 import { json, attachRouterHeaders } from "./http";
 import { requestId as makeRequestId } from "./request-id";
-import { callOpenRouter } from "./openrouter";
 import { getRuntimeBindings } from "./runtime-bindings";
 import { getRouterRepository } from "./router-repository";
-
-// ── RouterEngine singleton ────────────────────────────────────────────────────
-//
-// The engine is stateless (all state is in the repository / pin store), so a
-// single module-level instance is fine.
-
-const engine = new RouterEngine({
-  llmRouter: async (args) => {
-    const bindings = getRuntimeBindings();
-    if (!bindings.OPENROUTER_API_KEY) return null;
-    return routeWithFrontierModel({
-      apiKey: bindings.OPENROUTER_API_KEY,
-      model: args.classifierModel
-        || args.routingInstructions?.match(/routerConfig\.classifierModel: (.*)/)?.[1]
-        || bindings.ROUTER_CLASSIFIER_MODEL,
-      input: args.prompt,
-      catalog: args.catalog,
-      routingInstructions: args.routingInstructions,
-      currentModel: args.currentModel,
-    });
-  },
-});
+import { callOpenAiCompatible, resolveUpstreamTarget } from "./upstream";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -60,11 +40,38 @@ export interface UserRouterConfig {
   classifierModel?: string | null;
   routingInstructions?: string | null;
   blocklist?: string[] | null;
+  profiles?: any[] | null;  // RouterProfile[] — named routing configurations
+  upstreamBaseUrl?: string | null;
+  upstreamApiKeyEnc?: string | null;
+  classifierBaseUrl?: string | null;
+  classifierApiKeyEnc?: string | null;
 }
 
 interface AttemptTarget {
   modelId: string;
   provider: string;
+}
+
+function createRouterEngine(args: {
+  classifierApiKey: string;
+  classifierBaseUrl: string;
+  classifierModelFromBindings?: string;
+}): RouterEngine {
+  return new RouterEngine({
+    llmRouter: async (routerArgs) =>
+      routeWithFrontierModel({
+        apiKey: args.classifierApiKey,
+        baseUrl: args.classifierBaseUrl,
+        model:
+          routerArgs.classifierModel
+          || routerArgs.routingInstructions?.match(/routerConfig\.classifierModel: (.*)/)?.[1]
+          || args.classifierModelFromBindings,
+        input: routerArgs.prompt,
+        catalog: routerArgs.catalog,
+        routingInstructions: routerArgs.routingInstructions,
+        currentModel: routerArgs.currentModel,
+      }),
+  });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -140,13 +147,92 @@ export async function routeAndProxy(args: {
 }): Promise<RouteAndProxyResult> {
   const requestId = makeRequestId("router");
   const bindings = getRuntimeBindings();
-
-  if (!bindings.OPENROUTER_API_KEY) {
+  const byokSecret = resolveByokEncryptionSecret({
+    byokSecret: bindings.BYOK_ENCRYPTION_SECRET ?? null,
+    adminSecret: bindings.ADMIN_SECRET ?? null,
+  });
+  if (!byokSecret) {
     return {
       requestId,
-      response: json({ error: "Missing OPENROUTER_API_KEY in runtime bindings.", request_id: requestId }, 500),
+      response: json({ error: "Server misconfigured: missing BYOK encryption secret.", request_id: requestId }, 500),
     };
   }
+
+  const encryptedUpstreamApiKey = args.userConfig?.upstreamApiKeyEnc ?? null;
+  if (!encryptedUpstreamApiKey) {
+    return {
+      requestId,
+      response: json(
+        { error: "No BYOK OpenRouter key connected for this account. Configure it in the admin console.", request_id: requestId },
+        400
+      ),
+    };
+  }
+
+  const decryptedUpstreamApiKey = await decryptByokSecret({
+    ciphertext: encryptedUpstreamApiKey,
+    secret: byokSecret,
+  });
+  if (!decryptedUpstreamApiKey) {
+    return {
+      requestId,
+      response: json(
+        { error: "Stored BYOK key cannot be decrypted. Reconnect the key in the admin console.", request_id: requestId },
+        500
+      ),
+    };
+  }
+
+  const decryptedClassifierApiKey = args.userConfig?.classifierApiKeyEnc
+    ? await decryptByokSecret({
+        ciphertext: args.userConfig.classifierApiKeyEnc,
+        secret: byokSecret,
+      })
+    : null;
+  if (args.userConfig?.classifierApiKeyEnc && !decryptedClassifierApiKey) {
+    return {
+      requestId,
+      response: json(
+        { error: "Stored classifier BYOK key cannot be decrypted. Reconnect the key in the admin console.", request_id: requestId },
+        500
+      ),
+    };
+  }
+
+  const fallbackBaseUrl = bindings.OPENAI_COMPAT_BASE_URL ?? UPSTREAM.DEFAULT_BASE_URL;
+  const upstream = resolveUpstreamTarget({
+    baseUrlOverride: args.userConfig?.upstreamBaseUrl ?? null,
+    apiKeyOverride: decryptedUpstreamApiKey,
+    fallbackBaseUrl,
+    fallbackApiKey: null,
+    requireApiKeyWithBaseOverride: false,
+  });
+  if (!upstream.ok) {
+    return {
+      requestId,
+      response: json({ error: upstream.error, request_id: requestId }, upstream.status),
+    };
+  }
+
+  const classifierUpstream = resolveUpstreamTarget({
+    baseUrlOverride: args.userConfig?.classifierBaseUrl ?? null,
+    apiKeyOverride: decryptedClassifierApiKey ?? decryptedUpstreamApiKey,
+    fallbackBaseUrl: upstream.value.baseUrl,
+    fallbackApiKey: null,
+    requireApiKeyWithBaseOverride: false,
+  });
+  if (!classifierUpstream.ok) {
+    return {
+      requestId,
+      response: json({ error: classifierUpstream.error, request_id: requestId }, classifierUpstream.status),
+    };
+  }
+
+  const engine = createRouterEngine({
+    classifierApiKey: classifierUpstream.value.apiKey,
+    classifierBaseUrl: classifierUpstream.value.baseUrl,
+    classifierModelFromBindings: bindings.ROUTER_CLASSIFIER_MODEL,
+  });
 
   const repository = getRouterRepository();
   const [systemConfig, fullCatalog] = await Promise.all([
@@ -177,6 +263,7 @@ export async function routeAndProxy(args: {
     catalog,
     catalogVersion: "1.0", // TODO: wire up real version from catalog meta
     pinStore,
+    profiles: args.userConfig?.profiles ?? undefined,
   });
 
   const nowMs = Date.now();
@@ -196,10 +283,11 @@ export async function routeAndProxy(args: {
     }
 
     const startedAtMs = Date.now();
-    const result = await callOpenRouter({
+    const result = await callOpenAiCompatible({
       apiPath: args.apiPath,
       payload,
-      apiKey: bindings.OPENROUTER_API_KEY,
+      baseUrl: upstream.value.baseUrl,
+      apiKey: upstream.value.apiKey,
       requestId,
     });
     const latencyMs = Date.now() - startedAtMs;

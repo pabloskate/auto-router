@@ -69,6 +69,12 @@ export const AUTH = {
   SESSION_TTL_MS: 1000 * 60 * 60 * 24 * 30,      // 30 days
   SESSION_MAX_AGE_SECONDS: 60 * 60 * 24 * 30,     // 30 days
   SESSION_COOKIE_NAME: "auto_router_session",
+
+  // Minimum length required for BYOK encryption secret material.
+  BYOK_ENCRYPTION_SECRET_MIN_LENGTH: 16,
+
+  // AES-GCM nonce size for encrypted BYOK credential blobs.
+  BYOK_AES_GCM_IV_BYTES: 12,
 } as const;
 
 // ── LLM Classifier ────────────────────────────────────────────────────────────
@@ -80,13 +86,52 @@ export const AUTH = {
 export const CLASSIFIER = {
   // Fallback model when neither the user nor the system config specifies one.
   // Must be a valid OpenRouter model ID.
-  DEFAULT_MODEL: "gpt-oss-120b:nitro",
+  // GLM-5: Advanced agentic planning, 204K context, ~20% of Opus pricing
+  DEFAULT_MODEL: "z-ai/glm-5",
 
   // Force deterministic output so routing decisions are reproducible.
   TEMPERATURE: 0,
 
-  // JSON response is small; cap tokens to reduce cost.
-  MAX_TOKENS: 400,
+  // GLM-5's long context allows for richer prompts with more catalog context.
+  MAX_TOKENS: 600,
+} as const;
 
-  OPENROUTER_CHAT_URL: "https://openrouter.ai/api/v1/chat/completions",
+// ── Upstream (OpenAI-compatible) Transport ──────────────────────────────────
+
+// ── Config Chat ──────────────────────────────────────────────────────────────
+//
+// Conversational config editor: users type #config in a chat message to enter
+// an interactive session where they can view/modify their routing instructions,
+// model catalog, default model, blocklist, etc.  The session stays active until
+// the orchestrator LLM emits #endconfig.
+
+export const CONFIG_CHAT = {
+  TRIGGER_KEYWORD: "#config",
+  END_KEYWORD: "#endconfig",
+
+  // Tool-use LLM that interprets the user's config intent and calls tools.
+  ORCHESTRATOR_MODEL: "minimax/minimax-m2.5",
+
+  // Online model for web-search tool (latest model info, recommendations).
+  ONLINE_MODEL: "perplexity/sonar-pro",
+
+  // Safety limit on tool-call rounds to prevent runaway loops.
+  MAX_TOOL_ROUNDS: 6,
+
+  MAX_TOKENS: 2048,
+  TEMPERATURE: 0.2,
+} as const;
+
+// ── Upstream (OpenAI-compatible) Transport ──────────────────────────────────
+
+export const UPSTREAM = {
+  // Default upstream when no per-request override is provided.
+  DEFAULT_BASE_URL: "https://openrouter.ai/api/v1",
+
+  // Internal tracing header attached to upstream requests.
+  REQUEST_ID_HEADER: "X-Router-Request-Id",
+
+  // OpenRouter-specific metadata header; sent only when host is openrouter.ai.
+  OPENROUTER_TITLE_HEADER: "X-Title",
+  OPENROUTER_TITLE_VALUE: "auto-router",
 } as const;

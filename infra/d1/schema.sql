@@ -118,7 +118,17 @@ CREATE TABLE IF NOT EXISTS users (
   routing_instructions TEXT,
   blocklist TEXT,
   custom_catalog TEXT,
+  profiles TEXT,           -- JSON: RouterProfile[] — named routing configurations
   created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_upstream_credentials (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  upstream_base_url TEXT,
+  upstream_api_key_enc TEXT,
+  classifier_base_url TEXT,
+  classifier_api_key_enc TEXT,
   updated_at TEXT NOT NULL
 );
 
