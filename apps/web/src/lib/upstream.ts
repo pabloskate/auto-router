@@ -7,26 +7,26 @@ export interface UpstreamTarget {
 
 export type ResolveUpstreamResult =
   | {
-      ok: true;
-      value: UpstreamTarget;
-    }
+    ok: true;
+    value: UpstreamTarget;
+  }
   | {
-      ok: false;
-      status: 400 | 500;
-      error: string;
-    };
+    ok: false;
+    status: 400 | 500;
+    error: string;
+  };
 
 export type UpstreamCallResult =
   | {
-      ok: true;
-      status: number;
-      response: Response;
-    }
+    ok: true;
+    status: number;
+    response: Response;
+  }
   | {
-      ok: false;
-      status: number;
-      errorBody: string;
-    };
+    ok: false;
+    status: number;
+    errorBody: string;
+  };
 
 function cleanOptional(value: string | null | undefined): string | null {
   if (typeof value !== "string") {
@@ -153,7 +153,7 @@ export function resolveUpstreamTarget(args: {
 }
 
 export async function callOpenAiCompatible(args: {
-  apiPath: "/chat/completions" | "/responses";
+  apiPath: "/chat/completions" | "/responses" | "/completions";
   payload: unknown;
   apiKey: string;
   requestId: string;

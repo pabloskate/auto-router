@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS users (
   blocklist TEXT,
   custom_catalog TEXT,
   profiles TEXT,           -- JSON: RouterProfile[] — named routing configurations
+  show_model_in_response INTEGER DEFAULT 0,  -- 0 = off, 1 = on — append model ID to non-tool responses
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -131,6 +132,22 @@ CREATE TABLE IF NOT EXISTS user_upstream_credentials (
   classifier_api_key_enc TEXT,
   updated_at TEXT NOT NULL
 );
+
+-- Per-user gateway registry. Each gateway owns its base URL, encrypted API key,
+-- and a JSON model catalog with native model IDs for that provider.
+CREATE TABLE IF NOT EXISTS user_gateways (
+  id          TEXT NOT NULL,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  base_url    TEXT NOT NULL,
+  api_key_enc TEXT NOT NULL,
+  models_json TEXT NOT NULL DEFAULT '[]',
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL,
+  PRIMARY KEY (id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_gateways_user ON user_gateways(user_id);
 
 -- ── User sessions ──
 CREATE TABLE IF NOT EXISTS user_sessions (

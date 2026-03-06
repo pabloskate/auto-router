@@ -4,7 +4,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <header className="topbar">
         <div className="topbar-brand">
           <a href="/" style={{ textDecoration: "none" }}>
-            <span className="topbar-logo">Auto Router</span>
+            <span className="topbar-logo">CustomRouter</span>
           </a>
           <span className="topbar-tagline">Dashboard</span>
         </div>

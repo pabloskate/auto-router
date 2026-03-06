@@ -3,32 +3,25 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // admin-console.tsx
 //
-// Redesigned with clear information architecture:
-//
-// Navigation Model:
-//   Tab-based organization with 5 distinct contexts:
-//   • Dashboard   — Overview, API keys, quick stats
-//   • Playground  — Interactive chat testing
-//   • Routing     — Core routing config + profiles
-//   • Models      — Custom model catalog (constitution)
-//   • Account     — Credentials, keys, settings
-//
-// Key IA Improvements:
-//   - Progressive disclosure: each tab is a self-contained context
-//   - Per-section saving: no more global "save all" confusion
-//   - Visual hierarchy: clear section titles, better grouping
-//   - Status indicators: real-time feedback on all actions
+// Navigation: vertical sidebar with logical setup order
+//   1. Overview   — stats dashboard (home when already configured)
+//   2. Models     — define the model catalog (start here when new)
+//   3. Routing    — configure classifier, rules, profiles (uses the catalog)
+//   4. API Keys   — provision access keys to call the proxy
+//   5. Playground — test everything end-to-end
+//   6. Account    — name/email (bottom, rarely visited)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useState } from "react";
 import { AuthGate } from "./AuthGate";
 import { ApiKeyPanel } from "./ApiKeyPanel";
+import { GatewayPanel } from "./GatewayPanel";
 import { PlaygroundPanel } from "./PlaygroundPanel";
 import { RouterConfigPanel } from "./RouterConfigPanel";
 import { ProfilesPanel, type RouterProfile } from "./ProfilesPanel";
-import { CatalogEditorPanel, type CatalogItem } from "./CatalogEditorPanel";
+import { type CatalogItem } from "./CatalogEditorPanel";
 
-type TabId = "dashboard" | "playground" | "routing" | "models" | "account";
+type TabId = "overview" | "gateways" | "routing" | "keys" | "playground" | "account";
 
 type ServerUserInfo = {
   id: string;
@@ -41,16 +34,13 @@ type ServerUserInfo = {
   blocklist: string[] | null;
   customCatalog: CatalogItem[] | null;
   profiles: RouterProfile[] | null;
-  upstreamBaseUrl: string | null;
+  showModelInResponse: boolean;
   classifierBaseUrl: string | null;
-  upstreamApiKeyConfigured: boolean;
   classifierApiKeyConfigured: boolean;
 };
 
 type UserInfo = ServerUserInfo & {
-  upstreamApiKeyInput: string;
   classifierApiKeyInput: string;
-  clearUpstreamApiKey: boolean;
   clearClassifierApiKey: boolean;
 };
 
@@ -65,92 +55,78 @@ export type ApiKeyInfo = {
 function hydrateUser(user: ServerUserInfo): UserInfo {
   return {
     ...user,
-    upstreamApiKeyInput: "",
     classifierApiKeyInput: "",
-    clearUpstreamApiKey: false,
     clearClassifierApiKey: false,
   };
 }
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
-function IconDashboard({ className, style }: { className?: string; style?: React.CSSProperties }) {
+function IconOverview({ className }: { className?: string }) {
   return (
-    <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-      <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" />
     </svg>
   );
 }
 
-function IconPlayground({ className, style }: { className?: string; style?: React.CSSProperties }) {
+function IconModels({ className }: { className?: string }) {
   return (
-    <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
     </svg>
   );
 }
 
-function IconRouting({ className, style }: { className?: string; style?: React.CSSProperties }) {
+function IconGateway({ className }: { className?: string }) {
   return (
-    <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="7" width="20" height="10" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /><line x1="12" y1="12" x2="12" y2="12" />
     </svg>
   );
 }
 
-function IconModels({ className, style }: { className?: string; style?: React.CSSProperties }) {
+function IconRouting({ className }: { className?: string }) {
   return (
-    <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="18" cy="18" r="3" /><circle cx="6" cy="6" r="3" /><path d="M13 6h3a2 2 0 0 1 2 2v7" /><line x1="6" y1="9" x2="6" y2="21" />
     </svg>
   );
 }
 
-function IconAccount({ className, style }: { className?: string; style?: React.CSSProperties }) {
+function IconKeys({ className }: { className?: string }) {
   return (
-    <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
     </svg>
   );
 }
 
-function IconLogout({ className, style }: { className?: string; style?: React.CSSProperties }) {
+function IconPlayground({ className }: { className?: string }) {
   return (
-    <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   );
 }
 
-// ─── Tab Navigation ──────────────────────────────────────────────────────────
-function TabNav({ activeTab, onTabChange }: { activeTab: TabId; onTabChange: (tab: TabId) => void }) {
-  const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: "dashboard", label: "Dashboard", icon: IconDashboard },
-    { id: "playground", label: "Playground", icon: IconPlayground },
-    { id: "routing", label: "Routing", icon: IconRouting },
-    { id: "models", label: "Models", icon: IconModels },
-    { id: "account", label: "Account", icon: IconAccount },
-  ];
-
+function IconAccount({ className }: { className?: string }) {
   return (
-    <div className="tabs" role="tablist">
-      {tabs.map(({ id, label, icon: Icon }) => (
-        <button
-          key={id}
-          role="tab"
-          aria-selected={activeTab === id}
-          className={`tab ${activeTab === id ? "tab--active" : ""}`}
-          onClick={() => onTabChange(id)}
-        >
-          <Icon />
-          <span>{label}</span>
-        </button>
-      ))}
-    </div>
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+    </svg>
   );
 }
 
-// ─── Status Indicator ──────────────────────────────────────────────────────────
+function IconLogout({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
+
+// ─── Status Indicator ────────────────────────────────────────────────────────
 function StatusBadge({ status, error }: { status: string; error?: string }) {
   if (error) {
     return (
@@ -184,15 +160,160 @@ function StatusBadge({ status, error }: { status: string; error?: string }) {
   );
 }
 
-// ─── Dashboard Tab ─────────────────────────────────────────────────────────────
-function DashboardTab({
+// ─── Sidebar Navigation ───────────────────────────────────────────────────────
+function SideNav({
+  activeTab,
+  onTabChange,
   user,
+  onLogout,
+  status,
+  error,
+}: {
+  activeTab: TabId;
+  onTabChange: (tab: TabId) => void;
+  user: UserInfo | null;
+  onLogout: () => void;
+  status: string;
+  error?: string;
+}) {
+  function NavItem({ id, label, icon: Icon }: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }) {
+    return (
+      <button
+        className={`sidenav-item ${activeTab === id ? "sidenav-item--active" : ""}`}
+        onClick={() => onTabChange(id)}
+      >
+        <Icon />
+        <span>{label}</span>
+      </button>
+    );
+  }
+
+  return (
+    <aside className="sidenav">
+      <nav className="sidenav-nav">
+        <NavItem id="overview" label="Overview" icon={IconOverview} />
+
+        <div className="sidenav-section-label">Configure</div>
+        <NavItem id="gateways" label="Gateways" icon={IconGateway} />
+        <NavItem id="routing" label="Routing" icon={IconRouting} />
+
+        <div className="sidenav-section-label">Use</div>
+        <NavItem id="keys" label="API Keys" icon={IconKeys} />
+        <NavItem id="playground" label="Playground" icon={IconPlayground} />
+
+        <div className="sidenav-divider" />
+        <NavItem id="account" label="Account" icon={IconAccount} />
+      </nav>
+
+      <div className="sidenav-footer">
+        <StatusBadge status={status} error={error} />
+        <div className="sidenav-user">
+          <span className="sidenav-user-name">{user?.name}</span>
+          <button className="btn btn--sm btn--ghost" onClick={onLogout} title="Log out">
+            <IconLogout />
+            <span className="sr-only">Log out</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+// ─── Section Header ───────────────────────────────────────────────────────────
+function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className="admin-content-header">
+      <div>
+        <h2>{title}</h2>
+        {subtitle && <p>{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
+
+// ─── Overview Tab ─────────────────────────────────────────────────────────────
+function OverviewTab({ user, keys }: { user: UserInfo | null; keys: ApiKeyInfo[] }) {
+  const activeKeys = keys.filter((k) => !k.revoked).length;
+  const modelCount = user?.customCatalog?.length ?? 0;
+  const profileCount = user?.profiles?.length ?? 0;
+  const isNewUser = activeKeys === 0 && modelCount === 0;
+
+  return (
+    <div className="animate-fade-in">
+      <div className="stat-grid mb-6">
+        <div className="card">
+          <div className="card-body" style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
+            <div style={{ width: 44, height: 44, borderRadius: "var(--radius-lg)", background: "var(--accent-dim)", color: "var(--accent)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <IconKeys />
+            </div>
+            <div>
+              <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)" }}>Active API Keys</div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--text-primary)", marginTop: "var(--space-1)" }}>{activeKeys}</div>
+            </div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-body" style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
+            <div style={{ width: 44, height: 44, borderRadius: "var(--radius-lg)", background: "var(--success-dim)", color: "var(--success)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <IconModels />
+            </div>
+            <div>
+              <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)" }}>Custom Models</div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--text-primary)", marginTop: "var(--space-1)" }}>{modelCount}</div>
+            </div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-body" style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
+            <div style={{ width: 44, height: 44, borderRadius: "var(--radius-lg)", background: "var(--warning-dim)", color: "var(--warning)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <IconRouting />
+            </div>
+            <div>
+              <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)" }}>Routing Profiles</div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--text-primary)", marginTop: "var(--space-1)" }}>{profileCount}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {isNewUser && (
+        <div className="card">
+          <div className="card-header">
+            <h3>Getting Started</h3>
+          </div>
+          <div className="card-body">
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+              {[
+                { step: 1, label: "Add your models", desc: "Define which models the router can choose from.", tab: "models" as TabId },
+                { step: 2, label: "Configure routing", desc: "Set up your classifier, instructions, and upstream API key.", tab: "routing" as TabId },
+                { step: 3, label: "Create an API key", desc: "Provision a key to use the proxy in your apps.", tab: "keys" as TabId },
+                { step: 4, label: "Test in Playground", desc: "Send a message and see which model gets selected.", tab: "playground" as TabId },
+              ].map(({ step, label, desc }) => (
+                <div key={step} style={{ display: "flex", gap: "var(--space-4)", alignItems: "flex-start" }}>
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--accent-dim)", border: "1px solid rgba(34,211,238,0.3)", display: "grid", placeItems: "center", flexShrink: 0, fontSize: "0.75rem", fontWeight: 700, color: "var(--accent)" }}>
+                    {step}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--text-primary)" }}>{label}</div>
+                    <div style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>{desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── API Keys Tab ─────────────────────────────────────────────────────────────
+function ApiKeysTab({
   keys,
   onKeysChanged,
   setStatus,
   setError,
 }: {
-  user: UserInfo | null;
   keys: ApiKeyInfo[];
   onKeysChanged: () => void;
   setStatus: (s: string) => void;
@@ -203,44 +324,6 @@ function DashboardTab({
 
   return (
     <div className="animate-fade-in">
-      {/* Quick Stats */}
-      <div className="form-row mb-6">
-        <div className="card">
-          <div className="card-body" style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
-            <div style={{ width: 48, height: 48, borderRadius: "var(--radius-lg)", background: "var(--accent-dim)", display: "grid", placeItems: "center" }}>
-              <IconRouting className="text-secondary" style={{ width: 24, height: 24, color: "var(--accent)" } as any} />
-            </div>
-            <div>
-              <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)" }}>Active API Keys</div>
-              <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--text-primary)", marginTop: "var(--space-1)" }}>{activeKeys}</div>
-            </div>
-          </div>
-        </div>
-        <div className="card">
-          <div className="card-body" style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
-            <div style={{ width: 48, height: 48, borderRadius: "var(--radius-lg)", background: "var(--success-dim)", display: "grid", placeItems: "center" }}>
-              <IconModels className="text-secondary" style={{ width: 24, height: 24, color: "var(--success)" } as any} />
-            </div>
-            <div>
-              <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)" }}>Custom Models</div>
-              <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--text-primary)", marginTop: "var(--space-1)" }}>{user?.customCatalog?.length || 0}</div>
-            </div>
-          </div>
-        </div>
-        <div className="card">
-          <div className="card-body" style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
-            <div style={{ width: 48, height: 48, borderRadius: "var(--radius-lg)", background: "var(--warning-dim)", display: "grid", placeItems: "center" }}>
-              <IconRouting className="text-secondary" style={{ width: 24, height: 24, color: "var(--warning)" } as any} />
-            </div>
-            <div>
-              <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)" }}>Routing Profiles</div>
-              <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--text-primary)", marginTop: "var(--space-1)" }}>{user?.profiles?.length || 0}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* API Keys Section */}
       <div className="card">
         <div className="card-header">
           <h3>API Keys</h3>
@@ -254,12 +337,12 @@ function DashboardTab({
   );
 }
 
-// ─── Main Component ────────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 export function AdminConsole() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [keys, setKeys] = useState<ApiKeyInfo[]>([]);
-  const [activeTab, setActiveTab] = useState<TabId>("dashboard");
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [status, setStatus] = useState("Loading...");
   const [error, setError] = useState<string | undefined>();
 
@@ -305,7 +388,7 @@ export function AdminConsole() {
     setUser(null);
     setKeys([]);
     setStatus("Logged out");
-    setActiveTab("dashboard");
+    setActiveTab("overview");
   }
 
   async function saveUserData(updates: Partial<UserInfo>) {
@@ -323,15 +406,11 @@ export function AdminConsole() {
       blocklist: updatedUser.blocklist,
       custom_catalog: updatedUser.customCatalog,
       profiles: updatedUser.profiles,
-      upstream_base_url: updatedUser.upstreamBaseUrl,
       classifier_base_url: updatedUser.classifierBaseUrl,
-      clear_upstream_api_key: updatedUser.clearUpstreamApiKey,
       clear_classifier_api_key: updatedUser.clearClassifierApiKey,
+      show_model_in_response: updatedUser.showModelInResponse,
     };
 
-    if (updatedUser.upstreamApiKeyInput.trim().length > 0) {
-      payload.upstream_api_key = updatedUser.upstreamApiKeyInput.trim();
-    }
     if (updatedUser.classifierApiKeyInput.trim().length > 0) {
       payload.classifier_api_key = updatedUser.classifierApiKeyInput.trim();
     }
@@ -357,137 +436,120 @@ export function AdminConsole() {
     return <AuthGate onAuthenticated={() => void loadData()} />;
   }
 
+  const sectionMeta: Record<TabId, { title: string; subtitle: string }> = {
+    overview: { title: "Overview", subtitle: "Health and activity at a glance" },
+    gateways: { title: "Gateways", subtitle: "Register upstream API providers and assign models to each gateway" },
+    routing: { title: "Routing", subtitle: "Configure the classifier, rules, and routing profiles" },
+    keys: { title: "API Keys", subtitle: "Provision and manage access keys for the proxy" },
+    playground: { title: "Playground", subtitle: "Send test requests and inspect routing decisions" },
+    account: { title: "Account", subtitle: "Your profile information" },
+  };
+
   return (
-    <div className="animate-fade-in">
-      {/* Header Bar */}
-      <div className="admin-header">
-        <div>
-          <h1>Admin Console</h1>
-          <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>
-            Manage your Auto Router configuration and API keys
-          </p>
-        </div>
-        <div className="admin-header-meta">
-          <StatusBadge status={status} error={error} />
-          <div className="user-pill">
-            <span style={{ color: "var(--text-secondary)" }}>{user?.name}</span>
-            <button className="btn btn--sm btn--ghost" onClick={() => void handleLogout()}>
-              <IconLogout />
-              <span className="sr-only">Log out</span>
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="admin-layout animate-fade-in">
+      <SideNav
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        user={user}
+        onLogout={() => void handleLogout()}
+        status={status}
+        error={error}
+      />
 
-      {/* Tab Navigation */}
-      <div className="mb-6">
-        <TabNav activeTab={activeTab} onTabChange={setActiveTab} />
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === "dashboard" && (
-        <DashboardTab
-          user={user}
-          keys={keys}
-          onKeysChanged={() => void loadData()}
-          setStatus={setStatus}
-          setError={setError}
+      <div>
+        <SectionHeader
+          title={sectionMeta[activeTab].title}
+          subtitle={sectionMeta[activeTab].subtitle}
         />
-      )}
 
-      {activeTab === "playground" && (
-        <div className="animate-fade-in">
-          <PlaygroundPanel />
-        </div>
-      )}
+        {activeTab === "overview" && (
+          <OverviewTab user={user} keys={keys} />
+        )}
 
-      {activeTab === "routing" && (
-        <div className="animate-fade-in">
-          <div className="card">
-            <div className="card-header">
-              <h3>Router Configuration</h3>
-              <StatusBadge status={status} error={error} />
-            </div>
-            <div className="card-body">
-              <RouterConfigPanel
-                config={{
-                  defaultModel: user?.defaultModel ?? null,
-                  classifierModel: user?.classifierModel ?? null,
-                  routingInstructions: user?.routingInstructions ?? null,
-                  blocklist: user?.blocklist ?? null,
-                  upstreamBaseUrl: user?.upstreamBaseUrl ?? null,
-                  classifierBaseUrl: user?.classifierBaseUrl ?? null,
-                  upstreamApiKeyConfigured: user?.upstreamApiKeyConfigured ?? false,
-                  classifierApiKeyConfigured: user?.classifierApiKeyConfigured ?? false,
-                  upstreamApiKeyInput: user?.upstreamApiKeyInput ?? "",
-                  classifierApiKeyInput: user?.classifierApiKeyInput ?? "",
-                  clearUpstreamApiKey: user?.clearUpstreamApiKey ?? false,
-                  clearClassifierApiKey: user?.clearClassifierApiKey ?? false,
-                }}
-                onChange={(updated) => user && setUser({ ...user, ...updated })}
-                onSave={saveUserData}
-              />
-            </div>
+        {activeTab === "gateways" && (
+          <div className="animate-fade-in">
+            <GatewayPanel
+              onStatus={setStatus}
+              onError={(e) => setError(e)}
+            />
           </div>
+        )}
 
-          <div className="card mt-6">
-            <div className="card-header">
-              <h3>Routing Profiles</h3>
-            </div>
-            <div className="card-body">
-              <ProfilesPanel
-                profiles={user?.profiles ?? null}
-                onChange={(profiles) => user && setUser({ ...user, profiles })}
-                onSave={() => saveUserData({})}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === "models" && (
-        <div className="animate-fade-in">
-          <div className="card">
-            <div className="card-header">
-              <h3>Model Catalog</h3>
-              <p style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
-                Define which models the router can choose from
-              </p>
-            </div>
-            <div className="card-body">
-              <CatalogEditorPanel
-                catalog={user?.customCatalog ?? null}
-                onChange={(catalog) => user && setUser({ ...user, customCatalog: catalog })}
-                onSave={() => saveUserData({})}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === "account" && (
-        <div className="animate-fade-in">
-          <div className="card">
-            <div className="card-header">
-              <h3>Account Settings</h3>
-            </div>
-            <div className="card-body">
-              <div className="form-group">
-                <label className="form-label">Display Name</label>
-                <input className="input" type="text" value={user?.name || ""} disabled />
-                <span className="form-hint">Contact support to change your display name</span>
+        {activeTab === "routing" && (
+          <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
+            <div className="card">
+              <div className="card-header">
+                <h3>Router Configuration</h3>
               </div>
+              <div className="card-body">
+                <RouterConfigPanel
+                  config={{
+                    defaultModel: user?.defaultModel ?? null,
+                    classifierModel: user?.classifierModel ?? null,
+                    routingInstructions: user?.routingInstructions ?? null,
+                    blocklist: user?.blocklist ?? null,
+                    classifierBaseUrl: user?.classifierBaseUrl ?? null,
+                    classifierApiKeyConfigured: user?.classifierApiKeyConfigured ?? false,
+                    classifierApiKeyInput: user?.classifierApiKeyInput ?? "",
+                    clearClassifierApiKey: user?.clearClassifierApiKey ?? false,
+                    showModelInResponse: user?.showModelInResponse ?? false,
+                  }}
+                  onChange={(updated) => user && setUser({ ...user, ...updated })}
+                  onSave={saveUserData}
+                />
+              </div>
+            </div>
 
-              {user?.email && (
-                <div className="form-group mt-4">
-                  <label className="form-label">Email</label>
-                  <input className="input" type="text" value={user.email} disabled />
-                </div>
-              )}
+            <div className="card">
+              <div className="card-header">
+                <h3>Routing Profiles</h3>
+              </div>
+              <div className="card-body">
+                <ProfilesPanel
+                  profiles={user?.profiles ?? null}
+                  onChange={(profiles) => user && setUser({ ...user, profiles })}
+                  onSave={() => saveUserData({})}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {activeTab === "keys" && (
+          <ApiKeysTab
+            keys={keys}
+            onKeysChanged={() => void loadData()}
+            setStatus={setStatus}
+            setError={setError}
+          />
+        )}
+
+        {activeTab === "playground" && (
+          <div className="animate-fade-in">
+            <PlaygroundPanel profiles={user?.profiles} />
+          </div>
+        )}
+
+        {activeTab === "account" && (
+          <div className="animate-fade-in">
+            <div className="card">
+              <div className="card-body">
+                <div className="form-group">
+                  <label className="form-label">Display Name</label>
+                  <input className="input" type="text" value={user?.name || ""} disabled />
+                  <span className="form-hint">Contact support to change your display name</span>
+                </div>
+                {user?.email && (
+                  <div className="form-group mt-4">
+                    <label className="form-label">Email</label>
+                    <input className="input" type="text" value={user.email} disabled />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

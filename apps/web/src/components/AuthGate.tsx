@@ -137,7 +137,7 @@ export function AuthGate({ onAuthenticated }: Props) {
               width: 80,
               height: 80,
               borderRadius: "var(--radius-xl)",
-              background: "linear-gradient(135deg, var(--accent-dim), rgba(129, 140, 248, 0.15))",
+              background: "var(--accent-dim)",
               display: "grid",
               placeItems: "center",
               marginBottom: "var(--space-5)",
@@ -164,7 +164,7 @@ export function AuthGate({ onAuthenticated }: Props) {
             }}
           >
             {isLogin
-              ? "Sign in to access your Auto Router dashboard"
+              ? "Sign in to access your CustomRouter dashboard"
               : "Sign up to start routing your LLM requests"}
           </p>
         </div>

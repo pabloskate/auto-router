@@ -57,7 +57,7 @@ export function isConfigMode(messages: ChatMessage[]): boolean {
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i]!;
     const text = extractText(msg.content);
-    if (msg.role === "user" && text.trimStart().startsWith(CONFIG_CHAT.TRIGGER_KEYWORD)) {
+    if (msg.role === "user" && text.includes(CONFIG_CHAT.TRIGGER_KEYWORD)) {
       lastConfigIdx = i;
     }
     if (msg.role === "assistant" && text.includes(CONFIG_CHAT.END_KEYWORD)) {
@@ -76,7 +76,7 @@ const TOOLS = [
     function: {
       name: "get_current_config",
       description:
-        "Returns the user's current Auto Router configuration including routing instructions, default model, classifier model, blocklist, custom model catalog, and profiles.",
+        "Returns the user's current CustomRouter configuration including routing instructions, default model, classifier model, blocklist, custom model catalog, and profiles.",
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
@@ -192,6 +192,24 @@ const TOOLS = [
   {
     type: "function" as const,
     function: {
+      name: "update_show_model_in_response",
+      description:
+        "Toggle whether the router appends the selected model ID to non-tool responses. When enabled, responses will include the model ID at the end (e.g., '#anthropic/claude-sonnet-4').",
+      parameters: {
+        type: "object",
+        properties: {
+          enabled: {
+            type: "boolean",
+            description: "Whether to show the model ID in responses",
+          },
+        },
+        required: ["enabled"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
       name: "add_to_catalog",
       description:
         "Add a model to the user's custom catalog. The custom catalog defines which models the router can choose from and how they should be used. The model ID is validated against OpenRouter before saving.",
@@ -278,16 +296,17 @@ function buildSystemPrompt(auth: AuthResult): string {
       ? JSON.stringify(catalog, null, 2)
       : "(empty — system catalog is used as fallback)";
 
-  return `You are Auto Router's configuration assistant. The user has entered config mode by typing #config. Help them view and modify their router configuration.
+  return `You are CustomRouter's configuration assistant. The user has entered config mode by typing ${CONFIG_CHAT.TRIGGER_KEYWORD}. Help them view and modify their router configuration.
 
-## What Auto Router Does
-Auto Router is an LLM routing proxy that automatically selects the best model for each request. It uses a classifier LLM to read the user's prompt and pick from a catalog of available models.
+## What CustomRouter Does
+CustomRouter is an LLM routing proxy that automatically selects the best model for each request. It uses a classifier LLM to read the user's prompt and pick from a catalog of available models.
 
 ## User's Current Configuration
 
 **Default Model:** ${auth.defaultModel ?? "(not set — system default used)"}
 **Classifier Model:** ${auth.classifierModel ?? "(not set — system default used)"}
 **Blocklist:** ${auth.blocklist && auth.blocklist.length > 0 ? auth.blocklist.join(", ") : "(empty)"}
+**Show Model in Response:** ${auth.showModelInResponse ? "Enabled" : "Disabled"}
 
 **Routing Instructions:**
 ${auth.routingInstructions ?? "(not set)"}
@@ -305,6 +324,7 @@ You have tools to read and modify the configuration:
 - **update_default_model**: Change the fallback model (validated against OpenRouter)
 - **update_classifier_model**: Change the classifier model (validated against OpenRouter)
 - **update_blocklist**: Set the model blocklist
+- **update_show_model_in_response**: Toggle whether model IDs are shown in responses
 - **add_to_catalog**: Add a model to the custom catalog (validated)
 - **remove_from_catalog**: Remove a model from the catalog
 - **replace_catalog**: Replace the entire catalog (all models validated)
@@ -344,6 +364,7 @@ async function executeTool(
             blocklist: auth.blocklist,
             customCatalog: auth.customCatalog,
             profiles: auth.profiles,
+            showModelInResponse: auth.showModelInResponse,
           },
           null,
           2
@@ -449,6 +470,17 @@ async function executeTool(
       };
     }
 
+    case "update_show_model_in_response": {
+      const enabled = args.enabled as boolean;
+      await updateUserField(db, auth.userId, { show_model_in_response: enabled ? 1 : 0 });
+      auth.showModelInResponse = enabled;
+      return {
+        content: enabled
+          ? "Model ID will now be appended to non-tool responses (e.g., '#anthropic/claude-sonnet-4')."
+          : "Model ID will no longer be shown in responses.",
+      };
+    }
+
     case "add_to_catalog": {
       const id = args.id as string;
       const valid = await validateModelId(id);
@@ -538,10 +570,10 @@ async function executeTool(
 async function updateUserField(
   db: D1Database,
   userId: string,
-  fields: Record<string, string | null>
+  fields: Record<string, string | number | null>
 ): Promise<void> {
   const setClauses: string[] = [];
-  const values: (string | null)[] = [];
+  const values: (string | number | null)[] = [];
   let idx = 1;
 
   for (const [col, val] of Object.entries(fields)) {
@@ -624,8 +656,8 @@ export async function handleConfigChat(
   const cleanedMessages = messages.map((m) => {
     if (m.role === "user") {
       const text = extractText(m.content);
-      if (text.trimStart().startsWith(CONFIG_CHAT.TRIGGER_KEYWORD)) {
-        const cleaned = text.trimStart().slice(CONFIG_CHAT.TRIGGER_KEYWORD.length).trimStart();
+      if (text.includes(CONFIG_CHAT.TRIGGER_KEYWORD)) {
+        const cleaned = text.replace(CONFIG_CHAT.TRIGGER_KEYWORD, "").trim();
         return { ...m, content: cleaned || "Show me my current configuration." };
       }
     }

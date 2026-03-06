@@ -165,7 +165,7 @@ function EmptyState({ onGenerate }: { onGenerate: () => void }) {
       </div>
       <div className="empty-state-title">No API Keys Yet</div>
       <p className="empty-state-desc">
-        Generate your first API key to start making requests to the Auto Router.
+        Generate your first API key to start making requests to CustomRouter.
       </p>
       <button className="btn" onClick={onGenerate}>
         <IconPlus />

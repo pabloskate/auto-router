@@ -206,7 +206,7 @@ export default {
 
     return new Response(
       JSON.stringify({
-        service: env.ROUTER_NAME ?? "auto-router",
+        service: env.ROUTER_NAME ?? "custom-router",
         status: "ok"
       }),
       {

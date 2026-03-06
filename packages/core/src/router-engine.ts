@@ -173,11 +173,15 @@ export class RouterEngine {
         const phaseSignal = effectiveConfig.phaseCompleteSignal || "[PHASE_COMPLETE_SIGNAL]";
         const shouldBreakLock = hasPhaseCompleteSignal(messages, phaseSignal);
         const isLoop = isAgentLoop(messages);
+        const isToolEnabledRequest = tools.length > 0;
 
-        if (shouldBreakLock && !isLoop) {
+        if (shouldBreakLock && isToolEnabledRequest && !isLoop) {
           decisionReason = "initial_route"; // Breaking lock
           notes.push(`Phase complete signal detected. Breaking cache lock for routing.`);
         } else {
+          if (shouldBreakLock && !isToolEnabledRequest) {
+            notes.push("Phase complete signal detected but ignored for non-tool request. Keeping thread pin.");
+          }
           // Verify the pinned model exists in the allowed catalog
           const exists = allowedCatalog.some(m => m.id === activePin!.modelId);
           if (exists) {

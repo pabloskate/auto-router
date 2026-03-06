@@ -30,11 +30,22 @@ import {
 } from "@auto-router/core";
 
 import type { D1Database, KVNamespace } from "./cloudflare-types";
+import { ROUTER_CACHE } from "./constants";
 import { DEFAULT_CATALOG, DEFAULT_ROUTER_CONFIG } from "./defaults";
 import { getRuntimeBindings } from "./runtime";
 
 const ACTIVE_META_KEY = "router:active:meta";
 const ACTIVE_CATALOG_KEY = (version: string) => `router:active:catalog:${version}`;
+
+interface CachedConfig {
+  value: RouterConfig;
+  cachedAtMs: number;
+}
+
+interface CachedCatalog {
+  value: CatalogItem[];
+  cachedAtMs: number;
+}
 
 export interface IngestionRunSummary {
   id: string;
@@ -184,6 +195,8 @@ class D1PinStore implements PinStore {
 
 class CloudflareRepository implements RouterRepository {
   private readonly pinStore: PinStore;
+  private configCache: CachedConfig | null = null;
+  private catalogCache: CachedCatalog | null = null;
 
   constructor(
     private readonly db: D1Database,
@@ -193,6 +206,11 @@ class CloudflareRepository implements RouterRepository {
   }
 
   async getConfig(): Promise<RouterConfig> {
+    const nowMs = Date.now();
+    if (this.configCache && nowMs - this.configCache.cachedAtMs < ROUTER_CACHE.CONFIG_TTL_MS) {
+      return this.configCache.value;
+    }
+
     const row = await this.db
       .prepare(
         "SELECT config_json FROM router_config ORDER BY updated_at DESC LIMIT 1"
@@ -200,25 +218,35 @@ class CloudflareRepository implements RouterRepository {
       .first<{ config_json: string }>();
 
     const parsed = parseJson<RouterConfig>(row?.config_json);
-    return parsed ?? { ...DEFAULT_ROUTER_CONFIG };
+    const value = parsed ?? { ...DEFAULT_ROUTER_CONFIG };
+    this.configCache = { value, cachedAtMs: nowMs };
+    return value;
   }
 
   async setConfig(config: RouterConfig): Promise<void> {
+    const nowMs = Date.now();
     await this.db
       .prepare(
         "INSERT INTO router_config (version, config_json, updated_at) VALUES (?1, ?2, ?3)"
       )
-      .bind(config.version, JSON.stringify(config), new Date().toISOString())
+      .bind(config.version, JSON.stringify(config), new Date(nowMs).toISOString())
       .run();
+    this.configCache = { value: config, cachedAtMs: nowMs };
   }
 
   async getCatalog(): Promise<CatalogItem[]> {
+    const nowMs = Date.now();
+    if (this.catalogCache && nowMs - this.catalogCache.cachedAtMs < ROUTER_CACHE.CATALOG_TTL_MS) {
+      return this.catalogCache.value;
+    }
+
     const metaRaw = await this.kv.get(ACTIVE_META_KEY, { type: "text" });
     const meta = parseJson<{ version?: string }>(
       typeof metaRaw === "string" ? metaRaw : undefined
     );
 
     if (!meta?.version) {
+      this.catalogCache = { value: [], cachedAtMs: nowMs };
       return [];
     }
 
@@ -227,12 +255,16 @@ class CloudflareRepository implements RouterRepository {
       typeof catalogRaw === "string" ? catalogRaw : undefined
     );
 
-    return catalog ?? [...DEFAULT_CATALOG];
+    const value = catalog ?? [...DEFAULT_CATALOG];
+    this.catalogCache = { value, cachedAtMs: nowMs };
+    return value;
   }
 
   async setCatalog(version: string, catalog: CatalogItem[]): Promise<void> {
+    const nowMs = Date.now();
     await this.kv.put(ACTIVE_CATALOG_KEY(version), JSON.stringify(catalog));
     await this.kv.put(ACTIVE_META_KEY, JSON.stringify({ version }));
+    this.catalogCache = { value: catalog, cachedAtMs: nowMs };
   }
 
   async getExplanation(requestId: string): Promise<RoutingExplanation | null> {

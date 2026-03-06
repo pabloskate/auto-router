@@ -137,10 +137,11 @@ function buildEntriesFromResponsesInput(input: unknown): PromptEntry[] {
 export function buildPromptWindow(args: {
     messages?: ChatMessage[];
     input?: unknown;
+    prompt?: unknown;
 } = {}): string {
     const entries = [
         ...buildEntriesFromMessages(args.messages ?? []),
-        ...buildEntriesFromResponsesInput(args.input),
+        ...buildEntriesFromResponsesInput(args.input ?? args.prompt),
     ];
 
     if (entries.length === 0) {

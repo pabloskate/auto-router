@@ -34,7 +34,7 @@ type StreamChunk = {
 function IconSend({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
     </svg>
   );
 }
@@ -42,7 +42,7 @@ function IconSend({ className, style }: { className?: string; style?: React.CSSP
 function IconClear({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <svg className={className} style={style} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+      <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     </svg>
   );
 }
@@ -50,7 +50,7 @@ function IconClear({ className, style }: { className?: string; style?: React.CSS
 function IconKey({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <svg className={className} style={style} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 9.5l3 3L22 7l-3-3-3.5 3.5"/>
+      <circle cx="7.5" cy="15.5" r="5.5" /><path d="M21 2l-9.6 9.6" /><path d="M15.5 9.5l3 3L22 7l-3-3-3.5 3.5" />
     </svg>
   );
 }
@@ -58,7 +58,7 @@ function IconKey({ className, style }: { className?: string; style?: React.CSSPr
 function IconBot({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/>
+      <rect x="3" y="11" width="18" height="10" rx="2" /><circle cx="12" cy="5" r="2" /><path d="M12 7v4" /><line x1="8" y1="16" x2="8" y2="16" /><line x1="16" y1="16" x2="16" y2="16" />
     </svg>
   );
 }
@@ -66,7 +66,7 @@ function IconBot({ className, style }: { className?: string; style?: React.CSSPr
 function IconUser({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
     </svg>
   );
 }
@@ -74,7 +74,7 @@ function IconUser({ className, style }: { className?: string; style?: React.CSSP
 function IconModel({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <svg className={className} style={style} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+      <rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
     </svg>
   );
 }
@@ -82,7 +82,7 @@ function IconModel({ className, style }: { className?: string; style?: React.CSS
 function IconTime({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <svg className={className} style={style} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
     </svg>
   );
 }
@@ -90,7 +90,7 @@ function IconTime({ className, style }: { className?: string; style?: React.CSSP
 function IconSparkles({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>
+      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /><path d="M5 3v4" /><path d="M19 17v4" /><path d="M3 5h4" /><path d="M17 19h4" />
     </svg>
   );
 }
@@ -170,26 +170,16 @@ function EmptyState() {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export function PlaygroundPanel() {
+export function PlaygroundPanel({ profiles }: { profiles?: import("./ProfilesPanel").RouterProfile[] | null }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [model, setModel] = useState("auto");
-  const [apiKey, setApiKey] = useState("");
-  const [streaming, setStreaming] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStream, setCurrentStream] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load API key from localStorage on mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("auto_router_api_key");
-      if (stored) setApiKey(stored);
-    } catch {
-      // Ignore storage errors
-    }
-  }, []);
+  const streaming = true;
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -198,12 +188,6 @@ export function PlaygroundPanel() {
 
   const handleSubmit = useCallback(async () => {
     if (!input.trim() || loading) return;
-    
-    const bearerApiKey = apiKey.trim();
-    if (!bearerApiKey) {
-      setError("Please enter your Auto Router API key");
-      return;
-    }
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -232,7 +216,6 @@ export function PlaygroundPanel() {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          Authorization: `Bearer ${bearerApiKey}`,
         },
         body: JSON.stringify(payload),
       });
@@ -303,19 +286,13 @@ export function PlaygroundPanel() {
     } finally {
       setLoading(false);
     }
-  }, [apiKey, input, loading, model, messages, streaming]);
+  }, [input, loading, model, messages, streaming]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       void handleSubmit();
     }
-  };
-
-  const clearChat = () => {
-    setMessages([]);
-    setError(null);
-    setCurrentStream("");
   };
 
   return (
@@ -336,73 +313,22 @@ export function PlaygroundPanel() {
               alignItems: "flex-end",
             }}
           >
-            {/* API Key */}
-            <div className="form-group" style={{ flex: 1, minWidth: 200 }}>
-              <label className="form-label">
-                <IconKey style={{ width: 12, height: 12, display: "inline", marginRight: 4 } as any} />
-                API Key
-              </label>
-              <input
-                className="input input--mono"
-                type="password"
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value);
-                  try {
-                    localStorage.setItem("auto_router_api_key", e.target.value);
-                  } catch {}
-                }}
-                placeholder="ar_sk_..."
-              />
-            </div>
-
             {/* Model */}
             <div className="form-group" style={{ flex: 1, minWidth: 180 }}>
               <label className="form-label">Model</label>
-              <input
+              <select
                 className="input"
-                type="text"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                placeholder="auto"
-                list="model-suggestions"
-              />
-              <datalist id="model-suggestions">
-                <option value="auto" />
-                <option value="auto-cheap" />
-                <option value="auto-coding" />
-                <option value="openai/gpt-4o" />
-                <option value="anthropic/claude-3.5-sonnet" />
-                <option value="meta-llama/llama-3.1-70b" />
-              </datalist>
-            </div>
-
-            {/* Stream Toggle */}
-            <div className="form-group">
-              <label className="form-label">Stream</label>
-              <label
-                className="checkbox-wrapper"
-                style={{
-                  padding: "var(--space-3) var(--space-4)",
-                  background: "var(--bg-interactive)",
-                  borderRadius: "var(--radius-md)",
-                  border: "1px solid var(--border-default)",
-                }}
               >
-                <input
-                  type="checkbox"
-                  checked={streaming}
-                  onChange={(e) => setStreaming(e.target.checked)}
-                />
-                <span className="checkbox-label">Enable streaming</span>
-              </label>
+                <option value="auto">auto</option>
+                {profiles?.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.id} {p.name ? `(${p.name})` : ""}
+                  </option>
+                ))}
+              </select>
             </div>
-
-            {/* Clear Button */}
-            <button className="btn btn--secondary" onClick={clearChat} disabled={messages.length === 0}>
-              <IconClear />
-              Clear
-            </button>
           </div>
         </div>
       </div>
@@ -454,7 +380,7 @@ export function PlaygroundPanel() {
             }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
             {error}
           </div>
@@ -487,7 +413,7 @@ export function PlaygroundPanel() {
           <button
             className="btn"
             onClick={handleSubmit}
-            disabled={loading || !input.trim() || !apiKey.trim()}
+            disabled={loading || !input.trim()}
             style={{ alignSelf: "flex-end" }}
           >
             {loading ? (
@@ -517,11 +443,12 @@ export function PlaygroundPanel() {
                 fontSize: "0.75rem",
                 maxHeight: 200,
                 overflow: "auto",
+                maxWidth: "100%",
+                wordBreak: "break-word",
               }}
             >
               {JSON.stringify(
                 {
-                  authorization: apiKey.trim() ? "Bearer ar_sk_***" : "(missing)",
                   model,
                   messages: messages
                     .filter((m) => m.role !== "system")

@@ -6,7 +6,7 @@
 
 ## What This Is
 
-Auto Router is an **OpenAI-compatible LLM routing proxy** deployed on Cloudflare Workers. It sits in front of OpenRouter and automatically selects the best model for each request based on:
+CustomRouter is a **highly customizable LLM routing proxy** deployed on Cloudflare Workers. It allows you to build a "composite model" by routing each request to the best underlying model based on:
 
 1. A cheap frontier LLM classifier that reads the user's prompt
 2. Thread stickiness (pinning a model for multi-turn conversations)

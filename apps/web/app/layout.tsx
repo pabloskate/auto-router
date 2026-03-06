@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Auto Router",
-  description: "Intelligent LLM routing proxy — automatically picks the best model for every request"
+  title: "CustomRouter",
+  description: "Build your ultimate composite model. Route requests to your favorite models based on custom rules."
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

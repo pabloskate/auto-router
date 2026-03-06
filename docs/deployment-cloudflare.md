@@ -8,9 +8,10 @@
 
 ## 1. Create infrastructure
 
-1. Create D1 database named `auto-router`.
+1. Create D1 database named `custom-router`.
 2. Create KV namespace for router artifacts and thread pins.
 3. Apply schema in `infra/d1/schema.sql`.
+4. **After deploying new versions**: Run any migrations in `infra/d1/migrations/` if the schema changed.
 
 ## 2. Configure bindings
 
@@ -41,6 +42,18 @@ Set secrets:
 
 - Trigger `POST /api/v1/router/recompute` once after deploy with `Authorization: Bearer <ADMIN_SECRET>`.
 - Confirm artifact appears via `GET /api/v1/router/scorecard/current`.
+
+## Migrations
+
+When the schema changes, run migrations against your production D1 database:
+
+```bash
+# From project root (ensure wrangler is logged in: wrangler login)
+npx wrangler d1 execute custom-router --remote --file=infra/d1/migrations/001_add_show_model_in_response.sql --config apps/web/wrangler.toml
+npx wrangler d1 execute custom-router --remote --file=infra/d1/migrations/002_add_user_gateways.sql --config apps/web/wrangler.toml
+```
+
+If a migration was already applied, you may see a "duplicate column name" or "table already exists" error — that's fine, both migrations use `IF NOT EXISTS` / `ADD COLUMN` guards.
 
 ## Runtime behavior
 

@@ -96,6 +96,16 @@ export const CLASSIFIER = {
   MAX_TOKENS: 600,
 } as const;
 
+// ── Router Data Cache ────────────────────────────────────────────────────────
+//
+// In-worker cache TTLs for repository reads. These reduce D1/KV round-trips
+// on hot isolates while keeping config/catalog freshness bounded.
+
+export const ROUTER_CACHE = {
+  CONFIG_TTL_MS: 10 * 1000,
+  CATALOG_TTL_MS: 10 * 1000,
+} as const;
+
 // ── Upstream (OpenAI-compatible) Transport ──────────────────────────────────
 
 // ── Config Chat ──────────────────────────────────────────────────────────────
@@ -106,7 +116,7 @@ export const CLASSIFIER = {
 // the orchestrator LLM emits #endconfig.
 
 export const CONFIG_CHAT = {
-  TRIGGER_KEYWORD: "#config",
+  TRIGGER_KEYWORD: "$$config",
   END_KEYWORD: "#endconfig",
 
   // Tool-use LLM that interprets the user's config intent and calls tools.
@@ -133,5 +143,5 @@ export const UPSTREAM = {
 
   // OpenRouter-specific metadata header; sent only when host is openrouter.ai.
   OPENROUTER_TITLE_HEADER: "X-Title",
-  OPENROUTER_TITLE_VALUE: "auto-router",
+  OPENROUTER_TITLE_VALUE: "custom-router",
 } as const;

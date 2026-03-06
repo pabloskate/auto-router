@@ -91,12 +91,15 @@ export interface RouterRequestLike {
   model: string;
   messages?: ChatMessage[];
   input?: unknown;
+  prompt?: unknown;
   tools?: RouterTool[];
   previous_response_id?: string;
 }
 
 export interface ThreadFingerprintInput {
   messages?: ChatMessage[];
+  input?: unknown;
+  prompt?: unknown;
   tools?: RouterTool[];
   previousResponseId?: string;
   profileId?: string;  // Isolates pins per named profile
@@ -161,6 +164,7 @@ export interface CatalogItem {
   thinking?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
   whenToUse?: string;
   description?: string;
+  gatewayId?: string;  // injected at catalog-build time; not stored in gateway models_json
 }
 
 export const AUTO_MODELS = new Set(["auto", "router/auto"]);

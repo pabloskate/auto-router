@@ -8,7 +8,7 @@ import { useState } from "react";
 // Redesigned router configuration with clear section grouping:
 //
 // Sections:
-//   1. Connection — Base URLs and API keys
+//   1. Classifier Settings — Optional separate endpoint for the routing classifier
 //   2. Routing Logic — Default/classifier models, instructions, blocklist
 //
 // Each section has its own visual grouping with clear hierarchy.
@@ -19,14 +19,11 @@ interface RouterConfigFields {
   classifierModel: string | null;
   routingInstructions: string | null;
   blocklist: string[] | null;
-  upstreamBaseUrl: string | null;
   classifierBaseUrl: string | null;
-  upstreamApiKeyConfigured: boolean;
   classifierApiKeyConfigured: boolean;
-  upstreamApiKeyInput: string;
   classifierApiKeyInput: string;
-  clearUpstreamApiKey: boolean;
   clearClassifierApiKey: boolean;
+  showModelInResponse: boolean;
 }
 
 interface Props {
@@ -116,29 +113,17 @@ function SectionHeader({
   );
 }
 
-// ─── Connection Section ───────────────────────────────────────────────────────
-function ConnectionSection({ config, onChange }: { config: RouterConfigFields; onChange: (c: RouterConfigFields) => void }) {
+// ─── Classifier Section ───────────────────────────────────────────────────────
+function ClassifierSection({ config, onChange }: { config: RouterConfigFields; onChange: (c: RouterConfigFields) => void }) {
   return (
     <div style={{ marginBottom: "var(--space-8)" }}>
       <SectionHeader
         icon={IconLink}
-        title="Connection Settings"
-        description="Configure how the Auto Router connects to your upstream LLM providers"
+        title="Classifier Settings"
+        description="Configure a separate endpoint for the routing classifier (optional — defaults to the first gateway)"
       />
 
-      <div className="form-row" style={{ marginBottom: "var(--space-5)" }}>
-        <div className="form-group">
-          <label className="form-label">OpenAI-Compatible Base URL</label>
-          <input
-            className="input"
-            type="text"
-            value={config.upstreamBaseUrl || ""}
-            onChange={(e) => onChange({ ...config, upstreamBaseUrl: e.target.value })}
-            placeholder="https://openrouter.ai/api/v1"
-          />
-          <span className="form-hint">Default: OpenRouter. Used for all routed inference calls.</span>
-        </div>
-
+      <div className="form-row">
         <div className="form-group">
           <label className="form-label">Classifier Base URL</label>
           <input
@@ -148,49 +133,7 @@ function ConnectionSection({ config, onChange }: { config: RouterConfigFields; o
             onChange={(e) => onChange({ ...config, classifierBaseUrl: e.target.value })}
             placeholder="https://openrouter.ai/api/v1"
           />
-          <span className="form-hint">Optional. Falls back to main upstream URL if not set.</span>
-        </div>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group">
-          <label className="form-label">
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-              <IconKey style={{ width: 14, height: 14 } as any} />
-              Upstream API Key
-            </div>
-          </label>
-          <input
-            className="input"
-            type="password"
-            value={config.upstreamApiKeyInput}
-            onChange={(e) =>
-              onChange({
-                ...config,
-                upstreamApiKeyInput: e.target.value,
-                clearUpstreamApiKey: false,
-              })
-            }
-            placeholder={config.upstreamApiKeyConfigured ? "•••••••• (configured)" : "Paste API key..."}
-            autoComplete="new-password"
-          />
-          <span className="form-hint">Stored encrypted. Used for all inference requests.</span>
-          {config.upstreamApiKeyConfigured && (
-            <label className="checkbox-wrapper" style={{ marginTop: "var(--space-2)" }}>
-              <input
-                type="checkbox"
-                checked={config.clearUpstreamApiKey}
-                onChange={(e) =>
-                  onChange({
-                    ...config,
-                    clearUpstreamApiKey: e.target.checked,
-                    upstreamApiKeyInput: e.target.checked ? "" : config.upstreamApiKeyInput,
-                  })
-                }
-              />
-              <span className="checkbox-label">Clear saved key</span>
-            </label>
-          )}
+          <span className="form-hint">Optional. Falls back to the default gateway if not set.</span>
         </div>
 
         <div className="form-group">
@@ -214,7 +157,7 @@ function ConnectionSection({ config, onChange }: { config: RouterConfigFields; o
             placeholder={config.classifierApiKeyConfigured ? "•••••••• (configured)" : "Optional separate key..."}
             autoComplete="new-password"
           />
-          <span className="form-hint">Optional. Falls back to upstream key if not set.</span>
+          <span className="form-hint">Optional. Falls back to the gateway key if not set.</span>
           {config.classifierApiKeyConfigured && (
             <label className="checkbox-wrapper" style={{ marginTop: "var(--space-2)" }}>
               <input
@@ -244,7 +187,7 @@ function RoutingLogicSection({ config, onChange }: { config: RouterConfigFields;
       <SectionHeader
         icon={IconBrain}
         title="Routing Logic"
-        description="Configure how the Auto Router selects models for each request"
+        description="Configure how CustomRouter selects models for each request"
       />
 
       <div className="form-row" style={{ marginBottom: "var(--space-5)" }}>
@@ -319,6 +262,35 @@ function RoutingLogicSection({ config, onChange }: { config: RouterConfigFields;
         />
         <span className="form-hint">Comma-separated model IDs that the router will never use. These models are excluded from all routing decisions.</span>
       </div>
+
+      {/* Show Model in Response Toggle */}
+      <div className="form-group" style={{ marginTop: "var(--space-6)" }}>
+        <label
+          className="checkbox-wrapper"
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "var(--space-3)",
+            padding: "var(--space-4)",
+            background: "var(--bg-interactive)",
+            borderRadius: "var(--radius-md)",
+            border: "1px solid var(--border-default)",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={config.showModelInResponse}
+            onChange={(e) => onChange({ ...config, showModelInResponse: e.target.checked })}
+            style={{ marginTop: 2 }}
+          />
+          <div>
+            <span className="checkbox-label" style={{ fontWeight: 500 }}>Show model in responses</span>
+            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>
+              When enabled, the router will append the selected model ID (e.g., <code style={{ fontSize: "0.75rem" }}>#anthropic/claude-sonnet-4</code>) to the end of non-tool-call responses.
+            </p>
+          </div>
+        </label>
+      </div>
     </div>
   );
 }
@@ -335,8 +307,8 @@ export function RouterConfigPanel({ config, onChange, onSave }: Props) {
 
   return (
     <div>
-      {/* Connection Settings */}
-      <ConnectionSection config={config} onChange={onChange} />
+      {/* Classifier Settings */}
+      <ClassifierSection config={config} onChange={onChange} />
 
       {/* Divider */}
       <div style={{ height: 1, background: "var(--border-subtle)", margin: "var(--space-8) 0" }} />

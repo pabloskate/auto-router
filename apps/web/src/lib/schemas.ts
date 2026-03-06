@@ -69,7 +69,7 @@ export const chatCompletionSchema = z.object({
     )
     .optional(),
   stream: z.boolean().optional()
-});
+}).passthrough();
 
 export const responsesSchema = z.object({
   model: z.string().min(1),
@@ -77,4 +77,35 @@ export const responsesSchema = z.object({
   tools: chatCompletionSchema.shape.tools.optional(),
   previous_response_id: z.string().optional(),
   stream: z.boolean().optional()
+}).passthrough();
+
+export const completionsSchema = z.object({
+  model: z.string().min(1),
+  prompt: z.unknown().optional(),
+  stream: z.boolean().optional()
+}).passthrough();
+
+const catalogItemSchema = z.object({
+  id:          z.string().min(1),
+  name:        z.string().min(1),
+  whenToUse:   z.string().optional(),
+  description: z.string().optional(),
+  modality:    z.string().optional(),
+  thinking:    z.enum(["none", "minimal", "low", "medium", "high", "xhigh"]).optional(),
 });
+
+export const createGatewaySchema = z.object({
+  name:    z.string().min(1).max(100),
+  baseUrl: z.string().url(),
+  apiKey:  z.string().min(1),
+});
+
+export const updateGatewaySchema = z.object({
+  name:    z.string().min(1).max(100).optional(),
+  baseUrl: z.string().url().optional(),
+  apiKey:  z.string().min(1).optional(),
+  models:  z.array(catalogItemSchema).optional(),
+}).refine(
+  (d) => Object.keys(d).length > 0,
+  { message: "At least one field is required." }
+);

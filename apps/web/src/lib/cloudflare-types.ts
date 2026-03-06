@@ -1,8 +1,12 @@
+export interface D1RunResult {
+  meta?: { changes?: number; last_row_id?: number };
+}
+
 export interface D1PreparedStatement {
   bind(...values: unknown[]): D1PreparedStatement;
   first<T = unknown>(): Promise<T | null>;
   all<T = unknown>(): Promise<{ results: T[] }>;
-  run(): Promise<unknown>;
+  run(): Promise<D1RunResult>;
 }
 
 export interface D1Database {

@@ -281,13 +281,14 @@ describe("RouterEngine (LLM Router)", () => {
                 { role: "user", content: "Write a plan" },
                 { role: "assistant", content: "Here is the plan. [PHASE_COMPLETE_SIGNAL]" },
                 { role: "user", content: "Great, now write the code." }
-            ]
+            ],
+            tools: [{ type: "function", function: { name: "apply_patch" } }]
         };
 
-        const threadKey = buildThreadFingerprint({ messages: request.messages });
+        const threadKey = buildThreadFingerprint({ messages: request.messages, tools: request.tools });
         await pinStore.set({
             threadKey,
-            modelId: "anthropic/claude-3-haiku",
+            modelId: "anthropic/claude-3-opus",
             requestId: "old-req",
             pinnedAt: new Date().toISOString(),
             expiresAt: new Date(Date.now() + 10000).toISOString(),
@@ -308,6 +309,52 @@ describe("RouterEngine (LLM Router)", () => {
         expect(decision.selectedModel).toBe("openai/gpt-4o");
         expect(decision.explanation.decisionReason).toBe("initial_route");
         expect(decision.explanation.notes).toContain("Phase complete signal detected. Breaking cache lock for routing.");
+    });
+
+    it("should ignore phase complete signal for non-tool requests and keep pin", async () => {
+        const mockLlmRouter = vi.fn().mockResolvedValue({
+            selectedModel: "openai/gpt-4o",
+            confidence: 0.95,
+            signals: ["phase_change"]
+        });
+
+        const engine = new RouterEngine({ llmRouter: mockLlmRouter });
+        const pinStore = new MockPinStore();
+
+        const request: RouterRequestLike = {
+            model: "auto",
+            previous_response_id: "resp_phase_ignore",
+            messages: [
+                { role: "user", content: "Write a plan" },
+                { role: "assistant", content: "Here is the plan. [PHASE_COMPLETE_SIGNAL]" },
+                { role: "user", content: "Great, now write the code." }
+            ]
+        };
+
+        const threadKey = buildThreadFingerprint({ previousResponseId: request.previous_response_id });
+        await pinStore.set({
+            threadKey,
+            modelId: "anthropic/claude-3-opus",
+            requestId: "old-req",
+            pinnedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 10000).toISOString(),
+            turnCount: 2
+        });
+
+        const decision = await engine.decide({
+            requestId: "req-phase-ignore",
+            request,
+            config: { ...defaultConfig, phaseCompleteSignal: "[PHASE_COMPLETE_SIGNAL]" },
+            catalog,
+            catalogVersion: "v1",
+            pinStore
+        });
+
+        expect(mockLlmRouter).not.toHaveBeenCalled();
+        expect(decision.pinUsed).toBe(true);
+        expect(decision.selectedModel).toBe("anthropic/claude-3-opus");
+        expect(decision.explanation.decisionReason).toBe("thread_pin");
+        expect(decision.explanation.notes).toContain("Phase complete signal detected but ignored for non-tool request. Keeping thread pin.");
     });
 
     // ── Bug Replication Tests ──────────────────────────────────────────────────

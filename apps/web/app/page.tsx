@@ -49,8 +49,8 @@ export default function LandingPage() {
       {/* ─── Nav ─────────────────────────────────────────────────────── */}
       <nav className="landing-nav">
         <div className="landing-nav-brand">
-          <div className="landing-nav-mark">AR</div>
-          <span className="landing-nav-name">Auto Router</span>
+          <div className="landing-nav-mark">CR</div>
+          <span className="landing-nav-name">CustomRouter</span>
         </div>
         <div className="landing-nav-links">
           <a href="#features">Features</a>
@@ -62,16 +62,15 @@ export default function LandingPage() {
 
       {/* ─── Hero ────────────────────────────────────────────────────── */}
       <section className="hero">
-        <div className="hero-badge">OpenAI-Compatible LLM Router</div>
+        <div className="hero-badge">Customizable LLM Routing Proxy</div>
 
         <h1>
-          Never pick a model again.<br />
-          <span className="gradient-text">Just write prompts.</span>
+          CustomRouter<br />
+          <span className="gradient-text">Build the ultimate composite model.</span>
         </h1>
 
         <p className="hero-sub">
-          Auto Router reads every prompt and sends it to the right model from your catalog.
-          Claude for code. GPT for chat. Gemini for reasoning. One endpoint, zero if-statements.
+          Combine your favorite models into a single, unified API. Create entirely custom routing rules to direct each task to the perfect model—Claude for code, GPT for speed, or Gemini for reasoning.
         </p>
 
         <div className="hero-actions">
@@ -130,11 +129,9 @@ export default function LandingPage() {
       {/* ─── The Idea ────────────────────────────────────────────────── */}
       <section className="landing-section">
         <div className="section-label">The Idea</div>
-        <h2 className="section-heading">You already know which model is best. Encode it.</h2>
+        <h2 className="section-heading">Create a composite intelligence.</h2>
         <p className="section-desc">
-          You know Claude is better for code and GPT is faster for simple tasks.
-          But implementing that logic at runtime &mdash; with fallbacks, thread continuity,
-          and cost awareness &mdash; is a different problem entirely.
+          No single model is best at everything. Bring your chosen models together under one endpoint and define custom rules for exactly when to use each one. Build the optimal blend of capabilities, speed, and cost.
         </p>
 
         <div className="problem-grid">
@@ -165,10 +162,9 @@ export default function LandingPage() {
       {/* ─── How It Works ────────────────────────────────────────────── */}
       <section className="landing-section" id="how-it-works">
         <div className="section-label">How It Works</div>
-        <h2 className="section-heading">One line in your code. All the smarts in ours.</h2>
+        <h2 className="section-heading">Your models. Your rules. One API.</h2>
         <p className="section-desc">
-          Tell us which models you trust and when to use them. We handle the rest:
-          reading prompts, picking models, failing over, and keeping conversations on track.
+          Configure gateways, define your model catalog, and write natural language routing instructions. We'll direct every prompt to its ideal model while you code against a single OpenAI-compatible endpoint.
         </p>
 
         <div className="flow-container">
@@ -234,10 +230,10 @@ export default function LandingPage() {
       {/* ─── Features ────────────────────────────────────────────────── */}
       <section className="landing-section" id="features">
         <div className="section-label centered">What You Get</div>
-        <h2 className="section-heading centered">Smart routing. Zero headaches.</h2>
+        <h2 className="section-heading centered">Total control over model routing.</h2>
         <p className="section-desc centered">
-          Everything you need to stop worrying about model selection—
-          so you can focus on building.
+          Everything you need to orchestrate multiple models effortlessly
+          and define your perfect routing strategy.
         </p>
 
         <div className="features-grid">
@@ -254,10 +250,10 @@ export default function LandingPage() {
           <div className="feature-cell">
             <div className="feature-icon-row">
               <div className="feature-dot indigo" />
-              <h3>Plain English Rules</h3>
+              <h3>Fully Customizable Rules</h3>
             </div>
             <p>
-              Just tell us "Use Claude for code" or "Pick the cheapest model for simple questions." No JSON, no code, no redeploys.
+              Write plain English instructions to dictate routing. "Use Claude for code" or "Pick the cheapest model for simple questions." No code required.
             </p>
           </div>
 
@@ -314,7 +310,7 @@ export default function LandingPage() {
 
         <div className="compare">
           <div className="compare-pane">
-            <div className="compare-header before">Without Auto Router</div>
+            <div className="compare-header before">Without CustomRouter</div>
             <div className="compare-body plain">
               <div className="compare-item">
                 <span className="compare-x">&#x2718;</span>
@@ -336,7 +332,7 @@ export default function LandingPage() {
           </div>
 
           <div className="compare-pane">
-            <div className="compare-header after">With Auto Router</div>
+            <div className="compare-header after">With CustomRouter</div>
             <div className="compare-body plain">
               <div className="compare-item">
                 <span className="compare-check">&#x2714;</span>
@@ -401,9 +397,9 @@ export default function LandingPage() {
 
       {/* ─── Bottom CTA ──────────────────────────────────────────────── */}
       <section className="bottom-cta">
-        <h2>Define your routing strategy in minutes.</h2>
+        <h2>Build your ultimate composite model.</h2>
         <p>
-          Open source. Self-hosted on Cloudflare. Add your models, write your rules,
+          Open source. Self-hosted on Cloudflare. Add your favorite models, write custom rules,
           and start routing.
         </p>
         <div className="bottom-cta-actions">
@@ -419,7 +415,7 @@ export default function LandingPage() {
       {/* ─── Footer ──────────────────────────────────────────────────── */}
       <footer className="landing-footer">
         <div className="landing-footer-left">
-          Auto Router &mdash; open-source LLM routing proxy
+          CustomRouter &mdash; open-source LLM routing proxy
         </div>
         <div className="landing-footer-right">
           <a href="/admin">Dashboard</a>

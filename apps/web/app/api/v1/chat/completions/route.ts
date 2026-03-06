@@ -1,5 +1,6 @@
 import { authenticateRequest, authenticateSession } from "@/src/lib/auth";
 import { isConfigMode, handleConfigChat } from "@/src/lib/config-chat";
+import { loadGatewaysWithMigration, gatewayRowToPublic } from "@/src/lib/gateway-store";
 import { routeAndProxy } from "@/src/lib/router-service";
 import { chatCompletionSchema } from "@/src/lib/schemas";
 import { json } from "@/src/lib/http";
@@ -48,6 +49,14 @@ export async function POST(request: Request): Promise<Response> {
     return handleConfigChat(parsed.data.messages ?? [], auth, bindings, parsed.data.stream ?? false);
   }
 
+  const gatewayRows = await loadGatewaysWithMigration({
+    db: bindings.ROUTER_DB,
+    userId: auth.userId,
+    upstreamBaseUrl: auth.upstreamBaseUrl ?? null,
+    upstreamApiKeyEnc: auth.upstreamApiKeyEnc ?? null,
+    customCatalogJson: auth.customCatalog ? JSON.stringify(auth.customCatalog) : null,
+  }).then((rows) => rows.map(gatewayRowToPublic)).catch(() => []);
+
   const result = await routeAndProxy({
     body: parsed.data,
     apiPath: "/chat/completions",
@@ -59,10 +68,10 @@ export async function POST(request: Request): Promise<Response> {
       routingInstructions: auth.routingInstructions,
       blocklist: auth.blocklist,
       profiles: auth.profiles,
-      upstreamBaseUrl: auth.upstreamBaseUrl,
-      upstreamApiKeyEnc: auth.upstreamApiKeyEnc,
+      gatewayRows,
       classifierBaseUrl: auth.classifierBaseUrl,
       classifierApiKeyEnc: auth.classifierApiKeyEnc,
+      showModelInResponse: auth.showModelInResponse,
     },
   });
 
