@@ -14,9 +14,7 @@ const contentSecurityPolicy = [
 
 const nextConfig = {
   reactStrictMode: true,
-  experimental: {
-    typedRoutes: true
-  },
+  typedRoutes: true,
   async headers() {
     return [
       {

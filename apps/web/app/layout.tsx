@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "CustomRouter",
-  description: "Build your ultimate composite model. Route requests to your favorite models based on custom rules."
+  description: "Self-hostable, OpenAI-compatible LLM router with BYOK, explainability, and Cloudflare deployment support."
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,80 +1,56 @@
-# CustomRouter v1
+# CustomRouter
 
-Build your ultimate composite model. An entirely customizable LLM routing proxy that directs each prompt to the perfect model based on your natural language rules. Features intelligent failover and thread stickiness, all behind a single OpenAI-compatible endpoint.
+CustomRouter is a self-hostable, OpenAI-compatible LLM routing proxy. Point any OpenAI SDK at your `/api/v1` base URL, send `model: "auto"`, and let the router choose the best upstream model using your rules, thread stickiness, and explainable fallbacks.
 
-## Monorepo Layout
+## Open-Core Boundary
 
-- `apps/web`: Next.js API + minimal admin UI.
-- `apps/ingest-worker`: Cloudflare Cron worker for daily scorecard refresh.
-- `packages/core`: routing engine, classifier, stickiness policy.
-- `packages/data`: Artificial Analysis + OpenRouter adapters and artifact builder.
-- `infra/d1/schema.sql`: D1 schema.
+This public repo contains the full self-hostable product:
 
-## Compatibility Contract
+- `apps/web` for the API routes and admin UI
+- `apps/ingest-worker` for catalog refresh jobs
+- `packages/core` for routing logic
+- `packages/data` for catalog adapters
+- `infra/d1` for the D1 schema and migrations
+
+The following intentionally stay out of the public repo:
+
+- marketing site, pricing, and billing
+- hosted service provisioning and operations
+- backups, alerts, support tooling, and internal runbooks
+
+The commercial model is managed BYOK hosting and assisted self-hosting, not a separate closed router implementation.
+
+Recommended repo split:
+
+- `custom-router` for the public self-hostable product
+- `custom-router-cloud` for the private marketing, billing, provisioning, and ops layer
+
+## What Ships Here
 
 - OpenAI-compatible endpoints:
   - `POST /api/v1/chat/completions`
   - `POST /api/v1/responses`
-- Router opt-in only when `model=auto` or `model=router/auto`.
-- No required custom fields.
+  - `GET /api/v1/models`
+- User auth, BYOK credential storage, API keys, gateways, and admin configuration
+- Routing explanations, thread pinning, classifier-based selection, and fallback behavior
+- Cloudflare deployment path for D1, KV, Workers, and the ingest worker
 
-### BYOK (per account, no custom headers)
+## Runtime Behavior
 
-Each user connects their own OpenRouter (or compatible) key once in the admin UI.
-After that, clients like Cursor can call your OpenAI-compatible endpoints normally:
+- Routing activates for `model: "auto"` and named routing profiles. Explicit model IDs pass through unchanged.
+- The first successful routed turn pins the selected model to the thread fingerprint for 1 hour. Continuations reuse that pin until a constraint breaks it or the cooldown window expires.
+- Putting `#route` in the latest user turn bypasses the active thread pin for that turn and forces a fresh routing decision.
+- Sending `$$config` in chat enters the conversational router-config editor. The session stays in config mode until the assistant emits `#endconfig`.
+- Tool-enabled threads can break a thread pin after the router detects its phase-complete sentinel. Non-tool threads ignore that sentinel and keep the existing pin.
 
-- `POST /api/v1/chat/completions`
-- `POST /api/v1/responses`
+## Failure Semantics
 
-with `model: "auto"` and your router API key only.
+- If the classifier request fails, returns invalid JSON, or selects a model that is not in the allowed catalog, the router falls back to the configured default model.
+- If the primary selected model fails upstream, the router tries the fallback chain and records the request as degraded.
+- Requests fail fast when stored gateway or classifier BYOK credentials cannot be decrypted, when no gateway is configured, or when the server is missing its BYOK encryption secret.
+- The first successfully decrypted gateway becomes the default upstream for routing and classifier traffic unless the user overrides the classifier base URL or key.
 
-If a user has not connected BYOK, routed requests fail with `400` instead of falling back to server credits.
-
-## How to Use
-
-CustomRouter exposes a standard OpenAI-compatible API, meaning it works out of the box with tools like **Cursor**, **Cline**, or any standard API client.
-
-### Client Setup (e.g., Cursor)
-
-To configure CustomRouter in your favorite AI app:
-1. **Base URL / Endpoint:** Set your base URL to your deployed instance ending in `/api/v1` (e.g., `https://your-domain.com/api/v1`).
-2. **API Key:** Use the CustomRouter API key you generated for your account.
-3. **Model Selection:** 
-   - To use the intelligent router, type exactly `auto` (or `router/auto`) as the model name.
-   - **Direct Model Access:** You can also bypass the router by typing the exact OpenRouter ID (e.g., `anthropic/claude-3.5-sonnet`) or your direct Gateway ID. CustomRouter will pass the request directly to that specific model.
-
-### Commands
-
-CustomRouter supports special inline commands you can include directly in your chat messages:
-
-- **`$$config`**: Type this in a message to start an interactive configuration chat. You can converse with an orchestrator LLM to adjust your routing instructions, change default models, set blocklists, or manage your custom catalog directly from your chat client without visiting the admin UI.
-- **`#route`**: Include this anywhere in your prompt to force CustomRouter to immediately re-evaluate and select a new model for the current turn, breaking any existing "thread pin" (see below).
-
-### How Routing Works (The Logic)
-
-CustomRouter is designed to minimize context switching and latency. Here is a plain English overview of its logic:
-
-1. **Initial Request:** When you start a brand new conversation with `model="auto"`, the system analyzes your prompt. Using a fast classifier and category scorecards (coding, math, creative, etc.), it selects the best-suited model.
-2. **Thread Stickiness (The "Pin"):** Once a model is chosen, CustomRouter "pins" that model to the conversation. Subsequent messages in the exact same thread will continue using this same model automatically. This prevents unnecessary re-routing and maintains consistent context.
-3. **When it Routes Again:** The router will only break the active pin and evaluate a new model if:
-   - You explicitly inject the **`#route`** command in your prompt.
-   - The conversation reaches a natural boundary (a "phase change" where an agent finishes its current overarching task).
-   - An image payload is detected, and the currently pinned model lacks vision capabilities.
-   - The thread pin expires (after 1 hour of inactivity).
-
-*Note: CustomRouter explicitly avoids re-routing during active agent tool-call loops to ensure the agent's workflow remains unbroken.*
-
-## Key Features
-
-- Weighted model scoring by category (`coding`, `math`, `general`, `long_context`, `creative`).
-- Daily ingestion from Artificial Analysis + OpenRouter catalog.
-- Manual AA->OpenRouter mapping overrides in router config.
-- Explainability endpoint: `GET /api/v1/router/explanations/:request_id`.
-- 1-hour thread pinning to avoid rerouting every agent step.
-- Privileged router/admin endpoints require `Authorization: Bearer <ADMIN_SECRET>`.
-- UI auth uses HttpOnly session cookies (no client-side token storage).
-
-## Local Development
+## Quick Start
 
 ```bash
 npm install
@@ -82,14 +58,33 @@ npm run typecheck
 npm run dev -w @auto-router/web
 ```
 
-Copy `.env.example` to `.env.local` (or set secrets in Cloudflare bindings).
+1. Copy `.env.example` to `.env.local`.
+2. Set `OPENROUTER_API_KEY` if you want classifier-backed routing in local development.
+3. Open `http://localhost:3000/admin`.
+4. Create an account, add a gateway, generate an API key, and call `/api/v1` with `model: "auto"`.
 
-## Tests
+## Self-Host Docs
+
+- [Quickstart](docs/quickstart.md)
+- [Cloudflare deployment](docs/deployment-cloudflare.md)
+- [Open-core boundary](docs/open-core.md)
+- [Release process](docs/release-process.md)
+- [Changelog](CHANGELOG.md)
+
+## Development
 
 ```bash
-npm run test -w @auto-router/core
+npm run test
+npm run typecheck
+npm run build
 ```
 
-## Cloudflare Deploy
+Current automated coverage is strongest in `packages/core`. The web app remains lightly tested, so changes to routes and auth flows should be verified manually as well.
 
-See `docs/deployment-cloudflare.md`.
+## Managed Hosting
+
+Managed BYOK hosting is designed to run the same public product releases that ship from this repo. Hosted and self-hosted users should see the same public API contract and upgrade path.
+
+## License
+
+This repository is licensed under the GNU Affero General Public License v3.0 only. See [LICENSE](LICENSE).

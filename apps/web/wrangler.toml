@@ -2,6 +2,7 @@ name = "custom-router-web"
 main = ".open-next/worker.js"
 compatibility_date = "2026-02-18"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = false
 
 [assets]
 directory = ".open-next/assets"
@@ -18,3 +19,11 @@ id = "b0a52bd550f24f17ad36b60e67b6f24f"
 
 [vars]
 ROUTER_NAME = "custom-router"
+
+[[routes]]
+pattern = "customrouter.ai"
+custom_domain = true
+
+[[routes]]
+pattern = "www.customrouter.ai"
+custom_domain = true

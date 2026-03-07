@@ -1,4 +1,4 @@
-const API_BASE = "https://custom-router-web.me-d6a.workers.dev/api/v1/router";
+const API_BASE = process.env.API_BASE || "https://customrouter.ai/api/v1/router";
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
 if (!ADMIN_SECRET) {

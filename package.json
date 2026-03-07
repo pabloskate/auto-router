@@ -1,6 +1,8 @@
 {
   "name": "auto-router",
   "version": "0.1.0",
+  "description": "Self-hostable, OpenAI-compatible LLM routing proxy with BYOK, explainability, and Cloudflare deployment support.",
+  "license": "AGPL-3.0-only",
   "private": true,
   "workspaces": [
     "apps/*",

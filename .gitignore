@@ -1,5 +1,6 @@
 node_modules
 .next
+.open-next
 dist
 coverage
 .wrangler
@@ -7,3 +8,4 @@ coverage
 .env*
 !.env.example
 *.tsbuildinfo
+*.log
