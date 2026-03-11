@@ -16,7 +16,10 @@ export function json(data: unknown, status = 200, headers?: HeadersInit): Respon
 export function jsonNoStore(data: unknown, status = 200, headers?: HeadersInit): Response {
   const responseHeaders = mergeHeaders(headers);
   responseHeaders.set("cache-control", "no-store");
-  return json(data, status, responseHeaders);
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: responseHeaders,
+  });
 }
 
 export function attachRouterHeaders(
