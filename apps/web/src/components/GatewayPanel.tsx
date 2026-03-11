@@ -620,11 +620,8 @@ export function GatewayPanel({ onStatus, onError }: Props) {
   if (loading) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-8)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--text-primary)" }}>Gateways</h2>
-            <p style={{ marginTop: "var(--space-1)", color: "var(--text-muted)", fontSize: "0.875rem" }}>Loading…</p>
-          </div>
+        <div style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
+          Loading gateways…
         </div>
       </div>
     );
@@ -632,15 +629,7 @@ export function GatewayPanel({ onStatus, onError }: Props) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-8)" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-4)" }}>
-        <div>
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--text-primary)" }}>Gateways</h2>
-          <p style={{ marginTop: "var(--space-1)", color: "var(--text-muted)", fontSize: "0.875rem", maxWidth: 480 }}>
-            Register upstream API providers and configure which models to route through each one.
-            Each gateway owns its own model catalog with native model IDs.
-          </p>
-        </div>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <button className="btn btn--sm" style={{ flexShrink: 0 }} onClick={() => setShowAddForm(v => !v)}>
           <IconPlus /> Add gateway
         </button>
