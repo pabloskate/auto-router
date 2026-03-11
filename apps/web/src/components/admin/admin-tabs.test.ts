@@ -17,10 +17,6 @@ const TEST_USER: UserInfo = {
   customCatalog: null,
   profiles: null,
   showModelInResponse: false,
-  classifierBaseUrl: null,
-  classifierApiKeyConfigured: false,
-  classifierApiKeyInput: "",
-  clearClassifierApiKey: false,
 };
 
 function createBaseTabs() {

@@ -19,14 +19,9 @@ export type ServerUserInfo = {
   customCatalog: CatalogItem[] | null;
   profiles: RouterProfile[] | null;
   showModelInResponse: boolean;
-  classifierBaseUrl: string | null;
-  classifierApiKeyConfigured: boolean;
 };
 
-export type UserInfo = ServerUserInfo & {
-  classifierApiKeyInput: string;
-  clearClassifierApiKey: boolean;
-};
+export type UserInfo = ServerUserInfo;
 
 export type GatewaySummary = {
   id: string;
@@ -62,9 +57,5 @@ export type AdminTabDefinition = {
 };
 
 export function hydrateUser(user: ServerUserInfo): UserInfo {
-  return {
-    ...user,
-    classifierApiKeyInput: "",
-    clearClassifierApiKey: false,
-  };
+  return user;
 }

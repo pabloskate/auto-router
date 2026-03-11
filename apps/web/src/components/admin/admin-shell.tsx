@@ -238,14 +238,8 @@ export function AdminShell() {
       blocklist: updatedUser.blocklist,
       custom_catalog: updatedUser.customCatalog,
       profiles: updatedUser.profiles,
-      classifier_base_url: updatedUser.classifierBaseUrl,
-      clear_classifier_api_key: updatedUser.clearClassifierApiKey,
       show_model_in_response: updatedUser.showModelInResponse,
     };
-
-    if (updatedUser.classifierApiKeyInput.trim().length > 0) {
-      payload.classifier_api_key = updatedUser.classifierApiKeyInput.trim();
-    }
 
     const response = await fetch("/api/v1/user/me", {
       method: "PUT",

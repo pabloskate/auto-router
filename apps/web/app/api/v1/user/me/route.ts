@@ -35,8 +35,6 @@ export async function GET(request: Request): Promise<Response> {
             customCatalog: auth.customCatalog,
             profiles: auth.profiles,
             showModelInResponse: auth.showModelInResponse,
-            classifierBaseUrl: auth.classifierBaseUrl,
-            classifierApiKeyConfigured: Boolean(auth.classifierApiKeyEnc),
         }
     });
 }

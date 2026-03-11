@@ -100,7 +100,7 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
       label: "Routing",
       section: "configure",
       title: "Routing",
-      subtitle: "Configure the classifier, rules, and routing profiles",
+      subtitle: "Configure model selection, rules, and routing profiles",
       order: 200,
       icon: IconRouting,
       render: (ctx: AdminExtensionContext) => (
@@ -116,10 +116,6 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
                   classifierModel: ctx.user.classifierModel ?? null,
                   routingInstructions: ctx.user.routingInstructions ?? null,
                   blocklist: ctx.user.blocklist ?? null,
-                  classifierBaseUrl: ctx.user.classifierBaseUrl ?? null,
-                  classifierApiKeyConfigured: ctx.user.classifierApiKeyConfigured ?? false,
-                  classifierApiKeyInput: ctx.user.classifierApiKeyInput,
-                  clearClassifierApiKey: ctx.user.clearClassifierApiKey,
                   showModelInResponse: ctx.user.showModelInResponse,
                 }}
                 gatewayModelOptions={args.gatewayModelOptions}

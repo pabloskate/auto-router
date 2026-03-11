@@ -458,28 +458,9 @@ export async function routeAndProxy(args: {
     };
   }
 
-  const decryptedClassifierApiKey = args.userConfig?.classifierApiKeyEnc
-    ? await decryptByokSecret({
-      ciphertext: args.userConfig.classifierApiKeyEnc,
-      secret: byokSecret,
-    })
-    : null;
-  if (args.userConfig?.classifierApiKeyEnc && !decryptedClassifierApiKey) {
-    return {
-      requestId,
-      response: json(
-        { error: "Stored classifier BYOK key cannot be decrypted. Reconnect the key in the admin console.", request_id: requestId },
-        500
-      ),
-    };
-  }
-
   const classifierUpstream = resolveUpstreamTarget({
-    baseUrlOverride: args.userConfig?.classifierBaseUrl ?? null,
-    apiKeyOverride: decryptedClassifierApiKey ?? defaultUpstream.apiKey,
     fallbackBaseUrl: defaultUpstream.baseUrl,
-    fallbackApiKey: null,
-    requireApiKeyWithBaseOverride: false,
+    fallbackApiKey: defaultUpstream.apiKey,
   });
   if (!classifierUpstream.ok) {
     return {

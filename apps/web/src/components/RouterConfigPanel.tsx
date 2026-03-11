@@ -2,27 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// RouterConfigPanel.tsx
-//
-// Redesigned router configuration with clear section grouping:
-//
-// Sections:
-//   1. Classifier Settings — Optional separate endpoint for the routing classifier
-//   2. Routing Logic — Default/classifier models, instructions, blocklist
-//
-// Each section has its own visual grouping with clear hierarchy.
-// ─────────────────────────────────────────────────────────────────────────────
-
 interface RouterConfigFields {
   defaultModel: string | null;
   classifierModel: string | null;
   routingInstructions: string | null;
   blocklist: string[] | null;
-  classifierBaseUrl: string | null;
-  classifierApiKeyConfigured: boolean;
-  classifierApiKeyInput: string;
-  clearClassifierApiKey: boolean;
   showModelInResponse: boolean;
 }
 
@@ -31,23 +15,6 @@ interface Props {
   gatewayModelOptions: string[];
   onChange: (updated: RouterConfigFields) => void;
   onSave: (updates: Partial<RouterConfigFields>) => Promise<boolean>;
-}
-
-// ─── Icons ───────────────────────────────────────────────────────────────────
-function IconLink({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-    </svg>
-  );
-}
-
-function IconKey({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 9.5l3 3L22 7l-3-3-3.5 3.5"/>
-    </svg>
-  );
 }
 
 function IconBrain({ className, style }: { className?: string; style?: React.CSSProperties }) {
@@ -110,73 +77,6 @@ function SectionHeader({
         <h4 style={{ fontSize: "1rem", fontWeight: 600, color: "var(--text-primary)" }}>{title}</h4>
       </div>
       <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", paddingLeft: 44 }}>{description}</p>
-    </div>
-  );
-}
-
-// ─── Classifier Section ───────────────────────────────────────────────────────
-function ClassifierSection({ config, onChange }: { config: RouterConfigFields; onChange: (c: RouterConfigFields) => void }) {
-  return (
-    <div style={{ marginBottom: "var(--space-8)" }}>
-      <SectionHeader
-        icon={IconLink}
-        title="Classifier Settings"
-        description="Configure a separate endpoint for the routing classifier (optional — defaults to the first gateway)"
-      />
-
-      <div className="form-row">
-        <div className="form-group">
-          <label className="form-label">Classifier Base URL</label>
-          <input
-            className="input"
-            type="text"
-            value={config.classifierBaseUrl || ""}
-            onChange={(e) => onChange({ ...config, classifierBaseUrl: e.target.value })}
-            placeholder="https://openrouter.ai/api/v1"
-          />
-          <span className="form-hint">Optional. Falls back to the default gateway if not set.</span>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-              <IconKey style={{ width: 14, height: 14 } as any} />
-              Classifier API Key
-            </div>
-          </label>
-          <input
-            className="input"
-            type="password"
-            value={config.classifierApiKeyInput}
-            onChange={(e) =>
-              onChange({
-                ...config,
-                classifierApiKeyInput: e.target.value,
-                clearClassifierApiKey: false,
-              })
-            }
-            placeholder={config.classifierApiKeyConfigured ? "•••••••• (configured)" : "Optional separate key..."}
-            autoComplete="new-password"
-          />
-          <span className="form-hint">Optional. Falls back to the gateway key if not set.</span>
-          {config.classifierApiKeyConfigured && (
-            <label className="checkbox-wrapper" style={{ marginTop: "var(--space-2)" }}>
-              <input
-                type="checkbox"
-                checked={config.clearClassifierApiKey}
-                onChange={(e) =>
-                  onChange({
-                    ...config,
-                    clearClassifierApiKey: e.target.checked,
-                    classifierApiKeyInput: e.target.checked ? "" : config.classifierApiKeyInput,
-                  })
-                }
-              />
-              <span className="checkbox-label">Clear saved key</span>
-            </label>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
@@ -365,13 +265,6 @@ export function RouterConfigPanel({ config, gatewayModelOptions, onChange, onSav
 
   return (
     <div>
-      {/* Classifier Settings */}
-      <ClassifierSection config={config} onChange={onChange} />
-
-      {/* Divider */}
-      <div style={{ height: 1, background: "var(--border-subtle)", margin: "var(--space-8) 0" }} />
-
-      {/* Routing Logic */}
       <RoutingLogicSection
         config={config}
         gatewayModelOptions={gatewayModelOptions}
