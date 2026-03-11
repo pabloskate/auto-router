@@ -416,7 +416,6 @@ export async function routeAndProxy(args: {
   const bindings = getRuntimeBindings();
   const byokSecret = resolveByokEncryptionSecret({
     byokSecret: bindings.BYOK_ENCRYPTION_SECRET ?? null,
-    adminSecret: bindings.ADMIN_SECRET ?? null,
   });
   if (!byokSecret) {
     return {

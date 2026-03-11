@@ -25,7 +25,14 @@ Set secrets:
 - `OPENROUTER_API_KEY`
 - `AA_API_KEY`
 - `ADMIN_SECRET` (required for privileged router/admin endpoints and worker `/run`)
+- `BYOK_ENCRYPTION_SECRET` (required if users will save gateway or classifier BYOK credentials)
 - `SESSION_COOKIE_SECURE` (`true` in production HTTPS, `false` for local HTTP testing)
+
+Important:
+
+- `BYOK_ENCRYPTION_SECRET` must stay stable across deployments.
+- If you change or remove it after users have saved gateway keys, those stored encrypted keys can no longer be decrypted.
+- In that case, users must re-save their gateways and any stored classifier BYOK key in the admin console.
 
 ## 3. Deploy ingestion worker
 

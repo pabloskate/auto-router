@@ -177,7 +177,7 @@ describe("RouterEngine (LLM Router)", () => {
         expect(decision.explanation.decisionReason).toBe("thread_pin");
     });
 
-    it("should force re-route when latest user message starts with #route", async () => {
+    it("should force re-route when latest user message starts with $$route", async () => {
         const mockLlmRouter = vi.fn().mockResolvedValue({
             selectedModel: "openai/gpt-4o",
             confidence: 0.88,
@@ -191,7 +191,7 @@ describe("RouterEngine (LLM Router)", () => {
             messages: [
                 { role: "user", content: "Use opus for planning" },
                 { role: "assistant", content: "Plan drafted." },
-                { role: "user", content: "#route continue with implementation" },
+                { role: "user", content: "$$route continue with implementation" },
             ],
         };
 
@@ -218,11 +218,11 @@ describe("RouterEngine (LLM Router)", () => {
         expect(decision.pinUsed).toBe(false);
         expect(decision.explanation.decisionReason).toBe("initial_route");
         expect(decision.explanation.notes).toContain(
-            "Force route directive detected in latest user message (#route). Bypassing thread pin for this turn."
+            "Force route directive detected in latest user message ($$route). Bypassing thread pin for this turn."
         );
     });
 
-    it("should not force re-route when #route appears only in older user messages", async () => {
+    it("should not force re-route when $$route appears only in older user messages", async () => {
         const mockLlmRouter = vi.fn().mockResolvedValue({
             selectedModel: "openai/gpt-4o",
             confidence: 0.9,
@@ -234,7 +234,7 @@ describe("RouterEngine (LLM Router)", () => {
         const request: RouterRequestLike = {
             model: "auto",
             messages: [
-                { role: "user", content: "#route" },
+                { role: "user", content: "$$route" },
                 { role: "assistant", content: "Switched." },
                 { role: "user", content: "keep going" },
             ],

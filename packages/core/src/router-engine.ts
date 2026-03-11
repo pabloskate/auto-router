@@ -160,7 +160,7 @@ export class RouterEngine {
       notes.push(`Routed via named profile: ${matchedProfile.id}`);
     }
     if (forceRoute) {
-      notes.push("Force route directive detected in latest user message (#route). Bypassing thread pin for this turn.");
+      notes.push("Force route directive detected in latest user message ($$route). Bypassing thread pin for this turn.");
     }
 
     let activePin: ThreadPin | null = null;

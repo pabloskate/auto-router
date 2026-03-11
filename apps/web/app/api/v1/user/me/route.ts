@@ -80,7 +80,6 @@ export async function PUT(request: Request): Promise<Response> {
 
     const byokSecret = resolveByokEncryptionSecret({
         byokSecret: bindings.BYOK_ENCRYPTION_SECRET ?? null,
-        adminSecret: bindings.ADMIN_SECRET ?? null,
     });
     const classifierApiKeyRaw =
         hasOwn(body, "classifier_api_key") && typeof body.classifier_api_key === "string"

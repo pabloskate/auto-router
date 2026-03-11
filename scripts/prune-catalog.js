@@ -1,5 +1,10 @@
-const API_BASE = process.env.API_BASE || "https://customrouter.ai/api/v1/router";
+const API_BASE = process.env.API_BASE;
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
+
+if (!API_BASE) {
+    console.error("Missing API_BASE environment variable.");
+    process.exit(1);
+}
 
 if (!ADMIN_SECRET) {
     console.error("Missing ADMIN_SECRET environment variable.");

@@ -49,7 +49,6 @@ export async function POST(request: Request): Promise<Response> {
 
       const byokSecret = resolveByokEncryptionSecret({
         byokSecret: bindings.BYOK_ENCRYPTION_SECRET ?? null,
-        adminSecret: bindings.ADMIN_SECRET ?? null,
       });
       if (!byokSecret) {
         return json({ error: "Server misconfigured: missing BYOK encryption secret." }, 500);

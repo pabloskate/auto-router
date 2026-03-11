@@ -14,7 +14,7 @@ npm run dev -w @auto-router/web
 Recommended local variables:
 
 - `OPENROUTER_API_KEY` for classifier-backed routing
-- `BYOK_ENCRYPTION_SECRET` for stored user upstream credentials
+- `BYOK_ENCRYPTION_SECRET` for stored user upstream credentials (required for BYOK)
 - `ADMIN_SECRET` if you want to exercise privileged routes locally
 
 Open `http://localhost:3000/admin`, then:

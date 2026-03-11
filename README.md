@@ -39,7 +39,7 @@ Recommended repo split:
 
 - Routing activates for `model: "auto"` and named routing profiles. Explicit model IDs pass through unchanged.
 - The first successful routed turn pins the selected model to the thread fingerprint for 1 hour. Continuations reuse that pin until a constraint breaks it or the cooldown window expires.
-- Putting `#route` in the latest user turn bypasses the active thread pin for that turn and forces a fresh routing decision.
+- Putting `$$route` in the latest user turn bypasses the active thread pin for that turn and forces a fresh routing decision.
 - Sending `$$config` in chat enters the conversational router-config editor. The session stays in config mode until the assistant emits `#endconfig`.
 - Tool-enabled threads can break a thread pin after the router detects its phase-complete sentinel. Non-tool threads ignore that sentinel and keep the existing pin.
 

@@ -1,6 +1,6 @@
 import type { ChatMessage, RouterTool, ThreadFingerprintInput } from "./types";
 
-const FORCE_ROUTE_KEYWORD = "#route";
+const FORCE_ROUTE_KEYWORD = "$$route";
 
 export function hasImagePayload(messages: ChatMessage[] = []): boolean {
   for (const message of messages) {

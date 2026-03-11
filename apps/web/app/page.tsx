@@ -105,6 +105,17 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="alert alert--info quickstart-note">
+        <div>
+          <strong>Prefer not to self-host?</strong>
+          <p>
+            A managed hosted version is available with automatic updates, no infrastructure setup,
+            and a free tier to get started.{" "}
+            <a href="https://autorouter.ai/pricing" target="_blank" rel="noreferrer">View plans →</a>
+          </p>
+        </div>
+      </section>
+
       <section id="quickstart" className="quickstart-grid">
         {QUICKSTART_CARDS.map((card) => (
           <article key={card.title} className="card">

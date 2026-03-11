@@ -602,7 +602,6 @@ async function resolveApiKey(
 ): Promise<{ apiKey: string; baseUrl: string } | { error: string }> {
   const byokSecret = resolveByokEncryptionSecret({
     byokSecret: bindings.BYOK_ENCRYPTION_SECRET ?? null,
-    adminSecret: bindings.ADMIN_SECRET ?? null,
   });
 
   if (auth.upstreamApiKeyEnc && byokSecret) {

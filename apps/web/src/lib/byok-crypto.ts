@@ -57,9 +57,8 @@ async function deriveKey(secret: string): Promise<CryptoKey> {
 
 export function resolveByokEncryptionSecret(args: {
   byokSecret?: string | null;
-  adminSecret?: string | null;
 }): string | null {
-  return cleanSecret(args.byokSecret) ?? cleanSecret(args.adminSecret) ?? null;
+  return cleanSecret(args.byokSecret);
 }
 
 export async function encryptByokSecret(args: {

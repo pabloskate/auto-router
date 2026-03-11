@@ -53,11 +53,11 @@ describe("threading", () => {
     expect(extended).toBe(base);
   });
 
-  it("only triggers #route when it is in the latest user message", () => {
+  it("only triggers $$route when it is in the latest user message", () => {
     expect(
       hasForceRouteRequest({
         messages: [
-          { role: "user", content: "#route" },
+          { role: "user", content: "$$route" },
           { role: "assistant", content: "Rerouted." },
           { role: "user", content: "continue please" }
         ]
@@ -69,17 +69,17 @@ describe("threading", () => {
         messages: [
           { role: "user", content: "hello" },
           { role: "assistant", content: "hi" },
-          { role: "user", content: "#route now" }
+          { role: "user", content: "$$route now" }
         ]
       })
     ).toBe(true);
   });
 
-  it("detects #route from latest Responses API input item only", () => {
+  it("detects $$route from latest Responses API input item only", () => {
     expect(
       hasForceRouteRequest({
         input: [
-          { type: "input_text", text: "#route" },
+          { type: "input_text", text: "$$route" },
           { type: "input_text", text: "normal follow-up" }
         ]
       })
@@ -89,7 +89,7 @@ describe("threading", () => {
       hasForceRouteRequest({
         input: [
           { type: "input_text", text: "normal follow-up" },
-          { type: "input_text", text: "#route" }
+          { type: "input_text", text: "$$route" }
         ]
       })
     ).toBe(true);

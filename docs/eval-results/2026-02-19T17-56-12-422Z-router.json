@@ -7,7 +7,7 @@
     "judge_model": "dry-run",
     "dry_run": true,
     "seed": "default",
-    "spec_path": "/Users/pablomartinez/Downloads/auto router/docs/router_eval_spec.json"
+    "spec_path": "docs/router_eval_spec.json"
   },
   "summary": {
     "total_queries": 5,
