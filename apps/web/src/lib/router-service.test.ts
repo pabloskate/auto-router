@@ -249,4 +249,123 @@ describe("routeAndProxy", () => {
     expect(body.output[0]?.content[0]?.text).toBe("ok\n\n#model/alpha");
     expect(result.response.headers.get("content-length")).toBeNull();
   });
+
+  it("uses upstreamModelId and injects the stored reasoning preset for OpenRouter variants", async () => {
+    const secret = "1234567890abcdef";
+    const defaultApiKeyEnc = await encryptByokSecret({
+      plaintext: "gateway-default-key",
+      secret,
+    });
+    const repository = createRepository();
+
+    runtimeMock.mockReturnValue({
+      BYOK_ENCRYPTION_SECRET: secret,
+    });
+    repositoryMock.mockReturnValue(repository as any);
+    classifierMock.mockResolvedValue({
+      selectedModel: "openai/gpt-5.2:high",
+      confidence: 0.88,
+      signals: ["frontier_classification"],
+    });
+    upstreamMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      response: new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    });
+
+    await routeAndProxy({
+      apiPath: "/chat/completions",
+      body: {
+        model: "auto",
+        reasoning: { effort: "xhigh" },
+        messages: [{ role: "user", content: "Plan a migration." }],
+      },
+      userConfig: {
+        gatewayRows: [
+          {
+            id: "gw_default",
+            baseUrl: "https://openrouter.ai/api/v1",
+            apiKeyEnc: defaultApiKeyEnc,
+            models: [
+              {
+                id: "openai/gpt-5.2:high",
+                name: "GPT-5.2 High",
+                upstreamModelId: "openai/gpt-5.2",
+                reasoningPreset: "high",
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(upstreamMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          model: "openai/gpt-5.2",
+          reasoning: { effort: "high" },
+        }),
+      })
+    );
+  });
+
+  it("strips inbound reasoning and does not inject presets for non-OpenRouter gateways", async () => {
+    const secret = "1234567890abcdef";
+    const defaultApiKeyEnc = await encryptByokSecret({
+      plaintext: "gateway-default-key",
+      secret,
+    });
+    const repository = createRepository();
+
+    runtimeMock.mockReturnValue({
+      BYOK_ENCRYPTION_SECRET: secret,
+    });
+    repositoryMock.mockReturnValue(repository as any);
+    classifierMock.mockResolvedValue({
+      selectedModel: "openai/gpt-5.2:high",
+      confidence: 0.88,
+      signals: ["frontier_classification"],
+    });
+    upstreamMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      response: new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    });
+
+    await routeAndProxy({
+      apiPath: "/chat/completions",
+      body: {
+        model: "auto",
+        reasoning: { effort: "xhigh" },
+        messages: [{ role: "user", content: "Plan a migration." }],
+      },
+      userConfig: {
+        gatewayRows: [
+          {
+            id: "gw_default",
+            baseUrl: "https://gateway.example/v1",
+            apiKeyEnc: defaultApiKeyEnc,
+            models: [
+              {
+                id: "openai/gpt-5.2:high",
+                name: "GPT-5.2 High",
+                upstreamModelId: "openai/gpt-5.2",
+                reasoningPreset: "high",
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const payload = upstreamMock.mock.calls[0]?.[0]?.payload as Record<string, unknown>;
+    expect(payload.model).toBe("openai/gpt-5.2");
+    expect(payload).not.toHaveProperty("reasoning");
+  });
 });

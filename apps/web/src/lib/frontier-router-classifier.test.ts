@@ -3,15 +3,16 @@ import { routeWithFrontierModel } from "./frontier-router-classifier";
 
 describe("routeWithFrontierModel", () => {
   const catalog = [
-    { id: "x-ai/grok-4.1-fast" },
-    { id: "minimax/minimax-m2.5" },
+    { id: "openai/gpt-5.2", reasoningPreset: "none" },
+    { id: "openai/gpt-5.2:high", reasoningPreset: "high" },
+    { id: "openai/gpt-5.2:xhigh", reasoningPreset: "xhigh" },
   ];
 
   it("uses strict json_schema response format first", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
-          choices: [{ message: { content: JSON.stringify({ selectedModel: "x-ai/grok-4.1-fast" }) } }],
+          choices: [{ message: { content: JSON.stringify({ selectedModel: "openai/gpt-5.2" }) } }],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       )
@@ -33,6 +34,7 @@ describe("routeWithFrontierModel", () => {
     expect(body.response_format.json_schema.schema.properties.selectedModel.enum).toEqual(
       catalog.map((m) => m.id)
     );
+    expect(body.messages[0].content).toContain("reasoning:xhigh");
   });
 
   it("falls back to json_object when schema mode is rejected", async () => {
@@ -42,7 +44,7 @@ describe("routeWithFrontierModel", () => {
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
-            choices: [{ message: { content: JSON.stringify({ selectedModel: "x-ai/grok-4.1-fast" }) } }],
+            choices: [{ message: { content: JSON.stringify({ selectedModel: "openai/gpt-5.2:high" }) } }],
           }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         )
@@ -61,14 +63,14 @@ describe("routeWithFrontierModel", () => {
     expect(secondCall).toBeDefined();
     const fallbackBody = JSON.parse((secondCall?.[1] as RequestInit).body as string);
     expect(fallbackBody.response_format).toEqual({ type: "json_object" });
-    expect(result?.selectedModel).toBe("x-ai/grok-4.1-fast");
+    expect(result?.selectedModel).toBe("openai/gpt-5.2:high");
   });
 
   it("rejects parsed models not present in catalog", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
-          choices: [{ message: { content: JSON.stringify({ selectedModel: "x-ai/grok-4.1-fast:online" }) } }],
+          choices: [{ message: { content: JSON.stringify({ selectedModel: "openai/gpt-5.2:online" }) } }],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       )

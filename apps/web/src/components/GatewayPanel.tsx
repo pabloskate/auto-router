@@ -1,27 +1,31 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GatewayPanel.tsx
 //
 // Unified gateway + model management UI. Each gateway owns its base URL,
-// API key, and a list of models (using that gateway's native model IDs).
+// API key, and a list of router-visible model variants.
 //
 // Sections per gateway card:
 //   - Gateway header: name, URL, key status, edit/delete actions
-//   - Model list: native model IDs with display name + whenToUse
-//   - "Fetch from gateway" button to auto-discover models via /models API
-//   - "Add model manually" inline form
+//   - Model list: router model IDs with upstream model + reasoning preset
+//   - "Fetch from gateway" button to auto-discover base models via /models API
+//   - "Add model" and "Clone" flows for fixed reasoning variants
 // ─────────────────────────────────────────────────────────────────────────────
+
+type ReasoningLevel = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
 export interface GatewayModel {
   id: string;
   name: string;
+  upstreamModelId?: string;
   whenToUse?: string;
   description?: string;
   modality?: string;
-  thinking?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+  thinking?: ReasoningLevel;
+  reasoningPreset?: ReasoningLevel;
 }
 
 export interface GatewayInfo {
@@ -36,6 +40,35 @@ export interface GatewayInfo {
 interface Props {
   onStatus?: (msg: string) => void;
   onError?: (msg?: string) => void;
+}
+
+const REASONING_OPTIONS = [
+  { value: "none", label: "None" },
+  { value: "minimal", label: "Minimal" },
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "xhigh", label: "Extra high" },
+] as const;
+
+function nextVariantId(modelId: string): string {
+  const trimmed = modelId.trim();
+  return trimmed ? `${trimmed}:variant` : "";
+}
+
+function hasDuplicateModelIds(models: GatewayModel[]): boolean {
+  const seen = new Set<string>();
+  for (const model of models) {
+    if (seen.has(model.id)) {
+      return true;
+    }
+    seen.add(model.id);
+  }
+  return false;
+}
+
+function reasoningLabel(level: GatewayModel["reasoningPreset"] | GatewayModel["thinking"]): string {
+  return REASONING_OPTIONS.find((option) => option.value === level)?.label ?? "None";
 }
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
@@ -156,23 +189,34 @@ function GatewayForm({ initial, isEdit, saving, onSave, onCancel }: GatewayFormP
 interface ModelFormProps {
   initial?: GatewayModel;
   saving?: boolean;
+  lockId?: boolean;
   onSave: (m: GatewayModel) => Promise<void>;
   onCancel: () => void;
 }
 
-function ModelForm({ initial, saving, onSave, onCancel }: ModelFormProps) {
+function ModelForm({ initial, saving, lockId = false, onSave, onCancel }: ModelFormProps) {
   const [id, setId] = useState(initial?.id ?? "");
   const [name, setName] = useState(initial?.name ?? "");
+  const [upstreamModelId, setUpstreamModelId] = useState(initial?.upstreamModelId ?? initial?.id ?? "");
+  const [reasoningPreset, setReasoningPreset] = useState<ReasoningLevel>(initial?.reasoningPreset ?? "none");
+  const [thinking, setThinking] = useState<ReasoningLevel>(initial?.thinking ?? "none");
   const [whenToUse, setWhenToUse] = useState(initial?.whenToUse ?? "");
   const [err, setErr] = useState("");
-  const isEdit = !!initial;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!id.trim()) return setErr("Model ID is required.");
     if (!name.trim()) return setErr("Display name is required.");
+    if (!upstreamModelId.trim()) return setErr("Upstream model ID is required.");
     setErr("");
-    await onSave({ id: id.trim(), name: name.trim(), whenToUse: whenToUse.trim() || undefined });
+    await onSave({
+      id: id.trim(),
+      name: name.trim(),
+      upstreamModelId: upstreamModelId.trim(),
+      reasoningPreset,
+      thinking,
+      whenToUse: whenToUse.trim() || undefined,
+    });
   }
 
   return (
@@ -186,11 +230,11 @@ function ModelForm({ initial, saving, onSave, onCancel }: ModelFormProps) {
           <input
             className="input input--mono btn--sm"
             style={{ padding: "var(--space-2) var(--space-3)", fontSize: "0.8125rem" }}
-            placeholder="e.g. gpt-4o"
+            placeholder="e.g. openai/gpt-5.2:high"
             value={id}
             onChange={e => setId(e.target.value)}
-            disabled={isEdit}
-            readOnly={isEdit}
+            disabled={lockId}
+            readOnly={lockId}
           />
         </div>
         <div className="form-group">
@@ -198,25 +242,63 @@ function ModelForm({ initial, saving, onSave, onCancel }: ModelFormProps) {
           <input
             className="input btn--sm"
             style={{ padding: "var(--space-2) var(--space-3)", fontSize: "0.8125rem" }}
-            placeholder="e.g. GPT-4o"
+            placeholder="e.g. GPT-5.2 High"
             value={name}
             onChange={e => setName(e.target.value)}
           />
         </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label className="form-label">Upstream model ID</label>
+          <input
+            className="input input--mono btn--sm"
+            style={{ padding: "var(--space-2) var(--space-3)", fontSize: "0.8125rem" }}
+            placeholder="e.g. openai/gpt-5.2"
+            value={upstreamModelId}
+            onChange={e => setUpstreamModelId(e.target.value)}
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Reasoning preset</label>
+          <select
+            className="input btn--sm"
+            style={{ padding: "var(--space-2) var(--space-3)", fontSize: "0.8125rem" }}
+            value={reasoningPreset}
+            onChange={e => setReasoningPreset(e.target.value as ReasoningLevel)}
+          >
+            {REASONING_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="form-group">
+        <label className="form-label">Thinking level</label>
+        <select
+          className="input btn--sm"
+          style={{ padding: "var(--space-2) var(--space-3)", fontSize: "0.8125rem" }}
+          value={thinking}
+          onChange={e => setThinking(e.target.value as ReasoningLevel)}
+        >
+          {REASONING_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
       </div>
       <div className="form-group">
         <label className="form-label">When to use (routing hint)</label>
         <input
           className="input btn--sm"
           style={{ padding: "var(--space-2) var(--space-3)", fontSize: "0.8125rem" }}
-          placeholder="e.g. Complex reasoning and analysis tasks"
+          placeholder="e.g. Complex planning, architecture, and long-form analysis"
           value={whenToUse}
           onChange={e => setWhenToUse(e.target.value)}
         />
       </div>
       <div style={{ display: "flex", gap: "var(--space-2)" }}>
         <button type="submit" className="btn btn--sm" disabled={saving}>
-          {saving ? "Saving…" : isEdit ? "Save" : "Add model"}
+          {saving ? "Saving…" : lockId ? "Save" : "Add model"}
         </button>
         <button type="button" className="btn btn--secondary btn--sm" onClick={onCancel}>Cancel</button>
       </div>
@@ -236,20 +318,20 @@ interface FetchPickerProps {
 }
 
 function FetchPicker({ models, existing, onImport, onClose }: FetchPickerProps) {
-  const existingIds = new Set(existing.map(m => m.id));
+  const existingIds = new Set(existing.map((model) => model.id));
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
   function toggle(id: string) {
-    setSelected(s => {
-      const next = new Set(s);
+    setSelected((current) => {
+      const next = new Set(current);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   }
 
   async function handleImport() {
-    const toImport = models.filter(m => selected.has(m.id));
+    const toImport = models.filter((model) => selected.has(model.id));
     setSaving(true);
     await onImport(toImport);
     setSaving(false);
@@ -264,35 +346,31 @@ function FetchPicker({ models, existing, onImport, onClose }: FetchPickerProps) 
         <button className="btn btn--ghost btn--sm" onClick={onClose}>Close</button>
       </div>
       <div style={{ maxHeight: 280, overflowY: "auto", display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
-        {models.map(m => {
-          const alreadyAdded = existingIds.has(m.id);
+        {models.map((model) => {
+          const alreadyAdded = existingIds.has(model.id);
           return (
             <label
-              key={m.id}
-              style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) var(--space-3)", borderRadius: "var(--radius-sm)", background: selected.has(m.id) ? "var(--accent-dim)" : "transparent", cursor: alreadyAdded ? "default" : "pointer", opacity: alreadyAdded ? 0.5 : 1 }}
+              key={model.id}
+              style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) var(--space-3)", borderRadius: "var(--radius-sm)", background: selected.has(model.id) ? "var(--accent-dim)" : "transparent", cursor: alreadyAdded ? "default" : "pointer", opacity: alreadyAdded ? 0.5 : 1 }}
             >
               <input
                 type="checkbox"
-                checked={alreadyAdded || selected.has(m.id)}
+                checked={alreadyAdded || selected.has(model.id)}
                 disabled={alreadyAdded}
-                onChange={() => !alreadyAdded && toggle(m.id)}
+                onChange={() => !alreadyAdded && toggle(model.id)}
                 style={{ accentColor: "var(--accent)", flexShrink: 0 }}
               />
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8125rem", color: "var(--text-primary)" }}>{m.id}</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8125rem", color: "var(--text-primary)" }}>{model.id}</span>
               {alreadyAdded && <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>already added</span>}
             </label>
           );
         })}
       </div>
       <div style={{ display: "flex", gap: "var(--space-2)" }}>
-        <button
-          className="btn btn--sm"
-          disabled={selected.size === 0 || saving}
-          onClick={handleImport}
-        >
+        <button className="btn btn--sm" disabled={selected.size === 0 || saving} onClick={handleImport}>
           {saving ? "Importing…" : `Import ${selected.size > 0 ? selected.size : ""} selected`}
         </button>
-        <button className="btn btn--secondary btn--sm" onClick={() => setSelected(new Set(models.filter(m => !existingIds.has(m.id)).map(m => m.id)))}>
+        <button className="btn btn--secondary btn--sm" onClick={() => setSelected(new Set(models.filter((model) => !existingIds.has(model.id)).map((model) => model.id)))}>
           Select all new
         </button>
       </div>
@@ -315,6 +393,7 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
   const [savingGateway, setSavingGateway] = useState(false);
 
   const [addingModel, setAddingModel] = useState(false);
+  const [addModelSeed, setAddModelSeed] = useState<GatewayModel | undefined>();
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
   const [removingModelId, setRemovingModelId] = useState<string | null>(null);
   const [savingModel, setSavingModel] = useState(false);
@@ -346,7 +425,10 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
   }
 
   async function deleteGateway() {
-    if (!deletingGateway) { setDeletingGateway(true); return; }
+    if (!deletingGateway) {
+      setDeletingGateway(true);
+      return;
+    }
     const res = await fetch(`/api/v1/user/gateways/${gateway.id}`, { method: "DELETE" });
     if (!res.ok && res.status !== 204) {
       onError?.("Failed to delete gateway.");
@@ -358,6 +440,11 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
   }
 
   async function saveModels(models: GatewayModel[]) {
+    if (hasDuplicateModelIds(models)) {
+      onError?.("Model IDs must be unique within a gateway.");
+      return false;
+    }
+
     const res = await fetch(`/api/v1/user/gateways/${gateway.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -372,12 +459,18 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
     return true;
   }
 
-  async function addModel(m: GatewayModel) {
+  async function addModel(model: GatewayModel) {
     setSavingModel(true);
     try {
-      const models = [...gateway.models.filter(x => x.id !== m.id), m];
+      if (gateway.models.some((entry) => entry.id === model.id)) {
+        onError?.(`Model "${model.id}" already exists in this gateway.`);
+        return;
+      }
+
+      const models = [...gateway.models, model];
       if (await saveModels(models)) {
         setAddingModel(false);
+        setAddModelSeed(undefined);
         onStatus?.("Model added.");
       }
     } finally {
@@ -385,10 +478,10 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
     }
   }
 
-  async function editModel(m: GatewayModel) {
+  async function editModel(model: GatewayModel) {
     setSavingModel(true);
     try {
-      const models = gateway.models.map(x => x.id === m.id ? m : x);
+      const models = gateway.models.map((entry) => entry.id === model.id ? model : entry);
       if (await saveModels(models)) {
         setEditingModelId(null);
         onStatus?.("Model updated.");
@@ -399,8 +492,11 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
   }
 
   async function removeModel(id: string) {
-    if (removingModelId !== id) { setRemovingModelId(id); return; }
-    const models = gateway.models.filter(m => m.id !== id);
+    if (removingModelId !== id) {
+      setRemovingModelId(id);
+      return;
+    }
+    const models = gateway.models.filter((model) => model.id !== id);
     if (await saveModels(models)) {
       setRemovingModelId(null);
       onStatus?.("Model removed.");
@@ -425,8 +521,16 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
   }
 
   async function importModels(selected: FetchedModel[]) {
-    const existing = new Set(gateway.models.map(m => m.id));
-    const newModels = selected.filter(m => !existing.has(m.id)).map(m => ({ id: m.id, name: m.id }));
+    const existing = new Set(gateway.models.map((model) => model.id));
+    const newModels = selected
+      .filter((model) => !existing.has(model.id))
+      .map((model) => ({
+        id: model.id,
+        name: model.name,
+        upstreamModelId: model.id,
+        reasoningPreset: "none" as const,
+        thinking: "none" as const,
+      }));
     const models = [...gateway.models, ...newModels];
     if (await saveModels(models)) {
       setFetchedModels(null);
@@ -434,9 +538,26 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
     }
   }
 
+  function beginAddModel() {
+    setAddingModel(true);
+    setAddModelSeed(undefined);
+    setEditingModelId(null);
+    setRemovingModelId(null);
+  }
+
+  function cloneModel(model: GatewayModel) {
+    setAddModelSeed({
+      ...model,
+      id: nextVariantId(model.id),
+      name: `${model.name} Variant`,
+    });
+    setAddingModel(true);
+    setEditingModelId(null);
+    setRemovingModelId(null);
+  }
+
   return (
     <div className="card" style={{ overflow: "visible" }}>
-      {/* Gateway header */}
       <div className="card-header">
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)", minWidth: 0 }}>
           <h3 style={{ fontSize: "1rem", fontWeight: 600, color: "var(--text-primary)" }}>{gateway.name}</h3>
@@ -450,19 +571,15 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
           </div>
         </div>
         <div style={{ display: "flex", gap: "var(--space-2)", flexShrink: 0 }}>
-          <button className="btn btn--secondary btn--sm" onClick={() => { setEditingGateway(v => !v); setDeletingGateway(false); }}>
+          <button className="btn btn--secondary btn--sm" onClick={() => { setEditingGateway((value) => !value); setDeletingGateway(false); }}>
             <IconEdit /> Edit
           </button>
-          <button
-            className={`btn btn--sm ${deletingGateway ? "btn--danger" : "btn--ghost"}`}
-            onClick={deleteGateway}
-          >
+          <button className={`btn btn--sm ${deletingGateway ? "btn--danger" : "btn--ghost"}`} onClick={deleteGateway}>
             <IconTrash /> {deletingGateway ? "Confirm?" : "Delete"}
           </button>
         </div>
       </div>
 
-      {/* Edit gateway form */}
       {editingGateway && (
         <div className="card-body" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
           <GatewayForm
@@ -475,7 +592,6 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
         </div>
       )}
 
-      {/* Models section */}
       <div style={{ padding: "var(--space-5) var(--space-6)", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-secondary)" }}>
@@ -487,20 +603,15 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
             )}
           </span>
           <div style={{ display: "flex", gap: "var(--space-2)" }}>
-            <button
-              className="btn btn--ghost btn--sm"
-              onClick={fetchModels}
-              disabled={fetching}
-            >
+            <button className="btn btn--ghost btn--sm" onClick={fetchModels} disabled={fetching}>
               <IconDownload /> {fetching ? "Fetching…" : "Fetch from gateway"}
             </button>
-            <button className="btn btn--secondary btn--sm" onClick={() => setAddingModel(v => !v)}>
+            <button className="btn btn--secondary btn--sm" onClick={beginAddModel}>
               <IconPlus /> Add model
             </button>
           </div>
         </div>
 
-        {/* Fetch picker */}
         {fetchedModels && (
           <FetchPicker
             models={fetchedModels}
@@ -510,37 +621,48 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
           />
         )}
 
-        {/* Add model form */}
         {addingModel && (
           <ModelForm
+            initial={addModelSeed}
             saving={savingModel}
             onSave={addModel}
-            onCancel={() => setAddingModel(false)}
+            onCancel={() => { setAddingModel(false); setAddModelSeed(undefined); }}
           />
         )}
 
-        {/* Model list */}
         {gateway.models.length === 0 && !addingModel ? (
           <div style={{ padding: "var(--space-6)", textAlign: "center", color: "var(--text-muted)", fontSize: "0.875rem", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", border: "1px dashed var(--border-subtle)" }}>
             No models yet. Add models manually or fetch from the gateway.
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            {gateway.models.map(model => (
+            {gateway.models.map((model) => (
               <div key={model.id} style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
                 {editingModelId === model.id ? (
                   <ModelForm
                     initial={model}
+                    lockId
                     saving={savingModel}
                     onSave={editModel}
                     onCancel={() => setEditingModelId(null)}
                   />
                 ) : (
                   <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", padding: "var(--space-3) var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
-                    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+                    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
                       <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8125rem", color: "var(--text-primary)", wordBreak: "break-all" }}>
                         {model.id}
                       </span>
+                      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                        <span className="badge badge--info" style={{ fontSize: "0.7rem" }}>
+                          reasoning {reasoningLabel(model.reasoningPreset ?? "none")}
+                        </span>
+                        <span className="badge badge--info" style={{ fontSize: "0.7rem" }}>
+                          thinking {reasoningLabel(model.thinking ?? "none")}
+                        </span>
+                        <span className="badge badge--info" style={{ fontSize: "0.7rem" }}>
+                          upstream {model.upstreamModelId ?? model.id}
+                        </span>
+                      </div>
                       <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
                         <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>{model.name}</span>
                         {model.whenToUse && (
@@ -549,18 +671,13 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: "var(--space-1)", flexShrink: 0 }}>
-                      <button
-                        className="btn btn--ghost btn--sm btn--icon"
-                        title="Edit model"
-                        onClick={() => { setEditingModelId(model.id); setRemovingModelId(null); }}
-                      >
+                      <button className="btn btn--ghost btn--sm" title="Clone model" onClick={() => cloneModel(model)}>
+                        Clone
+                      </button>
+                      <button className="btn btn--ghost btn--sm btn--icon" title="Edit model" onClick={() => { setEditingModelId(model.id); setRemovingModelId(null); }}>
                         <IconEdit />
                       </button>
-                      <button
-                        className={`btn btn--sm btn--icon ${removingModelId === model.id ? "btn--danger" : "btn--ghost"}`}
-                        title={removingModelId === model.id ? "Click again to confirm removal" : "Remove model"}
-                        onClick={() => removeModel(model.id)}
-                      >
+                      <button className={`btn btn--sm btn--icon ${removingModelId === model.id ? "btn--danger" : "btn--ghost"}`} title={removingModelId === model.id ? "Click again to confirm removal" : "Remove model"} onClick={() => removeModel(model.id)}>
                         <IconTrash />
                       </button>
                     </div>
@@ -588,7 +705,10 @@ export function GatewayPanel({ onStatus, onError }: Props) {
     try {
       const res = await fetch("/api/v1/user/gateways", { cache: "no-store" });
       const data = await res.json() as { gateways?: GatewayInfo[]; error?: string };
-      if (!res.ok) { onError?.(data.error ?? "Failed to load gateways."); return; }
+      if (!res.ok) {
+        onError?.(data.error ?? "Failed to load gateways.");
+        return;
+      }
       setGateways(data.gateways ?? []);
     } catch {
       onError?.("Network error loading gateways.");
@@ -597,7 +717,9 @@ export function GatewayPanel({ onStatus, onError }: Props) {
     }
   }, [onError]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   async function createGateway(data: { name: string; baseUrl: string; apiKey: string }) {
     setSavingNew(true);
@@ -608,7 +730,10 @@ export function GatewayPanel({ onStatus, onError }: Props) {
         body: JSON.stringify(data),
       });
       const body = await res.json() as { error?: string };
-      if (!res.ok) { onError?.(body.error ?? "Failed to create gateway."); return; }
+      if (!res.ok) {
+        onError?.(body.error ?? "Failed to create gateway.");
+        return;
+      }
       onStatus?.("Gateway created.");
       setShowAddForm(false);
       await load();
@@ -630,12 +755,11 @@ export function GatewayPanel({ onStatus, onError }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-8)" }}>
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button className="btn btn--sm" style={{ flexShrink: 0 }} onClick={() => setShowAddForm(v => !v)}>
+        <button className="btn btn--sm" style={{ flexShrink: 0 }} onClick={() => setShowAddForm((value) => !value)}>
           <IconPlus /> Add gateway
         </button>
       </div>
 
-      {/* Add gateway form */}
       {showAddForm && (
         <div className="card">
           <div className="card-header">
@@ -651,7 +775,6 @@ export function GatewayPanel({ onStatus, onError }: Props) {
         </div>
       )}
 
-      {/* Empty state */}
       {gateways?.length === 0 && !showAddForm && (
         <div style={{ padding: "var(--space-12)", textAlign: "center", background: "var(--bg-surface)", borderRadius: "var(--radius-lg)", border: "1px dashed var(--border-default)" }}>
           <div style={{ fontSize: "2rem", marginBottom: "var(--space-4)" }}>🔌</div>
@@ -665,11 +788,10 @@ export function GatewayPanel({ onStatus, onError }: Props) {
         </div>
       )}
 
-      {/* Gateway cards */}
-      {gateways?.map(gw => (
+      {gateways?.map((gateway) => (
         <GatewayCard
-          key={gw.id}
-          gateway={gw}
+          key={gateway.id}
+          gateway={gateway}
           onRefresh={load}
           onStatus={onStatus}
           onError={onError}
