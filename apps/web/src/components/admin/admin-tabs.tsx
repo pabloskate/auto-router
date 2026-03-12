@@ -107,7 +107,8 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
         <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
           <div className="card">
             <div className="card-header">
-              <h3>Router Configuration</h3>
+              <h3>Global Settings</h3>
+              <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>Apply to all routing profiles unless overridden</p>
             </div>
             <div className="card-body">
               <RouterConfigPanel
@@ -137,6 +138,7 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
             <div className="card-body">
               <ProfilesPanel
                 profiles={ctx.user.profiles ?? null}
+                gatewayModelOptions={args.gatewayModelOptions}
                 onChange={(profiles) => {
                   args.setUser((current) => (current ? { ...current, profiles } : current));
                 }}

@@ -38,6 +38,7 @@ Recommended repo split:
 ## Runtime Behavior
 
 - Routing activates for `model: "auto"` and named routing profiles. Explicit model IDs pass through unchanged.
+- **Precedence:** Global fallback and classifier models apply to all profiles. Each profile can optionally override them via "Override global models" — when enabled, the profile’s fallback/classifier values take precedence; when disabled, the profile inherits global defaults. The `auto` profile is always required and non-deletable.
 - The first successful routed turn pins the selected model to the thread fingerprint for 1 hour. Continuations reuse that pin until a constraint breaks it or the cooldown window expires.
 - Putting `$$route` in the latest user turn bypasses the active thread pin for that turn and forces a fresh routing decision.
 - Sending `$$config` in chat enters the conversational router-config editor. The session stays in config mode until the assistant emits `#endconfig`.
@@ -59,7 +60,7 @@ npm run dev -w @auto-router/web
 ```
 
 1. Copy `.env.example` to `.env.local`.
-2. Set `OPENROUTER_API_KEY` if you want classifier-backed routing in local development.
+2. Set `BYOK_ENCRYPTION_SECRET` and add a gateway in the admin console.
 3. Open `http://localhost:3000/admin`.
 4. Create an account, add a gateway, generate an API key, and call `/api/v1` with `model: "auto"`.
 

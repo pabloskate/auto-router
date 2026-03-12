@@ -4,25 +4,29 @@ This repo is the self-hostable CustomRouter product. The fastest path is local d
 
 ## Local Development
 
+Auth (login, signup, API keys) requires a database. The app uses **local D1 + KV emulation** when running `next dev` via OpenNext's `initOpenNextCloudflareForDev`. Seed the local DB once before first run:
+
 ```bash
 npm install
 cp .env.example .env.local
+npm run db:seed          # Creates local D1 and applies schema (run once)
 npm run typecheck
 npm run dev -w @auto-router/web
 ```
 
 Recommended local variables:
 
-- `OPENROUTER_API_KEY` for classifier-backed routing
-- `BYOK_ENCRYPTION_SECRET` for stored user upstream credentials (required for BYOK)
+- `BYOK_ENCRYPTION_SECRET` for stored user upstream credentials (required)
 - `ADMIN_SECRET` if you want to exercise privileged routes locally
 
 Open `http://localhost:3000/admin`, then:
 
 1. Create an account.
 2. Add a gateway or BYOK upstream.
-3. Generate a router API key.
-4. Send a request to `/api/v1/chat/completions` with `model: "auto"`.
+3. In **Routing**, set global Default Fallback Model and Default Classifier Model. The `auto` profile is always present.
+4. Optionally add profiles (e.g. `auto-cheap`) and enable "Override global models" to use different models per profile.
+5. Generate a router API key.
+6. Send a request to `/api/v1/chat/completions` with `model: "auto"` or a named profile like `model: "auto-cheap"`.
 
 ## Cloudflare Deployment
 
@@ -31,7 +35,6 @@ Open `http://localhost:3000/admin`, then:
 3. Configure bindings in `apps/web/wrangler.toml` and `apps/ingest-worker/wrangler.toml`.
 4. Deploy the ingest worker.
 5. Deploy the web app with OpenNext for Cloudflare.
-6. Trigger the initial router recompute.
 
 See [deployment-cloudflare.md](deployment-cloudflare.md) for the full walkthrough.
 

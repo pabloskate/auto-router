@@ -94,11 +94,16 @@ export class RouterEngine {
       };
     }
 
-    // Build effective config: profile overrides take precedence over global config
+    // Build effective config: profile overrides apply only when overrideModels is true (or undefined for backward compat)
+    const useProfileModels = matchedProfile && matchedProfile.overrideModels !== false;
     const effectiveConfig: RouterConfig = matchedProfile ? {
       ...args.config,
-      defaultModel: matchedProfile.defaultModel ?? args.config.defaultModel,
-      classifierModel: matchedProfile.classifierModel ?? args.config.classifierModel,
+      defaultModel: useProfileModels && matchedProfile.defaultModel
+        ? matchedProfile.defaultModel
+        : args.config.defaultModel,
+      classifierModel: useProfileModels && matchedProfile.classifierModel
+        ? matchedProfile.classifierModel
+        : args.config.classifierModel,
       routingInstructions: matchedProfile.routingInstructions ?? args.config.routingInstructions,
       globalBlocklist: [...args.config.globalBlocklist, ...(matchedProfile.blocklist ?? [])],
     } : args.config;

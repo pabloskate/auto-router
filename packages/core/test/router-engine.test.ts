@@ -357,6 +357,47 @@ describe("RouterEngine (LLM Router)", () => {
         expect(decision.explanation.notes).toContain("Phase complete signal detected but ignored for non-tool request. Keeping thread pin.");
     });
 
+    it("should use profile defaultModel when overrideModels is true and matched profile has defaultModel", async () => {
+        const mockLlmRouter = vi.fn().mockResolvedValue({ selectedModel: "anthropic/claude-3-opus", confidence: 0.9, signals: [] });
+        const engine = new RouterEngine({ llmRouter: mockLlmRouter });
+
+        const decision = await engine.decide({
+            requestId: "req-profile-override",
+            request: { model: "auto-cheap", messages: [] },
+            config: defaultConfig,
+            catalog,
+            catalogVersion: "v1",
+            pinStore: new MockPinStore(),
+            profiles: [
+                { id: "auto", name: "Auto" },
+                { id: "auto-cheap", name: "Cheap", overrideModels: true, defaultModel: "anthropic/claude-3-opus" },
+            ],
+        });
+
+        expect(decision.selectedModel).toBe("anthropic/claude-3-opus");
+        expect(decision.explanation.profileId).toBe("auto-cheap");
+    });
+
+    it("should use global defaultModel when profile has overrideModels false even if profile has defaultModel", async () => {
+        const mockLlmRouter = vi.fn().mockResolvedValue(null);
+        const engine = new RouterEngine({ llmRouter: mockLlmRouter });
+
+        const decision = await engine.decide({
+            requestId: "req-profile-no-override",
+            request: { model: "auto-cheap", messages: [] },
+            config: defaultConfig,
+            catalog,
+            catalogVersion: "v1",
+            pinStore: new MockPinStore(),
+            profiles: [
+                { id: "auto", name: "Auto" },
+                { id: "auto-cheap", name: "Cheap", overrideModels: false, defaultModel: "anthropic/claude-3-opus" },
+            ],
+        });
+
+        expect(decision.selectedModel).toBe("openai/gpt-4o");
+    });
+
     // ── Bug Replication Tests ──────────────────────────────────────────────────
     //
     // BUG: Once a model is pinned, it can never change even after pin cooldown

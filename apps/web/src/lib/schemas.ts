@@ -6,6 +6,7 @@ export const routerProfileSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
+  overrideModels: z.boolean().optional(),
   defaultModel: z.string().optional(),
   classifierModel: z.string().optional(),
   routingInstructions: z.string().optional(),

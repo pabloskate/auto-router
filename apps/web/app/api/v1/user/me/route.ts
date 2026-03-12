@@ -90,7 +90,18 @@ export async function PUT(request: Request): Promise<Response> {
     const profilesParsed = Array.isArray(body.profiles)
         ? z.array(routerProfileSchema).safeParse(body.profiles)
         : null;
-    const profiles = profilesParsed?.success ? profilesParsed.data : null;
+    let profiles = profilesParsed?.success ? profilesParsed.data : null;
+
+    // Enforce required "auto" profile: must exist and cannot be removed
+    if (profiles !== null) {
+        const hasAuto = profiles.some((p: { id: string }) => p.id === "auto");
+        if (!hasAuto) {
+            return json(
+                { error: "Profiles must include the required 'auto' profile. It cannot be removed or renamed." },
+                400
+            );
+        }
+    }
 
     const byokSecret = resolveByokEncryptionSecret({
         byokSecret: bindings.BYOK_ENCRYPTION_SECRET ?? null,

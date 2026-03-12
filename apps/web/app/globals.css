@@ -270,6 +270,18 @@ body {
   flex-shrink: 0;
 }
 
+.topbar-logo-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.topbar-logo-mark {
+  width: 2.4rem;
+  height: 1.7rem;
+  object-fit: contain;
+}
+
 .topbar-logo {
   font-size: 1.5rem;
   font-weight: 700;
@@ -332,6 +344,11 @@ body {
 
   .topbar-logo {
     font-size: 1.2rem;
+  }
+
+  .topbar-logo-mark {
+    width: 2rem;
+    height: 1.4rem;
   }
 
   .topbar nav {
@@ -583,6 +600,12 @@ body {
 .badge--info {
   color: var(--accent);
   background: var(--accent-dim);
+}
+
+.badge--accent {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid rgba(34, 211, 238, 0.25);
 }
 
 .status-dot {
@@ -838,6 +861,32 @@ body {
 .profile-card-name {
   font-size: 0.875rem;
   color: var(--text-secondary);
+}
+
+.profile-card-header--required .profile-card-id {
+  color: var(--accent);
+}
+
+/* ─── Override Toggle (profile model override) ────────────────────────────────── */
+.override-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.override-toggle:hover {
+  color: var(--accent);
+}
+
+.override-toggle:has(input:checked) {
+  background: var(--accent-dim) !important;
+  border-color: var(--accent) !important;
+}
+
+.override-toggle:has(input:checked) span {
+  color: var(--accent);
 }
 
 /* ─── Model Cards ────────────────────────────────────────────────────────────── */

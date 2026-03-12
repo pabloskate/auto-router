@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProfilesPanel.tsx
@@ -16,6 +16,7 @@ export type RouterProfile = {
   id: string;
   name: string;
   description?: string;
+  overrideModels?: boolean;
   defaultModel?: string;
   classifierModel?: string;
   routingInstructions?: string;
@@ -23,8 +24,16 @@ export type RouterProfile = {
   catalogFilter?: string[];
 };
 
+/** Derive overrideModels for backward compat when loading legacy profiles. */
+export function normalizeProfile(p: RouterProfile): RouterProfile {
+  if (typeof p.overrideModels === "boolean") return p;
+  const overrideModels = !!(p.defaultModel || p.classifierModel);
+  return { ...p, overrideModels };
+}
+
 interface Props {
   profiles: RouterProfile[] | null;
+  gatewayModelOptions: string[];
   onChange: (updated: RouterProfile[]) => void;
   onSave: () => Promise<boolean>;
 }
@@ -126,25 +135,40 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 function ProfileCard({
   profile,
   index,
+  gatewayModelOptions,
+  isRequired,
   onUpdate,
   onRemove,
 }: {
   profile: RouterProfile;
   index: number;
+  gatewayModelOptions: string[];
+  isRequired: boolean;
   onUpdate: (idx: number, patch: Partial<RouterProfile>) => void;
   onRemove: (idx: number) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(!profile.id);
+  const overrideModels = profile.overrideModels ?? false;
+  const allModelOptions = Array.from(
+    new Set(
+      [
+        ...gatewayModelOptions,
+        profile.defaultModel ?? "",
+        profile.classifierModel ?? "",
+      ].filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+    )
+  ).sort((a, b) => a.localeCompare(b));
 
   return (
     <div className="profile-card animate-slide-in" style={{ animationDelay: `${index * 50}ms` }}>
       {/* Card Header */}
-      <div className="profile-card-header">
+      <div className={`profile-card-header ${isRequired ? "profile-card-header--required" : ""}`}>
         <div className="profile-card-title">
           {profile.id ? (
             <>
               <span className="profile-card-id">{profile.id}</span>
               {profile.name && <span className="profile-card-name">— {profile.name}</span>}
+              {isRequired && <span className="badge badge--accent" style={{ marginLeft: "var(--space-2)" }}>Required</span>}
             </>
           ) : (
             <span style={{ fontStyle: "italic", color: "var(--text-muted)" }}>New Profile</span>
@@ -157,12 +181,14 @@ function ProfileCard({
           >
             {isExpanded ? "Collapse" : "Expand"}
           </button>
-          <button
-            className="btn btn--sm btn--danger"
-            onClick={() => onRemove(index)}
-          >
-            <IconTrash />
-          </button>
+          {!isRequired && (
+            <button
+              className="btn btn--sm btn--danger"
+              onClick={() => onRemove(index)}
+            >
+              <IconTrash />
+            </button>
+          )}
         </div>
       </div>
 
@@ -178,6 +204,7 @@ function ProfileCard({
             value={profile.id}
             onChange={(e) => onUpdate(index, { id: e.target.value })}
             placeholder="auto-cheap"
+            readOnly={isRequired}
           />
           <span className="form-hint">The model name clients send in requests. Must be unique.</span>
         </div>
@@ -212,7 +239,7 @@ function ProfileCard({
             />
           </div>
 
-          {/* Model Overrides */}
+          {/* Model Selection: for auto always shown; for others only when overrideModels */}
           <div style={{ marginBottom: "var(--space-5)" }}>
             <div
               style={{
@@ -226,35 +253,115 @@ function ProfileCard({
             >
               <IconModel style={{ color: "var(--text-muted)" } as any} />
               <span style={{ fontSize: "0.8125rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)" }}>
-                Model Overrides
+                Model Selection
               </span>
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Fallback Model</label>
-                <input
-                  className="input input--mono"
-                  type="text"
-                  value={profile.defaultModel || ""}
-                  onChange={(e) => onUpdate(index, { defaultModel: e.target.value || undefined })}
-                  placeholder="Inherits from global config"
-                />
-                <span className="form-hint">Override the default fallback model for this profile.</span>
+            {isRequired ? (
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Fallback Model</label>
+                  <select
+                    className="input input--mono"
+                    value={profile.defaultModel || ""}
+                    onChange={(e) =>
+                      onUpdate(index, {
+                        defaultModel: e.target.value.trim().length > 0 ? e.target.value : undefined,
+                      })
+                    }
+                  >
+                    <option value="">Select a fallback model</option>
+                    {allModelOptions.map((modelId) => (
+                      <option key={modelId} value={modelId}>{modelId}</option>
+                    ))}
+                  </select>
+                  <span className="form-hint">Used when the classifier fails to decide.</span>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Classifier Model</label>
+                  <select
+                    className="input input--mono"
+                    value={profile.classifierModel || ""}
+                    onChange={(e) =>
+                      onUpdate(index, {
+                        classifierModel: e.target.value.trim().length > 0 ? e.target.value : undefined,
+                      })
+                    }
+                  >
+                    <option value="">Select a classifier model</option>
+                    {allModelOptions.map((modelId) => (
+                      <option key={modelId} value={modelId}>{modelId}</option>
+                    ))}
+                  </select>
+                  <span className="form-hint">Cheap, fast model for routing decisions.</span>
+                </div>
               </div>
-
-              <div className="form-group">
-                <label className="form-label">Classifier Model</label>
-                <input
-                  className="input input--mono"
-                  type="text"
-                  value={profile.classifierModel || ""}
-                  onChange={(e) => onUpdate(index, { classifierModel: e.target.value || undefined })}
-                  placeholder="Inherits from global config"
-                />
-                <span className="form-hint">Override the LLM used for routing decisions.</span>
-              </div>
-            </div>
+            ) : (
+              <>
+                <label
+                  className="override-toggle"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "var(--space-2)",
+                    padding: "var(--space-2) var(--space-3)",
+                    background: "var(--bg-interactive)",
+                    border: "1px solid var(--border-default)",
+                    borderRadius: "var(--radius-md)",
+                    cursor: "pointer",
+                    marginBottom: overrideModels ? "var(--space-4)" : 0,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={overrideModels}
+                    onChange={(e) => onUpdate(index, { overrideModels: e.target.checked })}
+                    style={{ margin: 0 }}
+                  />
+                  <span style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--text-secondary)" }}>Override global models</span>
+                </label>
+                {overrideModels && (
+                  <div className="form-row" style={{ marginTop: "var(--space-4)" }}>
+                    <div className="form-group">
+                      <label className="form-label">Fallback Model</label>
+                      <select
+                        className="input input--mono"
+                        value={profile.defaultModel || ""}
+                        onChange={(e) =>
+                          onUpdate(index, {
+                            defaultModel: e.target.value.trim().length > 0 ? e.target.value : undefined,
+                          })
+                        }
+                      >
+                        <option value="">Select a fallback model</option>
+                        {allModelOptions.map((modelId) => (
+                          <option key={modelId} value={modelId}>{modelId}</option>
+                        ))}
+                      </select>
+                      <span className="form-hint">Override the default fallback model for this profile.</span>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Classifier Model</label>
+                      <select
+                        className="input input--mono"
+                        value={profile.classifierModel || ""}
+                        onChange={(e) =>
+                          onUpdate(index, {
+                            classifierModel: e.target.value.trim().length > 0 ? e.target.value : undefined,
+                          })
+                        }
+                      >
+                        <option value="">Select a classifier model</option>
+                        {allModelOptions.map((modelId) => (
+                          <option key={modelId} value={modelId}>{modelId}</option>
+                        ))}
+                      </select>
+                      <span className="form-hint">Override the classifier model for this profile.</span>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {/* Filters */}
@@ -342,10 +449,24 @@ function ProfileCard({
   );
 }
 
+const DEFAULT_AUTO_PROFILE: RouterProfile = {
+  id: "auto",
+  name: "Auto",
+  overrideModels: false,
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
-export function ProfilesPanel({ profiles, onChange, onSave }: Props) {
+export function ProfilesPanel({ profiles, gatewayModelOptions, onChange, onSave }: Props) {
   const [saving, setSaving] = useState(false);
-  const items = profiles || [];
+  const baseItems = (profiles ?? []).map(normalizeProfile);
+  const hasAuto = baseItems.some((p) => p.id === "auto");
+  const items = hasAuto ? baseItems : [DEFAULT_AUTO_PROFILE, ...baseItems];
+
+  useEffect(() => {
+    if (!hasAuto) {
+      onChange([DEFAULT_AUTO_PROFILE, ...(profiles ?? []).map(normalizeProfile)]);
+    }
+  }, [hasAuto, profiles, onChange]);
 
   function updateProfile(idx: number, patch: Partial<RouterProfile>) {
     const updated = [...items];
@@ -354,7 +475,7 @@ export function ProfilesPanel({ profiles, onChange, onSave }: Props) {
   }
 
   function addProfile() {
-    onChange([...items, { id: "", name: "" }]);
+    onChange([...items, { id: "", name: "", overrideModels: false }]);
   }
 
   function removeProfile(idx: number) {
@@ -375,7 +496,7 @@ export function ProfilesPanel({ profiles, onChange, onSave }: Props) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-5)" }}>
         <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", maxWidth: 600 }}>
           Profiles let clients use custom model names like <code className="code">auto-cheap</code> or{" "}
-          <code className="code">auto-coding</code> that trigger specific routing strategies.
+          <code className="code">auto-coding</code> that trigger specific routing strategies. <strong>auto</strong> is always available.
         </p>
         <button className="btn" onClick={addProfile}>
           <IconPlus />
@@ -390,9 +511,11 @@ export function ProfilesPanel({ profiles, onChange, onSave }: Props) {
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
           {items.map((profile, idx) => (
             <ProfileCard
-              key={idx}
+              key={profile.id || idx}
               profile={profile}
               index={idx}
+              gatewayModelOptions={gatewayModelOptions}
+              isRequired={profile.id === "auto"}
               onUpdate={updateProfile}
               onRemove={removeProfile}
             />

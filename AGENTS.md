@@ -110,7 +110,8 @@ PUT  /api/v1/router/config     → verifyAdminSecret
 | `admin-console.tsx` | Root shell — loads data, wires sub-components together |
 | `AuthGate.tsx` | Login / signup form |
 | `ApiKeyPanel.tsx` | Generate, list, revoke API keys |
-| `RouterConfigPanel.tsx` | Default model, classifier model, routing instructions, blocklist |
+| `RouterConfigPanel.tsx` | Global defaults: fallback model, classifier model, routing instructions, blocklist |
+| `ProfilesPanel.tsx` | Per-profile config with "Override global models" toggle. The `auto` profile is required and non-deletable. |
 | `CatalogEditorPanel.tsx` | Per-user model catalog editor ("constitution") |
 
 ### `packages/core/src/`
@@ -118,7 +119,7 @@ PUT  /api/v1/router/config     → verifyAdminSecret
 | File | Responsibility |
 |------|---------------|
 | `types.ts` | All shared types: RouterConfig, CatalogItem, RouteDecision, RoutingExplanation, etc. |
-| `router-engine.ts` | `RouterEngine.decide()` — stateless routing decision logic (pin check → classifier → fallback) |
+| `router-engine.ts` | `RouterEngine.decide()` — stateless routing decision logic (pin check → classifier → fallback). Profile overrides apply only when `overrideModels !== false`; otherwise the profile inherits global defaults. |
 | `llm-router.ts` | Interface and helpers for the pluggable LLM classifier |
 | `pin-store.ts` | `PinStore` interface + `InMemoryPinStore` |
 | `index.ts` | Barrel export |
@@ -192,14 +193,14 @@ All guardrail logic is in `apps/web/src/lib/routing/guardrail-manager.ts`. Thres
 
 ```bash
 npm install
+npm run db:seed                  # Creates local D1 + applies schema (required for login/signup)
 npm run typecheck
-npm run dev -w @auto-router/web   # starts Next.js on localhost:3000
-
-# Without Cloudflare bindings, the app uses MemoryRepository.
-# Data resets on server restart. That's fine for UI development.
+npm run dev -w @auto-router/web  # starts Next.js on localhost:3000
 ```
 
-Copy `.env.example` → `.env.local` and fill in `OPENROUTER_API_KEY`.
+Auth (users, sessions, API keys) requires D1. With `initOpenNextCloudflareForDev` in next.config, local D1/KV emulation runs when using `next dev`; run `npm run db:seed` once to create the schema. Without it, login/signup returns 500 "Server misconfigured."
+
+Copy `.env.example` → `.env.local` and fill in `BYOK_ENCRYPTION_SECRET`.
 
 ---
 

@@ -5,6 +5,31 @@ import { describe, expect, it } from "vitest";
 import { RouterConfigPanel } from "./RouterConfigPanel";
 
 describe("RouterConfigPanel", () => {
+  it("renders Fallback Model and Classifier Model labels and hints", () => {
+    const markup = renderToStaticMarkup(
+      createElement(RouterConfigPanel, {
+        config: {
+          defaultModel: null,
+          classifierModel: null,
+          routingInstructions: null,
+          blocklist: null,
+          showModelInResponse: false,
+          configAgentEnabled: false,
+          configAgentOrchestratorModel: null,
+          configAgentSearchModel: null,
+        },
+        gatewayModelOptions: ["model/a", "model/b"],
+        onChange: () => undefined,
+        onSave: async () => true,
+      })
+    );
+
+    expect(markup).toContain("Fallback Model");
+    expect(markup).toContain("Classifier Model");
+    expect(markup).toContain("Used when the classifier fails to decide");
+    expect(markup).toContain("Cheap, fast model for routing decisions");
+  });
+
   it("renders the optional Config Agent card with command guidance when enabled", () => {
     const markup = renderToStaticMarkup(
       createElement(RouterConfigPanel, {

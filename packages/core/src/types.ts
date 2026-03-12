@@ -49,8 +49,9 @@ export interface RouterProfile {
   id: string;                    // Client-facing model name, e.g. "auto-cheap"
   name: string;                  // Display name for UI
   description?: string;          // Shown in /v1/models and admin UI
-  defaultModel?: string;         // Fallback model override for this profile
-  classifierModel?: string;      // Override classifier LLM
+  overrideModels?: boolean;      // When true, use profile defaultModel/classifierModel; otherwise inherit global
+  defaultModel?: string;         // Fallback model override for this profile (used when overrideModels=true)
+  classifierModel?: string;      // Override classifier LLM (used when overrideModels=true)
   routingInstructions?: string;  // Replaces global routing instructions
   blocklist?: string[];          // Additive with globalBlocklist
   catalogFilter?: string[];      // Allowlist: only route to these model IDs
