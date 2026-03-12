@@ -16,16 +16,16 @@ npm run eval:router:dry -- --limit 10
 npm run eval:model:dry -- --model openai/gpt-5.2 --limit 10
 ```
 
-Live router run:
+Live router run (needs EVAL_* for judge scoring):
 
 ```bash
-ROUTER_BASE_URL=http://localhost:3001 OPENROUTER_API_KEY=... npm run eval:router -- --limit 20
+ROUTER_BASE_URL=http://localhost:3001 EVAL_BASE_URL=https://openrouter.ai/api/v1 EVAL_API_KEY=... npm run eval:router -- --limit 20
 ```
 
 Live model baseline:
 
 ```bash
-OPENROUTER_API_KEY=... npm run eval:model -- --model openai/gpt-5.2 --limit 20
+EVAL_BASE_URL=https://openrouter.ai/api/v1 EVAL_API_KEY=... npm run eval:model -- --model openai/gpt-5.2 --limit 20
 ```
 
 ## Output

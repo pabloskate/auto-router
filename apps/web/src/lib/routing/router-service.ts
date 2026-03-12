@@ -14,7 +14,7 @@
 // Phase-complete signal injection is documented inline below.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { RouterEngine, type RouteDecision, type RouterRequestLike, type CatalogItem } from "@auto-router/core";
+import { RouterEngine, type RouteDecision, type RouterRequestLike, type CatalogItem } from "@custom-router/core";
 
 import { decryptByokSecret, resolveByokEncryptionSecret } from "../auth/byok-crypto";
 import { json, attachRouterHeaders } from "../infra/http";

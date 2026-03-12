@@ -43,6 +43,7 @@ describe("admin tab registry", () => {
       "routing",
       "keys",
       "playground",
+      "invites",
       "account",
     ]);
   });
@@ -57,7 +58,7 @@ describe("admin tab registry", () => {
 
     expect(groups.configure.map((tab) => tab.id)).toEqual(["gateways", "routing"]);
     expect(groups.use.map((tab) => tab.id)).toEqual(["keys", "playground"]);
-    expect(groups.account.map((tab) => tab.id)).toEqual(["account"]);
+    expect(groups.account.map((tab) => tab.id)).toEqual(["invites", "account"]);
     expect(getInitialAdminTabId(tabs, "gateways")).toBe("gateways");
   });
 });

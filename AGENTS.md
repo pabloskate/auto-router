@@ -195,7 +195,7 @@ All guardrail logic is in `apps/web/src/lib/routing/guardrail-manager.ts`. Thres
 npm install
 npm run db:seed                  # Creates local D1 + applies schema (required for login/signup)
 npm run typecheck
-npm run dev -w @auto-router/web  # starts Next.js on localhost:3000
+npm run dev -w @custom-router/web  # starts Next.js on localhost:3000
 ```
 
 Auth (users, sessions, API keys) requires D1. With `initOpenNextCloudflareForDev` in next.config, local D1/KV emulation runs when using `next dev`; run `npm run db:seed` once to create the schema. Without it, login/signup returns 500 "Server misconfigured."
@@ -207,8 +207,8 @@ Copy `.env.example` → `.env.local` and fill in `BYOK_ENCRYPTION_SECRET`.
 ## Tests
 
 ```bash
-npm run test -w @auto-router/core
-npm run test -w @auto-router/web
+npm run test -w @custom-router/core
+npm run test -w @custom-router/web
 ```
 
 Core tests live in `packages/core/test/`. They cover `RouterEngine` and thread fingerprinting.

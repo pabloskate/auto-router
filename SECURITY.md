@@ -10,7 +10,7 @@ Do not open a public GitHub issue for security reports.
 
 Preferred channel:
 
-- Open a private GitHub security advisory: `https://github.com/pabloskate/auto-router/security/advisories/new`
+- Open a private GitHub security advisory: `https://github.com/pabloskate/custom-router/security/advisories/new`
 
 Fallback if GitHub private reporting is unavailable:
 

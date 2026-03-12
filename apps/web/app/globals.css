@@ -418,6 +418,26 @@ body {
   }
 }
 
+/* ─── Global Settings layout (matches prototype) ───────────────────────────── */
+.divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 0;
+}
+
+.global-settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.global-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
 .form-label {
   font-size: 0.8125rem;
   font-weight: 500;

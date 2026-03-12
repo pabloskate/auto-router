@@ -12,7 +12,7 @@
 // legacy user_upstream_credentials row into a "Default" gateway on first call.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { CatalogItem } from "@auto-router/core";
+import type { CatalogItem } from "@custom-router/core";
 import { UPSTREAM } from "../constants";
 import type { D1Database } from "../infra/cloudflare-types";
 

@@ -56,7 +56,7 @@ Recommended repo split:
 ```bash
 npm install
 npm run typecheck
-npm run dev -w @auto-router/web
+npm run dev -w @custom-router/web
 ```
 
 1. Copy `.env.example` to `.env.local`.

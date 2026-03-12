@@ -1,5 +1,5 @@
 {
-  "name": "@auto-router/ingest-worker",
+  "name": "@custom-router/ingest-worker",
   "version": "0.1.0",
   "license": "AGPL-3.0-only",
   "private": true,
@@ -9,9 +9,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "deploy": "wrangler deploy"
   },
-  "dependencies": {
-    "@auto-router/data": "0.1.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "typescript": "^5.7.3",
     "wrangler": "^3.92.0"

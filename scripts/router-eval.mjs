@@ -5,7 +5,17 @@ import path from "node:path";
 
 const DEFAULT_SPEC_PATH = "docs/router_eval_spec.json";
 const DEFAULT_REPORT_DIR = "docs/eval-results";
-const OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+function getEvalUpstream() {
+  const baseUrl = process.env.EVAL_BASE_URL?.trim();
+  const apiKey = process.env.EVAL_API_KEY?.trim();
+  if (!baseUrl || !apiKey) {
+    throw new Error(
+      "EVAL_BASE_URL and EVAL_API_KEY are required for model mode and judge scoring. Set them to your BYOK upstream (e.g. OpenRouter)."
+    );
+  }
+  return { baseUrl: baseUrl.replace(/\/$/, ""), apiKey };
+}
 
 function parseArgs(argv) {
   const args = {
@@ -225,8 +235,9 @@ function latencyCostScore(query, latencyMs, costUsd) {
   return Number(clamp(0.6 * latencyScore + 0.4 * costScore).toFixed(4));
 }
 
-async function callOpenRouterChat({ apiKey, model, prompt, temperature = 0, maxTokens = 1200 }) {
-  const response = await fetch(OPENROUTER_CHAT_URL, {
+async function callEvalChat({ baseUrl, apiKey, model, prompt, temperature = 0, maxTokens = 1200 }) {
+  const url = `${baseUrl}/chat/completions`;
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -243,7 +254,7 @@ async function callOpenRouterChat({ apiKey, model, prompt, temperature = 0, maxT
 
   const bodyText = await response.text();
   if (!response.ok) {
-    throw new Error(`OpenRouter error (${response.status}): ${bodyText.slice(0, 500)}`);
+    throw new Error(`Eval upstream error (${response.status}): ${bodyText.slice(0, 500)}`);
   }
 
   return JSON.parse(bodyText);
@@ -306,13 +317,11 @@ async function runCandidateQuery({ args, prompt }) {
     };
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is required for --mode model");
-  }
+  const { baseUrl, apiKey } = getEvalUpstream();
 
   const startedAt = Date.now();
-  const response = await fetch(OPENROUTER_CHAT_URL, {
+  const chatUrl = `${baseUrl}/chat/completions`;
+  const response = await fetch(chatUrl, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -389,12 +398,10 @@ async function judgeResponse({ args, query, answer }) {
     };
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is required for judge scoring");
-  }
+  const { baseUrl, apiKey } = getEvalUpstream();
 
-  const payload = await callOpenRouterChat({
+  const payload = await callEvalChat({
+    baseUrl,
     apiKey,
     model: args.judgeModel,
     prompt: buildJudgePrompt({ query, answer }),

@@ -1,4 +1,4 @@
-import type { CatalogItem } from "@auto-router/core";
+import type { CatalogItem } from "@custom-router/core";
 import { withApiKeyAuth } from "@/src/lib/auth";
 import { json } from "@/src/lib/infra";
 import { gatewayRowToPublic, loadGatewaysWithMigration } from "@/src/lib/storage";

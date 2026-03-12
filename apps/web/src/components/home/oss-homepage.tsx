@@ -11,7 +11,7 @@ const QUICKSTART_CARDS = [
   {
     title: "1. Local setup",
     summary: "Install dependencies, copy the example environment file, and run the web app locally.",
-    code: "npm install\nnpm run typecheck\nnpm run dev -w @auto-router/web",
+    code: "npm install\nnpm run typecheck\nnpm run dev -w @custom-router/web",
     links: [
       { label: "README", href: OSS.README_URL, external: true },
       { label: "Quickstart doc", href: OSS.QUICKSTART_URL, external: true },

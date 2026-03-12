@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -6,7 +7,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <header className="topbar">
         <div className="topbar-brand">
           <Link href="/" style={{ textDecoration: "none" }}>
-            <span className="topbar-logo">CustomRouter</span>
+            <span className="topbar-logo-lockup">
+              <Image
+                src="/crlogo.svg"
+                alt="CustomRouter logo"
+                width={32}
+                height={32}
+                className="topbar-logo-mark"
+                priority
+              />
+              <span className="topbar-logo">CustomRouter</span>
+            </span>
           </Link>
           <span className="topbar-tagline">Self-hostable router</span>
         </div>

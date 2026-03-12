@@ -159,14 +159,14 @@ export const UPSTREAM = {
 // ── Open Source Metadata ────────────────────────────────────────────────────
 
 export const OSS = {
-  REPO_URL: "https://github.com/pabloskate/auto-router",
-  LICENSE_URL: "https://github.com/pabloskate/auto-router/blob/main/LICENSE",
-  README_URL: "https://github.com/pabloskate/auto-router/blob/main/README.md",
-  QUICKSTART_URL: "https://github.com/pabloskate/auto-router/blob/main/docs/quickstart.md",
-  DEPLOYMENT_URL: "https://github.com/pabloskate/auto-router/blob/main/docs/deployment-cloudflare.md",
-  RELEASE_PROCESS_URL: "https://github.com/pabloskate/auto-router/blob/main/docs/release-process.md",
-  SCHEMA_URL: "https://github.com/pabloskate/auto-router/blob/main/infra/d1/schema.sql",
-  SECURITY_POLICY_URL: "https://github.com/pabloskate/auto-router/blob/main/SECURITY.md",
-  SECURITY_ADVISORY_URL: "https://github.com/pabloskate/auto-router/security/advisories/new",
+  REPO_URL: "https://github.com/pabloskate/custom-router",
+  LICENSE_URL: "https://github.com/pabloskate/custom-router/blob/main/LICENSE",
+  README_URL: "https://github.com/pabloskate/custom-router/blob/main/README.md",
+  QUICKSTART_URL: "https://github.com/pabloskate/custom-router/blob/main/docs/quickstart.md",
+  DEPLOYMENT_URL: "https://github.com/pabloskate/custom-router/blob/main/docs/deployment-cloudflare.md",
+  RELEASE_PROCESS_URL: "https://github.com/pabloskate/custom-router/blob/main/docs/release-process.md",
+  SCHEMA_URL: "https://github.com/pabloskate/custom-router/blob/main/infra/d1/schema.sql",
+  SECURITY_POLICY_URL: "https://github.com/pabloskate/custom-router/blob/main/SECURITY.md",
+  SECURITY_ADVISORY_URL: "https://github.com/pabloskate/custom-router/security/advisories/new",
   MAINTAINER_PROFILE_URL: "https://github.com/pabloskate",
 } as const;

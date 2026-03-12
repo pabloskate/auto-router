@@ -29,11 +29,11 @@ export interface RouterRuntimeBindings {
 
 declare global {
   // eslint-disable-next-line no-var
-  var AUTO_ROUTER_BINDINGS: RouterRuntimeBindings | undefined;
+  var CUSTOM_ROUTER_BINDINGS: RouterRuntimeBindings | undefined;
 }
 
 export function getRuntimeBindings(): RouterRuntimeBindings {
-  let fromGlobal: any = globalThis.AUTO_ROUTER_BINDINGS;
+  let fromGlobal: any = globalThis.CUSTOM_ROUTER_BINDINGS;
 
   // Next.js 15 / OpenNext v3 cloudflare context bindings
   try {

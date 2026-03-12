@@ -16,7 +16,7 @@
 // Errors: returns null on any failure so the engine can fall back gracefully.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { LlmRoutingResult } from "@auto-router/core";
+import type { LlmRoutingResult } from "@custom-router/core";
 import { CLASSIFIER } from "../constants";
 import { joinUpstreamUrl } from "../upstream/upstream";
 

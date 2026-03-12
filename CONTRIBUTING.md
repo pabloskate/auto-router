@@ -16,7 +16,7 @@ Thanks for contributing to CustomRouter.
 npm install
 cp .env.example .env.local
 npm run typecheck
-npm run dev -w @auto-router/web
+npm run dev -w @custom-router/web
 ```
 
 Without Cloudflare bindings, the app falls back to the in-memory repository for local UI work.

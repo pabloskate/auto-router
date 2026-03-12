@@ -1,5 +1,5 @@
 {
-  "name": "@auto-router/web",
+  "name": "@custom-router/web",
   "version": "0.1.0",
   "license": "AGPL-3.0-only",
   "private": true,
@@ -12,8 +12,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@auto-router/core": "0.1.0",
-    "@auto-router/data": "0.1.0",
+    "@custom-router/core": "0.1.0",
     "next": "15.5.12",
     "react": "19.0.0",
     "react-dom": "19.0.0",

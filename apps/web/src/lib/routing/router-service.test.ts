@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { PinStore, RouterConfig } from "@auto-router/core";
+import type { PinStore, RouterConfig } from "@custom-router/core";
 import { encryptByokSecret } from "../auth/byok-crypto";
 import { getRuntimeBindings } from "../infra/runtime-bindings";
 import { getRouterRepository } from "../storage/repository";

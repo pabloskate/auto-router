@@ -774,14 +774,7 @@ async function resolveApiKey(
     }
   }
 
-  if (bindings.OPENROUTER_API_KEY) {
-    return {
-      apiKey: bindings.OPENROUTER_API_KEY,
-      baseUrl: bindings.OPENAI_COMPAT_BASE_URL ?? UPSTREAM.DEFAULT_BASE_URL,
-    };
-  }
-
-  return { error: "No API key available. Configure a BYOK key or set OPENROUTER_API_KEY." };
+  return { error: "No API key available. Configure a BYOK upstream in the admin console." };
 }
 
 function findGatewayForModel(

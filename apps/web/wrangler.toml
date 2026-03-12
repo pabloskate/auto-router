@@ -1,4 +1,4 @@
-name = "custom-router-web"
+name = "custom-router-web-test"
 main = ".open-next/worker.js"
 compatibility_date = "2026-02-18"
 compatibility_flags = ["nodejs_compat"]
@@ -10,12 +10,12 @@ binding = "ASSETS"
 
 [[d1_databases]]
 binding = "ROUTER_DB"
-database_name = "auto-router"
-database_id = "a8830816-05f2-4d76-8e34-8b50e7d9943e"
+database_name = "custom-router-test"
+database_id = "6673823f-8832-4a64-8be8-748f8363e3bc"
 
 [[kv_namespaces]]
 binding = "ROUTER_KV"
-id = "b0a52bd550f24f17ad36b60e67b6f24f"
+id = "7f6496dd57a8432a9a634d08b3f0ae01"
 
 [vars]
 ROUTER_NAME = "custom-router"

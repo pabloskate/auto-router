@@ -1,5 +1,3 @@
-import { fetchAndBuildIngestionArtifacts } from "@auto-router/data";
-
 interface D1PreparedStatement {
   bind(...values: unknown[]): D1PreparedStatement;
   first<T = unknown>(): Promise<T | null>;
@@ -33,13 +31,9 @@ interface ExecutionContext {
 interface Env {
   ROUTER_DB: D1Database;
   ROUTER_KV: KVNamespace;
-  OPENROUTER_API_KEY?: string;
   ROUTER_NAME?: string;
   ADMIN_SECRET?: string;
 }
-
-const ACTIVE_META_KEY = "router:active:meta";
-const ACTIVE_CATALOG_KEY = (version: string) => `router:active:catalog:${version}`;
 
 function runId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
@@ -101,60 +95,15 @@ async function putRun(
 async function executeIngestion(env: Env): Promise<{ ok: true; runId: string; artifactVersion: string } | { ok: false; runId: string; error: string }> {
   const id = runId("ingest");
   const startedAt = new Date().toISOString();
-  await putRun(env, { id, status: "running", startedAt });
-
-  if (!env.OPENROUTER_API_KEY) {
-    const error = "OPENROUTER_API_KEY is missing";
-    await putRun(env, {
-      id,
-      status: "error",
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      error
-    });
-    return { ok: false, runId: id, error };
-  }
-
-  try {
-    const result = await fetchAndBuildIngestionArtifacts({
-      openRouterApiKey: env.OPENROUTER_API_KEY
-    });
-
-    await env.ROUTER_KV.put(ACTIVE_CATALOG_KEY(result.version), JSON.stringify(result.catalog));
-    await env.ROUTER_KV.put(
-      ACTIVE_META_KEY,
-      JSON.stringify({
-        version: result.version,
-        generated_at: result.generatedAt
-      })
-    );
-
-    console.log(
-      `[ingest-worker] OR models=${result.catalog.length}`
-    );
-
-    await putRun(env, {
-      id,
-      status: "ok",
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      artifactVersion: result.version
-    });
-
-    return { ok: true, runId: id, artifactVersion: result.version };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown ingestion error";
-
-    await putRun(env, {
-      id,
-      status: "error",
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      error: message
-    });
-
-    return { ok: false, runId: id, error: message };
-  }
+  const error = "Catalog ingestion disabled. App is BYOK-only.";
+  await putRun(env, {
+    id,
+    status: "error",
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    error
+  });
+  return { ok: false, runId: id, error };
 }
 
 export default {

@@ -12,7 +12,7 @@
 // Model IDs follow OpenRouter's naming convention:  provider/model-name
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { CatalogItem, RouterConfig } from "@auto-router/core";
+import type { CatalogItem, RouterConfig } from "@custom-router/core";
 
 // ── Default fallback model ────────────────────────────────────────────────────
 //

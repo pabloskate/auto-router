@@ -1,4 +1,4 @@
-name = "custom-router-ingest-worker"
+name = "custom-router-ingest-worker-test"
 main = "src/index.ts"
 compatibility_date = "2026-02-18"
 
@@ -7,12 +7,12 @@ crons = ["0 4 * * *"]
 
 [[d1_databases]]
 binding = "ROUTER_DB"
-database_name = "replace-with-your-d1-database-name"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_name = "custom-router-test"
+database_id = "6673823f-8832-4a64-8be8-748f8363e3bc"
 
 [[kv_namespaces]]
 binding = "ROUTER_KV"
-id = "00000000000000000000000000000000"
+id = "7f6496dd57a8432a9a634d08b3f0ae01"
 
 [vars]
 ROUTER_NAME = "custom-router"

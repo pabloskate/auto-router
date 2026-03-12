@@ -15,10 +15,10 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@auto-router/core": ["packages/core/src/index.ts"],
-      "@auto-router/core/*": ["packages/core/src/*"],
-      "@auto-router/data": ["packages/data/src/index.ts"],
-      "@auto-router/data/*": ["packages/data/src/*"]
+      "@custom-router/core": ["packages/core/src/index.ts"],
+      "@custom-router/core/*": ["packages/core/src/*"],
+      "@custom-router/data": ["packages/data/src/index.ts"],
+      "@custom-router/data/*": ["packages/data/src/*"]
     }
   }
 }

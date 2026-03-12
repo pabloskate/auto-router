@@ -1,0 +1,16 @@
+{
+  "name": "CustomRouter",
+  "short_name": "CustomRouter",
+  "description": "Self-hostable, OpenAI-compatible LLM router with BYOK and explainability.",
+  "icons": [
+    {
+      "src": "/crlogo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#0D141A",
+  "background_color": "#0D141A",
+  "display": "standalone"
+}

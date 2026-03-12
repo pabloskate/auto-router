@@ -129,12 +129,93 @@ function RoutingLogicSection({
         description="Configure how CustomRouter selects models for each request"
       />
 
-      <div className="form-row" style={{ marginBottom: "var(--space-5)" }}>
-        <div className="form-group">
+      {/* Row 1: Blocklist + toggles (matches prototype) */}
+      <div className="global-settings-row" style={{ marginBottom: 0 }}>
+        <div className="form-group" style={{ flex: "1 1 200px" }}>
+          <label className="form-label">
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+              <IconBlock style={{ width: 14, height: 14 } as any} />
+              Global Blocklist
+            </div>
+          </label>
+          <input
+            className="input input--mono"
+            type="text"
+            value={config.blocklist?.join(", ") || ""}
+            onChange={(e) => {
+              const ids = e.target.value
+                .split(",")
+                .map((v) => v.trim())
+                .filter((v) => v.length > 0);
+              onChange({ ...config, blocklist: ids });
+            }}
+            placeholder="model/id-1, model/id-2, ..."
+          />
+          <span className="form-hint">Comma-separated model IDs excluded from all routing decisions.</span>
+        </div>
+        <div className="global-toggles">
+          <label
+            className="checkbox-wrapper"
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "var(--space-3)",
+              padding: "var(--space-4)",
+              background: "var(--bg-interactive)",
+              borderRadius: "var(--radius-md)",
+              border: "1px solid var(--border-default)",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={config.showModelInResponse}
+              onChange={(e) => onChange({ ...config, showModelInResponse: e.target.checked })}
+              style={{ marginTop: 2 }}
+            />
+            <div>
+              <span className="checkbox-label" style={{ fontWeight: 500 }}>Show model in responses</span>
+              <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>
+                Appends the selected model ID to non-tool-call responses.
+              </p>
+            </div>
+          </label>
+          <label
+            className="checkbox-wrapper"
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "var(--space-3)",
+              padding: "var(--space-4)",
+              background: "var(--bg-interactive)",
+              borderRadius: "var(--radius-md)",
+              border: "1px solid var(--border-default)",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={config.configAgentEnabled}
+              onChange={(e) => onChange({ ...config, configAgentEnabled: e.target.checked })}
+              style={{ marginTop: 2 }}
+            />
+            <div>
+              <span className="checkbox-label" style={{ fontWeight: 500 }}>Enable Config Agent</span>
+              <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>
+                Users can enter chat config mode with <code style={{ fontSize: "0.75rem" }}>$$config</code>.
+              </p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div className="divider" style={{ margin: "var(--space-4) 0" }} />
+
+      {/* Row 2: Default Fallback + Default Classifier */}
+      <div className="global-settings-row" style={{ marginBottom: "var(--space-5)" }}>
+        <div className="form-group" style={{ flex: "1 1 200px" }}>
           <label className="form-label">
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
               <IconRoute style={{ width: 14, height: 14 } as any} />
-              Fallback Model
+              Default Fallback Model
             </div>
           </label>
           <select
@@ -155,15 +236,14 @@ function RoutingLogicSection({
             ))}
           </select>
           <span className="form-hint">
-            Used when the classifier fails to decide. Options are loaded from all gateway models.
+            Used when the classifier fails to decide.
           </span>
         </div>
-
-        <div className="form-group">
+        <div className="form-group" style={{ flex: "1 1 200px" }}>
           <label className="form-label">
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
               <IconBrain style={{ width: 14, height: 14 } as any} />
-              Classifier Model
+              Default Classifier Model
             </div>
           </label>
           <select
@@ -184,7 +264,7 @@ function RoutingLogicSection({
             ))}
           </select>
           <span className="form-hint">
-            Cheap, fast model for routing decisions. Options are loaded from all gateway models.
+            Cheap, fast model for routing decisions.
           </span>
         </div>
       </div>
@@ -207,58 +287,6 @@ function RoutingLogicSection({
         <span className="form-hint">
           Plain-text instructions for the classifier. Be specific about when to use each model type.
         </span>
-      </div>
-
-      <div className="form-group">
-        <label className="form-label">
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-            <IconBlock style={{ width: 14, height: 14 } as any} />
-            Global Blocklist
-          </div>
-        </label>
-        <input
-          className="input input--mono"
-          type="text"
-          value={config.blocklist?.join(", ") || ""}
-          onChange={(e) => {
-            const ids = e.target.value
-              .split(",")
-              .map((v) => v.trim())
-              .filter((v) => v.length > 0);
-            onChange({ ...config, blocklist: ids });
-          }}
-          placeholder="model/id-1, model/id-2, ..."
-        />
-        <span className="form-hint">Comma-separated model IDs that the router will never use. These models are excluded from all routing decisions.</span>
-      </div>
-
-      {/* Show Model in Response Toggle */}
-      <div className="form-group" style={{ marginTop: "var(--space-6)" }}>
-        <label
-          className="checkbox-wrapper"
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: "var(--space-3)",
-            padding: "var(--space-4)",
-            background: "var(--bg-interactive)",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--border-default)",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={config.showModelInResponse}
-            onChange={(e) => onChange({ ...config, showModelInResponse: e.target.checked })}
-            style={{ marginTop: 2 }}
-          />
-          <div>
-            <span className="checkbox-label" style={{ fontWeight: 500 }}>Show model in responses</span>
-            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>
-              When enabled, the router will append the selected model ID (e.g., <code style={{ fontSize: "0.75rem" }}>#anthropic/claude-sonnet-4</code>) to the end of non-tool-call responses.
-            </p>
-          </div>
-        </label>
       </div>
     </div>
   );
@@ -285,34 +313,6 @@ function ConfigAgentSection({
 
   return (
     <div style={{ marginTop: "var(--space-8)", paddingTop: "var(--space-6)", borderTop: "1px solid var(--border-subtle)" }}>
-      <div className="form-group" style={{ marginBottom: "var(--space-6)" }}>
-        <label
-          className="checkbox-wrapper"
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: "var(--space-3)",
-            padding: "var(--space-4)",
-            background: "var(--bg-interactive)",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--border-default)",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={config.configAgentEnabled}
-            onChange={(e) => onChange({ ...config, configAgentEnabled: e.target.checked })}
-            style={{ marginTop: 2 }}
-          />
-          <div>
-            <span className="checkbox-label" style={{ fontWeight: 500 }}>Enable Config Agent</span>
-            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>
-              When enabled, users can enter chat config mode with <code style={{ fontSize: "0.75rem" }}>$$config</code>.
-            </p>
-          </div>
-        </label>
-      </div>
-
       {config.configAgentEnabled && (
         <>
           <SectionHeader

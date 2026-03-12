@@ -27,7 +27,7 @@ import {
   type RouterConfig,
   type RoutingExplanation,
   type ThreadPin
-} from "@auto-router/core";
+} from "@custom-router/core";
 
 import type { D1Database, KVNamespace } from "../infra/cloudflare-types";
 import { ROUTER_CACHE } from "../constants";

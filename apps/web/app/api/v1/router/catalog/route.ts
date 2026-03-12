@@ -1,4 +1,4 @@
-import type { CatalogItem } from "@auto-router/core";
+import type { CatalogItem } from "@custom-router/core";
 import { verifyAdminSecret } from "@/src/lib/auth";
 import { json, getRuntimeBindings } from "@/src/lib/infra";
 import { getRouterRepository } from "@/src/lib/storage";

@@ -4,7 +4,14 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "CustomRouter",
-  description: "Self-hostable, OpenAI-compatible LLM router with BYOK, explainability, and Cloudflare deployment support."
+  description: "Self-hostable, OpenAI-compatible LLM router with BYOK, explainability, and Cloudflare deployment support.",
+  icons: {
+    icon: [{ url: "/crlogo.svg", type: "image/svg+xml" }],
+    shortcut: ["/crlogo.svg"],
+    apple: [{ url: "/crlogo.svg", type: "image/svg+xml" }],
+    other: [{ rel: "mask-icon", url: "/crlogo.svg", color: "#22D3EE" }],
+  },
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

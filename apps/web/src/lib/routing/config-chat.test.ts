@@ -98,7 +98,30 @@ describe("handleConfigChat", () => {
     expect(callMock).not.toHaveBeenCalled();
   });
 
+  it("returns error when no BYOK upstream is configured", async () => {
+    const response = await handleConfigChat(
+      [{ role: "user", content: "$$config show me config" }],
+      createAuth({
+        configAgentEnabled: true,
+        configAgentOrchestratorModel: "gpt-4o",
+        configAgentSearchModel: "gpt-4o",
+      }),
+      createBindings({ BYOK_ENCRYPTION_SECRET: "1234567890abcdef" }),
+      [],
+      false
+    );
+
+    expect(response.status).toBe(500);
+    const body = await response.json() as { error: string };
+    expect(body.error).toContain("No API key available");
+    expect(callMock).not.toHaveBeenCalled();
+  });
+
   it("uses configured orchestrator model for config rounds", async () => {
+    const secret = "1234567890abcdef";
+    const apiKey = "legacy-key";
+    const upstreamApiKeyEnc = await encryptByokSecret({ plaintext: apiKey, secret });
+
     callMock.mockResolvedValueOnce(
       okChatResponse({
         id: "chatcmpl_test",
@@ -113,10 +136,11 @@ describe("handleConfigChat", () => {
         configAgentEnabled: true,
         configAgentOrchestratorModel: "gateway/orchestrator",
         configAgentSearchModel: "gateway/search",
+        upstreamBaseUrl: "https://legacy.example/v1",
+        upstreamApiKeyEnc,
       }),
       createBindings({
-        OPENROUTER_API_KEY: "legacy-key",
-        OPENAI_COMPAT_BASE_URL: "https://legacy.example/v1",
+        BYOK_ENCRYPTION_SECRET: secret,
       }),
       [],
       false
@@ -126,11 +150,15 @@ describe("handleConfigChat", () => {
     expect(callMock).toHaveBeenCalledTimes(1);
     const firstCall = callMock.mock.calls[0]?.[0];
     expect(firstCall?.payload).toMatchObject({ model: "gateway/orchestrator" });
-    expect(firstCall?.apiKey).toBe("legacy-key");
+    expect(firstCall?.apiKey).toBe(apiKey);
     expect(firstCall?.baseUrl).toBe("https://legacy.example/v1");
   });
 
   it("uses configured search model for web_search tool calls", async () => {
+    const secret = "1234567890abcdef";
+    const apiKey = "legacy-key";
+    const upstreamApiKeyEnc = await encryptByokSecret({ plaintext: apiKey, secret });
+
     callMock
       .mockResolvedValueOnce(
         okChatResponse({
@@ -174,10 +202,11 @@ describe("handleConfigChat", () => {
         configAgentEnabled: true,
         configAgentOrchestratorModel: "gateway/orchestrator",
         configAgentSearchModel: "gateway/search",
+        upstreamBaseUrl: "https://legacy.example/v1",
+        upstreamApiKeyEnc,
       }),
       createBindings({
-        OPENROUTER_API_KEY: "legacy-key",
-        OPENAI_COMPAT_BASE_URL: "https://legacy.example/v1",
+        BYOK_ENCRYPTION_SECRET: secret,
       }),
       [],
       false
@@ -276,6 +305,9 @@ describe("handleConfigChat", () => {
   });
 
   it("redacts upstream error details when config chat fails", async () => {
+    const secret = "1234567890abcdef";
+    const upstreamApiKeyEnc = await encryptByokSecret({ plaintext: "legacy-key", secret });
+
     callMock.mockResolvedValueOnce({
       ok: false,
       status: 502,
@@ -288,10 +320,11 @@ describe("handleConfigChat", () => {
         configAgentEnabled: true,
         configAgentOrchestratorModel: "gateway/orchestrator",
         configAgentSearchModel: "gateway/search",
+        upstreamBaseUrl: "https://legacy.example/v1",
+        upstreamApiKeyEnc,
       }),
       createBindings({
-        OPENROUTER_API_KEY: "legacy-key",
-        OPENAI_COMPAT_BASE_URL: "https://legacy.example/v1",
+        BYOK_ENCRYPTION_SECRET: secret,
       }),
       [],
       false
@@ -323,16 +356,20 @@ describe("handleConfigChat", () => {
       })
     );
 
+    const secret = "1234567890abcdef";
+    const upstreamApiKeyEnc = await encryptByokSecret({ plaintext: "legacy-key", secret });
+
     const response = await handleConfigChat(
       [{ role: "user", content: "$$config show me config" }],
       createAuth({
         configAgentEnabled: true,
         configAgentOrchestratorModel: "gateway/orchestrator",
         configAgentSearchModel: "gateway/search",
+        upstreamBaseUrl: "https://legacy.example/v1",
+        upstreamApiKeyEnc,
       }),
       createBindings({
-        OPENROUTER_API_KEY: "legacy-key",
-        OPENAI_COMPAT_BASE_URL: "https://legacy.example/v1",
+        BYOK_ENCRYPTION_SECRET: secret,
       }),
       [],
       false,
