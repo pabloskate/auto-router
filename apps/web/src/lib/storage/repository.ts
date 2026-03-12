@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// storage.ts  (canonical name: router-repository.ts re-exports this)
+// repository.ts
 //
 // Repository pattern for all persistent router state. Two implementations:
 //
@@ -29,10 +29,10 @@ import {
   type ThreadPin
 } from "@auto-router/core";
 
-import type { D1Database, KVNamespace } from "./cloudflare-types";
-import { ROUTER_CACHE } from "./constants";
+import type { D1Database, KVNamespace } from "../infra/cloudflare-types";
+import { ROUTER_CACHE } from "../constants";
 import { DEFAULT_CATALOG, DEFAULT_ROUTER_CONFIG } from "./defaults";
-import { getRuntimeBindings } from "./runtime";
+import { getRuntimeBindings } from "../infra/runtime-bindings";
 
 const ACTIVE_META_KEY = "router:active:meta";
 const ACTIVE_CATALOG_KEY = (version: string) => `router:active:catalog:${version}`;

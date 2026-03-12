@@ -16,8 +16,8 @@
 
 import { authenticateRequest, authenticateSession, type AuthResult } from "./auth";
 import { isSameOriginRequest } from "./csrf";
-import { json } from "./http";
-import { getRuntimeBindings, type RouterRuntimeBindings } from "./runtime-bindings";
+import { json } from "../infra/http";
+import { getRuntimeBindings, type RouterRuntimeBindings } from "../infra/runtime-bindings";
 
 // ── withDb ────────────────────────────────────────────────────────────────────
 // Guards against misconfigured deployments where ROUTER_DB isn't bound.

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// runtime.ts  (canonical name: runtime-bindings.ts re-exports this)
+// runtime-bindings.ts
 //
 // Reads Cloudflare Worker environment bindings and normalises them into a
 // typed RouterRuntimeBindings object.

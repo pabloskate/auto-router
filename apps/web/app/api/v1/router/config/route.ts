@@ -1,8 +1,7 @@
-import { json } from "@/src/lib/http";
 import { routerConfigSchema } from "@/src/lib/schemas";
-import { getRouterRepository } from "@/src/lib/storage";
 import { verifyAdminSecret } from "@/src/lib/auth";
-import { getRuntimeBindings } from "@/src/lib/runtime";
+import { json, getRuntimeBindings } from "@/src/lib/infra";
+import { getRouterRepository } from "@/src/lib/storage";
 
 function requireAdmin(request: Request): Response | null {
   const bindings = getRuntimeBindings();

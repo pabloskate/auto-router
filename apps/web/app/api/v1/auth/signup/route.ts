@@ -1,7 +1,12 @@
-import { json } from "@/src/lib/http";
-import { hashPassword, createSession, buildSessionCookie, shouldUseSecureCookies } from "@/src/lib/auth";
-import { getRuntimeBindings } from "@/src/lib/runtime";
-import { consumeRateLimit, getClientIp } from "@/src/lib/rate-limit";
+import {
+    buildSessionCookie,
+    consumeRateLimit,
+    createSession,
+    getClientIp,
+    hashPassword,
+    shouldUseSecureCookies
+} from "@/src/lib/auth";
+import { json, getRuntimeBindings } from "@/src/lib/infra";
 
 export async function POST(request: Request): Promise<Response> {
     const bindings = getRuntimeBindings();

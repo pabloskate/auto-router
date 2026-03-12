@@ -1,6 +1,5 @@
-import { json } from "@/src/lib/http";
-import { getRuntimeBindings } from "@/src/lib/runtime";
 import { verifyAdminSecret } from "@/src/lib/auth";
+import { json, getRuntimeBindings } from "@/src/lib/infra";
 
 export async function GET(request: Request): Promise<Response> {
     const bindings = getRuntimeBindings();

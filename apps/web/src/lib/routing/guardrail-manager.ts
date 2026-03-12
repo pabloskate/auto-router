@@ -17,7 +17,7 @@
 // All thresholds live in constants.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { GUARDRAIL } from "./constants";
+import { GUARDRAIL } from "../constants";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

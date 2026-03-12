@@ -21,16 +21,16 @@
 // before persisting.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { D1Database } from "./cloudflare-types";
-import type { AuthResult } from "./auth";
-import type { RouterRuntimeBindings } from "./runtime";
-import type { GatewayRowPublic } from "./gateway-store";
-import { CONFIG_CHAT, UPSTREAM } from "./constants";
-import { json } from "./http";
-import { decryptByokSecret, resolveByokEncryptionSecret } from "./byok-crypto";
-import { validateModelId, searchModels } from "./openrouter-models";
-import { callOpenAiCompatible } from "./upstream";
-import { requestId as makeRequestId } from "./request-id";
+import type { AuthResult } from "../auth/auth";
+import { decryptByokSecret, resolveByokEncryptionSecret } from "../auth/byok-crypto";
+import type { D1Database } from "../infra/cloudflare-types";
+import { json } from "../infra/http";
+import { requestId as makeRequestId } from "../infra/request-id";
+import type { RouterRuntimeBindings } from "../infra/runtime-bindings";
+import { CONFIG_CHAT, UPSTREAM } from "../constants";
+import type { GatewayRowPublic } from "../storage/gateway-store";
+import { validateModelId, searchModels } from "../upstream/openrouter-models";
+import { callOpenAiCompatible } from "../upstream/upstream";
 
 // ── Config-mode detection ────────────────────────────────────────────────────
 

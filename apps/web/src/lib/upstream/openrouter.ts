@@ -1,4 +1,4 @@
-import { UPSTREAM } from "./constants";
+import { UPSTREAM } from "../constants";
 import { callOpenAiCompatible, type UpstreamCallResult } from "./upstream";
 
 export type OpenRouterCallResult = UpstreamCallResult;

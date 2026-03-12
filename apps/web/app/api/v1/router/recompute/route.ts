@@ -1,8 +1,7 @@
 import { fetchAndBuildIngestionArtifacts } from "@auto-router/data";
-import { json } from "@/src/lib/http";
-import { getRuntimeBindings } from "@/src/lib/runtime";
-import { getRouterRepository } from "@/src/lib/storage";
 import { verifyAdminSecret } from "@/src/lib/auth";
+import { json, getRuntimeBindings } from "@/src/lib/infra";
+import { getRouterRepository } from "@/src/lib/storage";
 
 function runId(): string {
   return `ingest_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;

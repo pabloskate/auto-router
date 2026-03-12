@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AuthResult } from "@/src/lib/auth";
-import { gatewayRowToPublic, loadGatewaysWithMigration } from "@/src/lib/gateway-store";
-import { withApiKeyAuth } from "@/src/lib/route-helpers";
+import { withApiKeyAuth } from "@/src/lib/auth";
+import { gatewayRowToPublic, loadGatewaysWithMigration } from "@/src/lib/storage";
 import { GET } from "./route";
 
-vi.mock("@/src/lib/gateway-store", () => ({
+vi.mock("@/src/lib/storage", () => ({
   loadGatewaysWithMigration: vi.fn(),
   gatewayRowToPublic: vi.fn(),
 }));
 
-vi.mock("@/src/lib/route-helpers", () => ({
+vi.mock("@/src/lib/auth", () => ({
   withApiKeyAuth: vi.fn(),
 }));
 

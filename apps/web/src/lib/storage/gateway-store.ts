@@ -13,8 +13,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { CatalogItem } from "@auto-router/core";
-import { UPSTREAM } from "./constants";
-import type { D1Database } from "./cloudflare-types";
+import { UPSTREAM } from "../constants";
+import type { D1Database } from "../infra/cloudflare-types";
 
 // ── Row types ────────────────────────────────────────────────────────────────
 

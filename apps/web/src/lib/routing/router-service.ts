@@ -16,15 +16,15 @@
 
 import { RouterEngine, type RouteDecision, type RouterRequestLike, type CatalogItem } from "@auto-router/core";
 
-import { decryptByokSecret, resolveByokEncryptionSecret } from "./byok-crypto";
-import { routeWithFrontierModel } from "./frontier-router-classifier";
-import { type GatewayRowPublic } from "./gateway-store";
+import { decryptByokSecret, resolveByokEncryptionSecret } from "../auth/byok-crypto";
+import { json, attachRouterHeaders } from "../infra/http";
+import { requestId as makeRequestId } from "../infra/request-id";
+import { getRuntimeBindings } from "../infra/runtime-bindings";
+import { type GatewayRowPublic } from "../storage/gateway-store";
+import { getRouterRepository } from "../storage/repository";
+import { callOpenAiCompatible, isOpenRouterHost, resolveUpstreamTarget } from "../upstream/upstream";
+import { routeWithFrontierModel } from "./frontier-classifier";
 import { guardrailKey, isDisabled, recordEvent } from "./guardrail-manager";
-import { json, attachRouterHeaders } from "./http";
-import { requestId as makeRequestId } from "./request-id";
-import { getRuntimeBindings } from "./runtime-bindings";
-import { getRouterRepository } from "./router-repository";
-import { callOpenAiCompatible, isOpenRouterHost, resolveUpstreamTarget } from "./upstream";
 
 function improveErrorMessage(modelId: string, errorBody: string): string {
   if (errorBody.includes("does not support image input") || errorBody.includes("image_url")) {

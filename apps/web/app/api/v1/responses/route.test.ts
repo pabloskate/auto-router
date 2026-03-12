@@ -1,37 +1,38 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AuthResult } from "@/src/lib/auth";
-import { authenticateRequest, authenticateSession } from "@/src/lib/auth";
-import { extractResponsesInputMessages, handleConfigChat, isResponsesConfigMode } from "@/src/lib/config-chat";
-import { isSameOriginRequest } from "@/src/lib/csrf";
-import { gatewayRowToPublic, loadGatewaysWithMigration } from "@/src/lib/gateway-store";
-import { routeAndProxy } from "@/src/lib/router-service";
-import { getRuntimeBindings } from "@/src/lib/runtime";
+import { authenticateRequest, authenticateSession, isSameOriginRequest } from "@/src/lib/auth";
+import { getRuntimeBindings } from "@/src/lib/infra";
+import {
+  extractResponsesInputMessages,
+  handleConfigChat,
+  isResponsesConfigMode,
+  routeAndProxy,
+} from "@/src/lib/routing";
+import { gatewayRowToPublic, loadGatewaysWithMigration } from "@/src/lib/storage";
 import { POST } from "./route";
 
-vi.mock("@/src/lib/runtime", () => ({
-  getRuntimeBindings: vi.fn(),
-}));
+vi.mock("@/src/lib/infra", async () => {
+  const actual = await vi.importActual<typeof import("@/src/lib/infra")>("@/src/lib/infra");
+  return {
+    ...actual,
+    getRuntimeBindings: vi.fn(),
+  };
+});
 
 vi.mock("@/src/lib/auth", () => ({
   authenticateRequest: vi.fn(),
   authenticateSession: vi.fn(),
-}));
-
-vi.mock("@/src/lib/csrf", () => ({
   isSameOriginRequest: vi.fn(),
 }));
 
-vi.mock("@/src/lib/gateway-store", () => ({
+vi.mock("@/src/lib/storage", () => ({
   loadGatewaysWithMigration: vi.fn(),
   gatewayRowToPublic: vi.fn(),
 }));
 
-vi.mock("@/src/lib/router-service", () => ({
+vi.mock("@/src/lib/routing", () => ({
   routeAndProxy: vi.fn(),
-}));
-
-vi.mock("@/src/lib/config-chat", () => ({
   extractResponsesInputMessages: vi.fn(),
   handleConfigChat: vi.fn(),
   isResponsesConfigMode: vi.fn(),

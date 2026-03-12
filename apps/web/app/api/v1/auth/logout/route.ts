@@ -1,12 +1,11 @@
-import { json } from "@/src/lib/http";
 import {
   buildSessionCookie,
   getSessionTokenFromRequest,
   hashKey,
+  isSameOriginRequest,
   shouldUseSecureCookies
 } from "@/src/lib/auth";
-import { getRuntimeBindings } from "@/src/lib/runtime";
-import { isSameOriginRequest } from "@/src/lib/csrf";
+import { json, getRuntimeBindings } from "@/src/lib/infra";
 
 export async function POST(request: Request): Promise<Response> {
   const bindings = getRuntimeBindings();

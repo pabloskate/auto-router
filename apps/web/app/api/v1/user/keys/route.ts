@@ -1,7 +1,5 @@
-import { json, jsonNoStore } from "@/src/lib/http";
-import { authenticateSession, generateApiKey, hashKey } from "@/src/lib/auth";
-import { getRuntimeBindings } from "@/src/lib/runtime";
-import { isSameOriginRequest } from "@/src/lib/csrf";
+import { authenticateSession, generateApiKey, hashKey, isSameOriginRequest } from "@/src/lib/auth";
+import { json, jsonNoStore, getRuntimeBindings } from "@/src/lib/infra";
 
 export async function GET(request: Request): Promise<Response> {
     const bindings = getRuntimeBindings();

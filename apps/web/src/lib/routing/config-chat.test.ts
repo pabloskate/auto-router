@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AuthResult } from "./auth";
-import type { GatewayRowPublic } from "./gateway-store";
-import type { RouterRuntimeBindings } from "./runtime";
-import { encryptByokSecret } from "./byok-crypto";
+import type { AuthResult } from "../auth/auth";
+import { encryptByokSecret } from "../auth/byok-crypto";
+import type { RouterRuntimeBindings } from "../infra/runtime-bindings";
+import type { GatewayRowPublic } from "../storage/gateway-store";
+import { callOpenAiCompatible } from "../upstream/upstream";
 import { handleConfigChat, isResponsesConfigMode } from "./config-chat";
-import { callOpenAiCompatible } from "./upstream";
 
-vi.mock("./openrouter-models", () => ({
+vi.mock("../upstream/openrouter-models", () => ({
   validateModelId: vi.fn(),
   searchModels: vi.fn(),
 }));
 
-vi.mock("./upstream", () => ({
+vi.mock("../upstream/upstream", () => ({
   callOpenAiCompatible: vi.fn(),
 }));
 

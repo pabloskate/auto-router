@@ -1,21 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { authenticateSession, generateApiKey, hashKey } from "@/src/lib/auth";
-import { isSameOriginRequest } from "@/src/lib/csrf";
-import { getRuntimeBindings } from "@/src/lib/runtime";
+import { authenticateSession, generateApiKey, hashKey, isSameOriginRequest } from "@/src/lib/auth";
+import { getRuntimeBindings } from "@/src/lib/infra";
 import { POST } from "./route";
 
-vi.mock("@/src/lib/runtime", () => ({
-  getRuntimeBindings: vi.fn(),
-}));
+vi.mock("@/src/lib/infra", async () => {
+  const actual = await vi.importActual<typeof import("@/src/lib/infra")>("@/src/lib/infra");
+  return {
+    ...actual,
+    getRuntimeBindings: vi.fn(),
+  };
+});
 
 vi.mock("@/src/lib/auth", () => ({
   authenticateSession: vi.fn(),
   generateApiKey: vi.fn(),
   hashKey: vi.fn(),
-}));
-
-vi.mock("@/src/lib/csrf", () => ({
   isSameOriginRequest: vi.fn(),
 }));
 

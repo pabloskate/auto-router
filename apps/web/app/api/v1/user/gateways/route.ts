@@ -1,15 +1,19 @@
-import { json } from "@/src/lib/http";
-import { withSessionAuth, withCsrf } from "@/src/lib/route-helpers";
-import { encryptByokSecret, resolveByokEncryptionSecret } from "@/src/lib/byok-crypto";
-import { normalizeAndValidateUpstreamBaseUrl } from "@/src/lib/upstream";
+import {
+  encryptByokSecret,
+  resolveByokEncryptionSecret,
+  withCsrf,
+  withSessionAuth,
+} from "@/src/lib/auth";
+import { json } from "@/src/lib/infra";
 import {
   generateGatewayId,
+  gatewayRowToInfo,
   getUserGateways,
   insertUserGateway,
-  gatewayRowToInfo,
   loadGatewaysWithMigration,
-} from "@/src/lib/gateway-store";
+} from "@/src/lib/storage";
 import { createGatewaySchema } from "@/src/lib/schemas";
+import { normalizeAndValidateUpstreamBaseUrl } from "@/src/lib/upstream";
 
 export async function GET(request: Request): Promise<Response> {
   return withSessionAuth(request, async (auth, bindings) => {

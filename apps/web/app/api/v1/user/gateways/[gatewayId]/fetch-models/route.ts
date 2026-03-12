@@ -1,7 +1,6 @@
-import { json } from "@/src/lib/http";
-import { withSessionAuth } from "@/src/lib/route-helpers";
-import { decryptByokSecret, resolveByokEncryptionSecret } from "@/src/lib/byok-crypto";
-import { getUserGateway } from "@/src/lib/gateway-store";
+import { decryptByokSecret, resolveByokEncryptionSecret, withSessionAuth } from "@/src/lib/auth";
+import { json } from "@/src/lib/infra";
+import { getUserGateway } from "@/src/lib/storage";
 
 interface OpenAIModel {
   id: string;

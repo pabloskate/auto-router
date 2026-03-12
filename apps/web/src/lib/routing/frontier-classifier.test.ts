@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { routeWithFrontierModel } from "./frontier-router-classifier";
+import { routeWithFrontierModel } from "./frontier-classifier";
 
 describe("routeWithFrontierModel", () => {
   const catalog = [

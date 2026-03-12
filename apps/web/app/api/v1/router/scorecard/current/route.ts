@@ -1,4 +1,4 @@
-import { json } from "@/src/lib/http";
+import { json } from "@/src/lib/infra";
 import { getRouterRepository } from "@/src/lib/storage";
 
 export async function GET(): Promise<Response> {

@@ -1,4 +1,4 @@
-import type { D1Database } from "./cloudflare-types";
+import type { D1Database } from "../infra/cloudflare-types";
 
 export interface RateLimitResult {
   allowed: boolean;

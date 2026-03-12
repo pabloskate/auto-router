@@ -1,7 +1,5 @@
-import { json } from "@/src/lib/http";
-import { getRuntimeBindings } from "@/src/lib/runtime";
-import { constantTimeEqual } from "@/src/lib/auth";
-import { consumeRateLimit, getClientIp } from "@/src/lib/rate-limit";
+import { constantTimeEqual, consumeRateLimit, getClientIp } from "@/src/lib/auth";
+import { json, getRuntimeBindings } from "@/src/lib/infra";
 
 export async function POST(request: Request): Promise<Response> {
     const bindings = getRuntimeBindings();

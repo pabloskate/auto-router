@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// frontier-router-classifier.ts
+// frontier-classifier.ts
 //
 // LLM-based routing classifier. Called by RouterEngine when it cannot make a
 // confident routing decision from heuristics alone.
@@ -17,8 +17,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { LlmRoutingResult } from "@auto-router/core";
-import { CLASSIFIER } from "./constants";
-import { joinUpstreamUrl } from "./upstream";
+import { CLASSIFIER } from "../constants";
+import { joinUpstreamUrl } from "../upstream/upstream";
 
 type CatalogEntry = {
   id: string;

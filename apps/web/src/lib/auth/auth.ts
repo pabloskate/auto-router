@@ -19,8 +19,8 @@
 // Magic numbers (iterations, TTLs, prefixes) live in constants.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { D1Database } from "./cloudflare-types";
-import { AUTH } from "./constants";
+import type { D1Database } from "../infra/cloudflare-types";
+import { AUTH } from "../constants";
 import { ensureUserUpstreamCredentialsTable } from "./user-upstream-store";
 
 // Alias constants so the rest of the file reads naturally

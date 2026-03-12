@@ -1,4 +1,4 @@
-import { AUTH } from "./constants";
+import { AUTH } from "../constants";
 
 const keyCache = new Map<string, Promise<CryptoKey>>();
 

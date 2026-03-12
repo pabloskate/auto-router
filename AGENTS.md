@@ -43,13 +43,13 @@ Client
        ├─ [auth]     apps/web/app/api/v1/chat/completions/route.ts
        │               authenticateRequest() → checks API key against D1
        │
-       ├─ [route]    apps/web/src/lib/router-service.ts  routeAndProxy()
-       │               loads config + catalog from router-repository.ts
+       ├─ [route]    apps/web/src/lib/routing/router-service.ts  routeAndProxy()
+       │               loads config + catalog from storage/repository.ts
        │               calls RouterEngine.decide()
        │                  └─ packages/core/src/router-engine.ts
        │                       checks thread pin (D1 via D1PinStore)
        │                       if no pin → calls frontier classifier
-       │                          └─ apps/web/src/lib/frontier-router-classifier.ts
+       │                          └─ apps/web/src/lib/routing/frontier-classifier.ts
        │               builds attempt list (skips guardrail-disabled models)
        │               calls OpenRouter for each attempt
        │               records guardrail event
@@ -65,26 +65,30 @@ Client
 
 ### `apps/web/src/lib/`
 
-| File | Responsibility |
+| Path | Responsibility |
 |------|---------------|
 | `constants.ts` | **All magic numbers.** Guardrail thresholds, auth settings, classifier defaults. Edit here, not inline. |
-| `router-service.ts` | Orchestrates one routed request end-to-end (config merge → decide → proxy → guardrail → pin). |
-| `guardrail-manager.ts` | In-process circuit breaker per model/provider. Three triggers: error rate, fallback rate, latency spike. |
-| `frontier-router-classifier.ts` | Calls a cheap LLM on OpenRouter to pick the best model. Returns null on any failure. |
-| `router-repository.ts` | Re-export shim with docs → delegates to `storage.ts`. Use this name in new code. |
-| `storage.ts` | `CloudflareRepository` (D1+KV) and `MemoryRepository` (local dev). `getRouterRepository()` auto-selects. |
-| `runtime-bindings.ts` | Re-export shim with docs → delegates to `runtime.ts`. Use this name in new code. |
-| `runtime.ts` | Reads Cloudflare bindings from OpenNext / globalThis / process.env with multiple fallbacks. |
-| `auth.ts` | API key auth, session auth, password hashing (PBKDF2), cookie building. See constants.ts for config. |
-| `route-helpers.ts` | Composable route middleware: `withApiKeyAuth`, `withSessionAuth`, `withCsrf`, `withDb`. Use in route handlers instead of repeating the auth pattern. |
-| `http.ts` | `json()` response builder and `attachRouterHeaders()` for x-router-* response headers. |
-| `rate-limit.ts` | Sliding-window rate limiting via D1. Fails open if schema is not migrated. |
 | `schemas.ts` | Zod schemas for request body validation (chatCompletion, responses, routerConfig). |
-| `request-id.ts` | Re-export shim → generates `router_<uuid>` IDs used in headers + D1. |
-| `ids.ts` | Actual implementation of requestId(). |
-| `openrouter.ts` | Thin wrapper that proxies a request to OpenRouter and normalises the result. |
-| `csrf.ts` | Same-origin check for browser-facing mutation endpoints. |
-| `cloudflare-types.ts` | Minimal TypeScript types for D1Database and KVNamespace (avoids the full @cloudflare/workers-types dep). |
+| `auth/auth.ts` | API key auth, session auth, password hashing (PBKDF2), cookie building. See constants.ts for config. |
+| `auth/route-helpers.ts` | Composable route middleware: `withApiKeyAuth`, `withSessionAuth`, `withCsrf`, `withDb`. Use in route handlers instead of repeating the auth pattern. |
+| `auth/rate-limit.ts` | Sliding-window rate limiting via D1. Fails open if schema is not migrated. |
+| `auth/csrf.ts` | Same-origin check for browser-facing mutation endpoints. |
+| `auth/byok-crypto.ts` | BYOK encryption helpers for storing upstream credentials safely. |
+| `auth/user-upstream-store.ts` | Persistence helpers for per-user upstream credentials. |
+| `routing/router-service.ts` | Orchestrates one routed request end-to-end (config merge → decide → proxy → guardrail → pin). |
+| `routing/guardrail-manager.ts` | In-process circuit breaker per model/provider. Three triggers: error rate, fallback rate, latency spike. |
+| `routing/frontier-classifier.ts` | Calls a cheap LLM on OpenRouter to pick the best model. Returns null on any failure. |
+| `routing/config-chat.ts` | Conversational config editor for `$$config` sessions. |
+| `storage/repository.ts` | `CloudflareRepository` (D1+KV) and `MemoryRepository` (local dev). `getRouterRepository()` auto-selects. |
+| `storage/gateway-store.ts` | D1 helpers for user-configured upstream gateways and model catalogs. |
+| `storage/defaults.ts` | Default catalog and router config used in local dev / bootstrapping. |
+| `upstream/upstream.ts` | OpenAI-compatible upstream transport + URL normalization helpers. |
+| `upstream/openrouter.ts` | Thin wrapper that proxies a request to OpenRouter and normalises the result. |
+| `upstream/openrouter-models.ts` | Model catalog search and validation against OpenRouter's public models API. |
+| `infra/runtime-bindings.ts` | Reads Cloudflare bindings from OpenNext / globalThis / process.env with multiple fallbacks. |
+| `infra/http.ts` | `json()` response builder and `attachRouterHeaders()` for x-router-* response headers. |
+| `infra/request-id.ts` | Generates `router_<uuid>` IDs used in headers + D1. |
+| `infra/cloudflare-types.ts` | Minimal TypeScript types for D1Database and KVNamespace (avoids the full @cloudflare/workers-types dep). |
 
 ### `apps/web/app/api/v1/`
 
@@ -176,10 +180,10 @@ KV namespace (`ROUTER_KV`):
 
 ## Adding a New Guardrail Trigger
 
-All guardrail logic is in `apps/web/src/lib/guardrail-manager.ts`. Thresholds are in `constants.ts`. Add a new trigger by:
+All guardrail logic is in `apps/web/src/lib/routing/guardrail-manager.ts`. Thresholds are in `constants.ts`. Add a new trigger by:
 
 1. Adding a constant to `GUARDRAIL` in `constants.ts`
-2. Computing the metric in `recordEvent()` in `guardrail-manager.ts`
+2. Computing the metric in `recordEvent()` in `routing/guardrail-manager.ts`
 3. Setting `disableByNew = ...` and OR-ing it into the final `if` statement
 
 ---
@@ -203,9 +207,11 @@ Copy `.env.example` → `.env.local` and fill in `OPENROUTER_API_KEY`.
 
 ```bash
 npm run test -w @auto-router/core
+npm run test -w @auto-router/web
 ```
 
-Tests live in `packages/core/test/`. They cover `RouterEngine` and thread fingerprinting. The web app has no automated tests yet.
+Core tests live in `packages/core/test/`. They cover `RouterEngine` and thread fingerprinting.
+Web tests live alongside the app code under `apps/web/app/api/v1/`, `apps/web/src/lib/routing/`, and `apps/web/src/components/`.
 
 ---
 

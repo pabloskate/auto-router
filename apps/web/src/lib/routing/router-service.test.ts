@@ -1,22 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PinStore, RouterConfig } from "@auto-router/core";
-import { encryptByokSecret } from "./byok-crypto";
-import { routeWithFrontierModel } from "./frontier-router-classifier";
-import { getRuntimeBindings } from "./runtime-bindings";
-import { getRouterRepository } from "./router-repository";
+import { encryptByokSecret } from "../auth/byok-crypto";
+import { getRuntimeBindings } from "../infra/runtime-bindings";
+import { getRouterRepository } from "../storage/repository";
+import { callOpenAiCompatible } from "../upstream/upstream";
+import { routeWithFrontierModel } from "./frontier-classifier";
 import { routeAndProxy } from "./router-service";
-import { callOpenAiCompatible } from "./upstream";
 
-vi.mock("./frontier-router-classifier", () => ({
+vi.mock("./frontier-classifier", () => ({
   routeWithFrontierModel: vi.fn(),
 }));
 
-vi.mock("./runtime-bindings", () => ({
+vi.mock("../infra/runtime-bindings", () => ({
   getRuntimeBindings: vi.fn(),
 }));
 
-vi.mock("./router-repository", () => ({
+vi.mock("../storage/repository", () => ({
   getRouterRepository: vi.fn(),
 }));
 
@@ -26,12 +26,12 @@ vi.mock("./guardrail-manager", () => ({
   recordEvent: vi.fn(),
 }));
 
-vi.mock("./request-id", () => ({
+vi.mock("../infra/request-id", () => ({
   requestId: vi.fn(() => "router_test_request"),
 }));
 
-vi.mock("./upstream", async () => {
-  const actual = await vi.importActual<typeof import("./upstream")>("./upstream");
+vi.mock("../upstream/upstream", async () => {
+  const actual = await vi.importActual<typeof import("../upstream/upstream")>("../upstream/upstream");
   return {
     ...actual,
     callOpenAiCompatible: vi.fn(),

@@ -1,31 +1,38 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AuthResult } from "@/src/lib/auth";
-import { authenticateSession } from "@/src/lib/auth";
-import { isSameOriginRequest } from "@/src/lib/csrf";
-import { gatewayRowToPublic, loadGatewaysWithMigration } from "@/src/lib/gateway-store";
-import { getRuntimeBindings } from "@/src/lib/runtime";
-import { getUserUpstreamCredentials, upsertUserUpstreamCredentials } from "@/src/lib/user-upstream-store";
+import {
+  authenticateSession,
+  getUserUpstreamCredentials,
+  isSameOriginRequest,
+  upsertUserUpstreamCredentials,
+} from "@/src/lib/auth";
+import { getRuntimeBindings } from "@/src/lib/infra";
+import { gatewayRowToPublic, loadGatewaysWithMigration } from "@/src/lib/storage";
 import { GET, PUT } from "./route";
 
-vi.mock("@/src/lib/runtime", () => ({
-  getRuntimeBindings: vi.fn(),
-}));
+vi.mock("@/src/lib/infra", async () => {
+  const actual = await vi.importActual<typeof import("@/src/lib/infra")>("@/src/lib/infra");
+  return {
+    ...actual,
+    getRuntimeBindings: vi.fn(),
+  };
+});
 
-vi.mock("@/src/lib/auth", () => ({
-  authenticateSession: vi.fn(),
-}));
+vi.mock("@/src/lib/auth", async () => {
+  const actual = await vi.importActual<typeof import("@/src/lib/auth")>("@/src/lib/auth");
+  return {
+    ...actual,
+    authenticateSession: vi.fn(),
+    encryptByokSecret: vi.fn(async ({ plaintext }: { plaintext: string }) => `enc:${plaintext}`),
+    getUserUpstreamCredentials: vi.fn(),
+    isSameOriginRequest: vi.fn(),
+    resolveByokEncryptionSecret: vi.fn(({ byokSecret }: { byokSecret?: string | null }) => byokSecret ?? null),
+    upsertUserUpstreamCredentials: vi.fn(),
+  };
+});
 
-vi.mock("@/src/lib/csrf", () => ({
-  isSameOriginRequest: vi.fn(),
-}));
-
-vi.mock("@/src/lib/user-upstream-store", () => ({
-  getUserUpstreamCredentials: vi.fn(),
-  upsertUserUpstreamCredentials: vi.fn(),
-}));
-
-vi.mock("@/src/lib/gateway-store", () => ({
+vi.mock("@/src/lib/storage", () => ({
   loadGatewaysWithMigration: vi.fn(),
   gatewayRowToPublic: vi.fn(),
 }));

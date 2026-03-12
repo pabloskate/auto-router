@@ -1,11 +1,8 @@
-import { authenticateRequest, authenticateSession } from "@/src/lib/auth";
-import { isConfigMode, handleConfigChat } from "@/src/lib/config-chat";
-import { loadGatewaysWithMigration, gatewayRowToPublic } from "@/src/lib/gateway-store";
-import { routeAndProxy } from "@/src/lib/router-service";
+import { authenticateRequest, authenticateSession, isSameOriginRequest } from "@/src/lib/auth";
+import { json, getRuntimeBindings } from "@/src/lib/infra";
+import { handleConfigChat, isConfigMode, routeAndProxy } from "@/src/lib/routing";
 import { chatCompletionSchema } from "@/src/lib/schemas";
-import { json } from "@/src/lib/http";
-import { getRuntimeBindings } from "@/src/lib/runtime";
-import { isSameOriginRequest } from "@/src/lib/csrf";
+import { gatewayRowToPublic, loadGatewaysWithMigration } from "@/src/lib/storage";
 
 export async function POST(request: Request): Promise<Response> {
   const bindings = getRuntimeBindings();

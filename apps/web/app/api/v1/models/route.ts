@@ -1,7 +1,7 @@
-import { json } from "@/src/lib/http";
-import { withApiKeyAuth } from "@/src/lib/route-helpers";
-import { loadGatewaysWithMigration, gatewayRowToPublic } from "@/src/lib/gateway-store";
 import type { CatalogItem } from "@auto-router/core";
+import { withApiKeyAuth } from "@/src/lib/auth";
+import { json } from "@/src/lib/infra";
+import { gatewayRowToPublic, loadGatewaysWithMigration } from "@/src/lib/storage";
 
 interface OpenAiModelEntry {
   id: string;

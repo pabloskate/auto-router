@@ -1,4 +1,4 @@
-import { UPSTREAM } from "./constants";
+import { UPSTREAM } from "../constants";
 
 export interface UpstreamTarget {
   baseUrl: string;

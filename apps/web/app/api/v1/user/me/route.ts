@@ -1,12 +1,15 @@
-import { json } from "@/src/lib/http";
-import { authenticateSession } from "@/src/lib/auth";
-import { getRuntimeBindings } from "@/src/lib/runtime";
-import { isSameOriginRequest } from "@/src/lib/csrf";
+import {
+    authenticateSession,
+    encryptByokSecret,
+    getUserUpstreamCredentials,
+    isSameOriginRequest,
+    resolveByokEncryptionSecret,
+    upsertUserUpstreamCredentials,
+} from "@/src/lib/auth";
+import { json, getRuntimeBindings } from "@/src/lib/infra";
 import { routerProfileSchema } from "@/src/lib/schemas";
-import { gatewayRowToPublic, loadGatewaysWithMigration } from "@/src/lib/gateway-store";
-import { encryptByokSecret, resolveByokEncryptionSecret } from "@/src/lib/byok-crypto";
+import { gatewayRowToPublic, loadGatewaysWithMigration } from "@/src/lib/storage";
 import { normalizeAndValidateUpstreamBaseUrl } from "@/src/lib/upstream";
-import { getUserUpstreamCredentials, upsertUserUpstreamCredentials } from "@/src/lib/user-upstream-store";
 import { z } from "zod";
 
 function hasOwn(body: Record<string, unknown>, key: string): boolean {
