@@ -77,6 +77,22 @@ export const AUTH = {
   BYOK_AES_GCM_IV_BYTES: 12,
 } as const;
 
+// ── Registration Gating ─────────────────────────────────────────────────────
+//
+// Controls who can create accounts on a self-hosted instance.
+// Default is "closed" so fresh deployments are secure out of the box.
+// The first user is always allowed regardless of mode (initial setup).
+
+export const REGISTRATION = {
+  MODES: ["open", "closed", "invite"] as const,
+  DEFAULT_MODE: "closed" as const,
+  INVITE_CODE_LENGTH: 24,
+  DEFAULT_USES: 1,
+  DEFAULT_EXPIRES_MS: 7 * 24 * 60 * 60 * 1000, // 7 days
+} as const;
+
+export type RegistrationMode = (typeof REGISTRATION.MODES)[number];
+
 // ── LLM Classifier ────────────────────────────────────────────────────────────
 //
 // The frontier classifier is a cheap, fast LLM that reads the user's request

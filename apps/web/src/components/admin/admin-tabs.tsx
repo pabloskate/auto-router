@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from "react";
 
 import { ApiKeyPanel } from "../ApiKeyPanel";
 import { GatewayPanel } from "../GatewayPanel";
+import { InviteCodePanel } from "../InviteCodePanel";
 import { PlaygroundPanel } from "../PlaygroundPanel";
 import { ProfilesPanel } from "../ProfilesPanel";
 import { RouterConfigPanel } from "../RouterConfigPanel";
@@ -51,6 +52,15 @@ function IconPlayground({ className }: { className?: string }) {
   return (
     <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function IconInvite({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+      <path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/>
     </svg>
   );
 }
@@ -192,6 +202,30 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
       render: (ctx: AdminExtensionContext) => (
         <div className="animate-fade-in">
           <PlaygroundPanel profiles={ctx.user.profiles} />
+        </div>
+      ),
+    },
+    {
+      id: "invites",
+      label: "Invites",
+      section: "account",
+      title: "Invite Codes",
+      subtitle: "Generate and manage invite codes for new users",
+      order: 50,
+      icon: IconInvite,
+      render: (ctx: AdminExtensionContext) => (
+        <div className="animate-fade-in">
+          <div className="card">
+            <div className="card-header">
+              <h3>Invite Codes</h3>
+            </div>
+            <div className="card-body">
+              <InviteCodePanel
+                onStatus={args.setStatus}
+                onError={(msg) => args.setError(msg)}
+              />
+            </div>
+          </div>
         </div>
       ),
     },

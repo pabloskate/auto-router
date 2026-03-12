@@ -3,17 +3,23 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // AuthGate.tsx
 //
-// Redesigned login/signup with:
-// - Clean card-based layout centered on screen
-// - Clear mode toggle between login and signup
-// - Real-time validation feedback
-// - Loading states on buttons
+// Login/signup with registration-mode awareness:
+// - "open"   → normal login + signup tabs
+// - "closed" → login only (signup hidden unless first user)
+// - "invite" → signup shows an invite code field
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface Props {
   onAuthenticated: () => void;
+}
+
+interface RegistrationStatus {
+  mode: "open" | "closed" | "invite";
+  signupAllowed: boolean;
+  firstUser: boolean;
+  requiresInviteCode: boolean;
 }
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
@@ -65,24 +71,57 @@ function IconUserPlus({ className, style }: { className?: string; style?: React.
   );
 }
 
+function IconTicket({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+      <path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/>
+    </svg>
+  );
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 export function AuthGate({ onAuthenticated }: Props) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [regStatus, setRegStatus] = useState<RegistrationStatus | null>(null);
+
+  useEffect(() => {
+    fetch("/api/v1/auth/registration-status")
+      .then((r) => r.json() as Promise<RegistrationStatus>)
+      .then(setRegStatus)
+      .catch(() => {
+        // Fallback: assume open so the UI is still usable
+        setRegStatus({ mode: "open", signupAllowed: true, firstUser: false, requiresInviteCode: false });
+      });
+  }, []);
+
+  // Default to signup when this is the first user (better UX; no tab click needed)
+  useEffect(() => {
+    if (regStatus?.firstUser && mode === "login") {
+      setMode("signup");
+    }
+  }, [regStatus?.firstUser]);
+
+  const signupAvailable = regStatus?.signupAllowed ?? true;
 
   async function handleSubmit() {
     setError("");
     setLoading(true);
 
     const endpoint = mode === "login" ? "/api/v1/auth/login" : "/api/v1/auth/signup";
-    
+
     try {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          ...(mode === "signup" && inviteCode ? { invite_code: inviteCode } : {}),
+        }),
       });
 
       const data = await res.json() as { error?: string };
@@ -103,6 +142,7 @@ export function AuthGate({ onAuthenticated }: Props) {
     setMode(mode === "login" ? "signup" : "login");
     setError("");
     setForm({ name: "", email: "", password: "" });
+    setInviteCode("");
   }
 
   const isLogin = mode === "login";
@@ -154,7 +194,7 @@ export function AuthGate({ onAuthenticated }: Props) {
               textAlign: "center",
             }}
           >
-            {isLogin ? "Welcome Back" : "Create Account"}
+            {isLogin ? "Welcome Back" : regStatus?.firstUser ? "Set Up Your Instance" : "Create Account"}
           </h1>
           <p
             style={{
@@ -165,7 +205,9 @@ export function AuthGate({ onAuthenticated }: Props) {
           >
             {isLogin
               ? "Sign in to access your CustomRouter dashboard"
-              : "Sign up to start routing your LLM requests"}
+              : regStatus?.firstUser
+                ? "Create the first account to get started"
+                : "Sign up to start routing your LLM requests"}
           </p>
         </div>
 
@@ -192,17 +234,29 @@ export function AuthGate({ onAuthenticated }: Props) {
             >
               Sign In
             </button>
-            <button
-              className={`tab ${!isLogin ? "tab--active" : ""}`}
-              onClick={() => isLogin && toggleMode()}
-              style={{ flex: 1, justifyContent: "center" }}
-            >
-              Sign Up
-            </button>
+            {signupAvailable && (
+              <button
+                className={`tab ${!isLogin ? "tab--active" : ""}`}
+                onClick={() => isLogin && toggleMode()}
+                style={{ flex: 1, justifyContent: "center" }}
+              >
+                Sign Up
+              </button>
+            )}
           </div>
 
           {/* Form Fields */}
           <div style={{ padding: "var(--space-6)" }}>
+            {/* Registration closed message */}
+            {!isLogin && !signupAvailable && (
+              <div
+                className="alert alert--warning"
+                style={{ marginBottom: "var(--space-5)" }}
+              >
+                Registration is closed. Contact an administrator for access.
+              </div>
+            )}
+
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
               {/* Name Field - Signup Only */}
               {!isLogin && (
@@ -220,6 +274,26 @@ export function AuthGate({ onAuthenticated }: Props) {
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     placeholder="Your name"
                     autoComplete="name"
+                    disabled={loading}
+                  />
+                </div>
+              )}
+
+              {/* Invite Code Field - Signup + invite mode only */}
+              {!isLogin && regStatus?.requiresInviteCode && (
+                <div className="form-group">
+                  <label className="form-label">
+                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                      <IconTicket style={{ width: 14, height: 14 } as any} />
+                      Invite Code
+                    </div>
+                  </label>
+                  <input
+                    className="input"
+                    type="text"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                    placeholder="Enter your invite code"
                     disabled={loading}
                   />
                 </div>
@@ -298,7 +372,13 @@ export function AuthGate({ onAuthenticated }: Props) {
                 justifyContent: "center",
               }}
               onClick={() => void handleSubmit()}
-              disabled={loading || !form.email || !form.password || (!isLogin && !form.name)}
+              disabled={
+                loading ||
+                !form.email ||
+                !form.password ||
+                (!isLogin && !form.name) ||
+                (!isLogin && regStatus?.requiresInviteCode && !inviteCode)
+              }
             >
               {loading ? (
                 <>

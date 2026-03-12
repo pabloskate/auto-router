@@ -198,3 +198,16 @@ CREATE TABLE IF NOT EXISTS thread_pins (
 );
 
 CREATE INDEX IF NOT EXISTS idx_thread_pins_expires ON thread_pins(expires_at);
+
+-- ── Invite codes (registration gating) ──
+CREATE TABLE IF NOT EXISTS invite_codes (
+  id TEXT PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  uses_remaining INTEGER NOT NULL DEFAULT 1,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_invite_codes_code ON invite_codes(code);
+CREATE INDEX IF NOT EXISTS idx_invite_codes_created_by ON invite_codes(created_by);

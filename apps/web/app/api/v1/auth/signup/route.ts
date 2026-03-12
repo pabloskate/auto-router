@@ -4,6 +4,9 @@ import {
     createSession,
     getClientIp,
     hashPassword,
+    resolveRegistrationMode,
+    checkRegistration,
+    validateAndConsumeInviteCode,
     shouldUseSecureCookies
 } from "@/src/lib/auth";
 import { json, getRuntimeBindings } from "@/src/lib/infra";
@@ -40,6 +43,7 @@ export async function POST(request: Request): Promise<Response> {
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const email = typeof body.email === "string" ? body.email.trim() : "";
     const password = typeof body.password === "string" ? body.password : "";
+    const inviteCode = typeof body.invite_code === "string" ? body.invite_code.trim() : undefined;
 
     if (!name || !email || !password) {
         return json({ error: "Name, email, and password are required." }, 400);
@@ -64,6 +68,17 @@ export async function POST(request: Request): Promise<Response> {
         return json({ error: "Password must be at least 8 characters long." }, 400);
     }
 
+    // ── Registration gate ────────────────────────────────────────────────
+    const regMode = resolveRegistrationMode(bindings.REGISTRATION_MODE);
+    const regCheck = await checkRegistration({
+        db: bindings.ROUTER_DB,
+        mode: regMode,
+        inviteCode,
+    });
+    if (!regCheck.allowed) {
+        return json({ error: regCheck.reason ?? "Registration is not available." }, 403);
+    }
+
     // Check if user already exists
     const existingUser = await bindings.ROUTER_DB
         .prepare("SELECT id FROM users WHERE email = ?1 LIMIT 1")
@@ -72,6 +87,14 @@ export async function POST(request: Request): Promise<Response> {
 
     if (existingUser) {
         return json({ error: "A user with this email already exists." }, 400);
+    }
+
+    // ── Consume invite code (if required) ────────────────────────────────
+    if (regCheck.requiresInviteCode && inviteCode) {
+        const consumeResult = await validateAndConsumeInviteCode(bindings.ROUTER_DB, inviteCode);
+        if (!consumeResult.valid) {
+            return json({ error: consumeResult.reason }, 403);
+        }
     }
 
     const userId = crypto.randomUUID();

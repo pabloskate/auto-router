@@ -18,13 +18,13 @@ import type { D1Database, KVNamespace } from "./cloudflare-types";
 export interface RouterRuntimeBindings {
   ROUTER_DB?: D1Database;
   ROUTER_KV?: KVNamespace;
-  OPENROUTER_API_KEY?: string;
   OPENAI_COMPAT_BASE_URL?: string;
   BYOK_ENCRYPTION_SECRET?: string;
   AA_API_KEY?: string;
   ROUTER_CLASSIFIER_MODEL?: string;
   ADMIN_SECRET?: string;
   SESSION_COOKIE_SECURE?: string;
+  REGISTRATION_MODE?: string;
 }
 
 declare global {
@@ -57,10 +57,8 @@ export function getRuntimeBindings(): RouterRuntimeBindings {
   return {
     ROUTER_DB: fromGlobal?.ROUTER_DB,
     ROUTER_KV: fromGlobal?.ROUTER_KV,
-    OPENROUTER_API_KEY:
-      fromGlobal?.OPENROUTER_API_KEY ?? process.env.OPENROUTER_API_KEY ?? process.env.OPENROUTER_KEY,
     OPENAI_COMPAT_BASE_URL:
-      fromGlobal?.OPENAI_COMPAT_BASE_URL ?? process.env.OPENAI_COMPAT_BASE_URL ?? process.env.OPENROUTER_API_URL,
+      fromGlobal?.OPENAI_COMPAT_BASE_URL ?? process.env.OPENAI_COMPAT_BASE_URL,
     BYOK_ENCRYPTION_SECRET:
       fromGlobal?.BYOK_ENCRYPTION_SECRET ?? process.env.BYOK_ENCRYPTION_SECRET,
     AA_API_KEY: fromGlobal?.AA_API_KEY ?? process.env.AA_API_KEY,
@@ -69,6 +67,8 @@ export function getRuntimeBindings(): RouterRuntimeBindings {
     ADMIN_SECRET:
       fromGlobal?.ADMIN_SECRET ?? process.env.ADMIN_SECRET,
     SESSION_COOKIE_SECURE:
-      fromGlobal?.SESSION_COOKIE_SECURE ?? process.env.SESSION_COOKIE_SECURE
+      fromGlobal?.SESSION_COOKIE_SECURE ?? process.env.SESSION_COOKIE_SECURE,
+    REGISTRATION_MODE:
+      fromGlobal?.REGISTRATION_MODE ?? process.env.REGISTRATION_MODE,
   };
 }

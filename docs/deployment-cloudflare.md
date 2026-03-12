@@ -3,8 +3,6 @@
 ## Prerequisites
 
 - Cloudflare account with Workers, D1, and KV enabled.
-- OpenRouter API key.
-- Artificial Analysis API key.
 
 ## 1. Create infrastructure
 
@@ -22,11 +20,13 @@ Update IDs in:
 
 Set secrets:
 
-- `OPENROUTER_API_KEY`
-- `AA_API_KEY`
 - `ADMIN_SECRET` (required for privileged router/admin endpoints and worker `/run`)
 - `BYOK_ENCRYPTION_SECRET` (required if users will save gateway or classifier BYOK credentials)
 - `SESSION_COOKIE_SECURE` (`true` in production HTTPS, `false` for local HTTP testing)
+- `REGISTRATION_MODE` (optional, default `closed`) — controls who can create accounts:
+  - `closed` — no signups (first user always allowed for initial setup)
+  - `invite` — signup requires an invite code from an existing user
+  - `open` — anyone can sign up
 
 Important:
 
@@ -36,19 +36,14 @@ Important:
 
 ## 3. Deploy ingestion worker
 
-- Cron is configured daily at `04:00 UTC`.
+- Cron is configured daily at `04:00 UTC` (catalog ingestion is disabled; app is BYOK-only).
 - Worker exposes `POST /run` for manual refresh.
-- `POST /run` now requires `Authorization: Bearer <ADMIN_SECRET>`.
+- `POST /run` requires `Authorization: Bearer <ADMIN_SECRET>`.
 
 ## 4. Deploy Next.js web app
 
 - Build with OpenNext for Cloudflare and deploy worker output.
 - Ensure `ROUTER_DB` and `ROUTER_KV` are bound in the web worker.
-
-## 5. Bootstrap scorecard
-
-- Trigger `POST /api/v1/router/recompute` once after deploy with `Authorization: Bearer <ADMIN_SECRET>`.
-- Confirm artifact appears via `GET /api/v1/router/scorecard/current`.
 
 ## Migrations
 
