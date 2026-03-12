@@ -1,4 +1,7 @@
 /** @type {import('next').NextConfig} */
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+import { fileURLToPath } from "node:url";
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
@@ -30,5 +33,11 @@ const nextConfig = {
     ];
   }
 };
+
+// Use an absolute wrangler path so D1/KV bindings are stable from any cwd.
+const wranglerConfigPath = fileURLToPath(new URL("./wrangler.toml", import.meta.url));
+initOpenNextCloudflareForDev({
+  configPath: wranglerConfigPath,
+});
 
 export default nextConfig;

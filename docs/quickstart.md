@@ -4,15 +4,19 @@ This repo is the self-hostable CustomRouter product. The fastest path is local d
 
 ## Local Development
 
-Auth (login, signup, API keys) requires a database. The app uses **local D1 + KV emulation** when running `next dev` via OpenNext's `initOpenNextCloudflareForDev`. Seed the local DB once before first run:
+Auth (login, signup, API keys) requires a database. The app uses **local D1 + KV emulation** when running `next dev` via OpenNext's `initOpenNextCloudflareForDev`. Seed the local DB **before** first run so login works:
 
 ```bash
 npm install
 cp .env.example .env.local
-npm run db:seed          # Creates local D1 and applies schema (run once)
+npm run db:seed          # Creates local D1 in apps/web/.wrangler (run once, or when schema changes)
 npm run typecheck
-npm run dev -w @auto-router/web
+npm run dev
 ```
+
+Or use `npm run dev:seed` to seed and start in one shot.
+
+**If login fails with "Server misconfigured"**: D1 bindings are missing. Ensure `db:seed` ran successfully; it creates `apps/web/.wrangler/` with the schema. OpenNext reads the same wrangler config, so both share that local D1.
 
 Recommended local variables:
 
@@ -27,6 +31,22 @@ Open `http://localhost:3000/admin`, then:
 4. Optionally add profiles (e.g. `auto-cheap`) and enable "Override global models" to use different models per profile.
 5. Generate a router API key.
 6. Send a request to `/api/v1/chat/completions` with `model: "auto"` or a named profile like `model: "auto-cheap"`.
+
+## Testing Before Deploy
+
+You can verify the app without running a full dev server:
+
+| Method | Command | Needs DB? | Use case |
+|--------|---------|------------|----------|
+| **Unit tests** | `npm run test` | No | Logic, routing, API handlers, components |
+| **Type check** | `npm run typecheck` | No | Catch type errors before deploy |
+| **Local dev** | `npm run dev:seed` or `db:seed` + `dev` | Yes | Full UI and API testing |
+| **Preview (Worker)** | `npm run build` then `npx @opennextjs/cloudflare preview` | Yes | Test built worker locally |
+| **Admin E2E** | `npm run verify:admin` (with `dev` running) | Yes | Create account, check Routing & API Keys tabs |
+
+For `verify:admin`, ensure a **fresh DB** (run `npm run db:seed` after clearing `apps/web/.wrangler`) or it may fail with "Registration is closed" when users already exist.
+
+Unit tests mock the database and external services, so they always pass regardless of D1 setup. Use them for CI and pre-deploy checks.
 
 ## Cloudflare Deployment
 
