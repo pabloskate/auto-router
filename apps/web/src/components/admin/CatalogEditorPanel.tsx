@@ -145,7 +145,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         You haven&apos;t defined a custom model catalog yet. The router will use the system catalog
         with all available models.
       </p>
-      <button className="btn" onClick={onCreate}>
+      <button className="btn btn--primary" onClick={onCreate}>
         <IconPlus />
         Add Custom Model
       </button>
@@ -447,7 +447,7 @@ export function CatalogEditorPanel({ catalog, onChange, onSave }: Props) {
           <span style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
             {items.length} model{items.length !== 1 ? "s" : ""} in custom catalog
           </span>
-          <button className="btn" onClick={() => void handleSave()} disabled={saving}>
+          <button className="btn btn--primary" onClick={() => void handleSave()} disabled={saving}>
             <IconSave />
             {saving ? "Saving..." : "Save Catalog"}
           </button>

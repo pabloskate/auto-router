@@ -10,6 +10,9 @@
   ],
   "scripts": {
     "build": "npm run --workspaces build",
+    "deploy:web": "npm run deploy -w @custom-router/web",
+    "deploy:ingest": "npm run deploy -w @custom-router/ingest-worker",
+    "deploy": "npm run deploy:ingest && npm run deploy:web",
     "dev": "npm run dev -w @custom-router/web",
     "dev:seed": "npm run db:seed && npm run dev -w @custom-router/web",
     "verify:admin": "node scripts/verify-admin-flow.mjs",

@@ -97,6 +97,22 @@ function IconInfo({ className, style }: { className?: string; style?: React.CSSP
   );
 }
 
+function IconChevronDown({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  );
+}
+
+function IconChevronUp({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="18 15 12 9 6 15"/>
+    </svg>
+  );
+}
+
 // ─── Empty State ─────────────────────────────────────────────────────────────
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
@@ -117,7 +133,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
       <p className="empty-state-desc">
         Profiles let clients use custom model names (e.g., auto-cheap, auto-coding) with purpose-specific routing strategies.
       </p>
-      <button className="btn" onClick={onCreate}>
+      <button className="btn btn--primary" onClick={onCreate}>
         <IconPlus />
         Create First Profile
       </button>
@@ -141,7 +157,7 @@ function ProfileCard({
   onUpdate: (idx: number, patch: Partial<RouterProfile>) => void;
   onRemove: (idx: number) => void;
 }) {
-  const [isExpanded, setIsExpanded] = useState(!profile.id);
+  const [isExpanded, setIsExpanded] = useState(!profile.id || isRequired);
   const overrideModels = profile.overrideModels ?? false;
   const allModelOptions = Array.from(
     new Set(
@@ -168,17 +184,16 @@ function ProfileCard({
             <span style={{ fontStyle: "italic", color: "var(--text-muted)" }}>New Profile</span>
           )}
         </div>
-        <div style={{ display: "flex", gap: "var(--space-2)" }}>
-          <button
-            className="btn btn--sm btn--ghost"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            {isExpanded ? "Collapse" : "Expand"}
-          </button>
+        <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+          <span className="badge" style={{ color: "var(--text-muted)" }}>
+            {isExpanded ? "Advanced shown" : "Advanced hidden"}
+          </span>
           {!isRequired && (
             <button
               className="btn btn--sm btn--danger"
-              onClick={() => onRemove(index)}
+              onClick={(e) => {
+                onRemove(index);
+              }}
             >
               <IconTrash />
             </button>
@@ -217,6 +232,29 @@ function ProfileCard({
           <span className="form-hint">Human-readable name shown in the UI.</span>
         </div>
       </div>
+
+      <button
+        type="button"
+        className="btn btn--sm"
+        onClick={() => setIsExpanded((prev) => !prev)}
+        style={{
+          width: "100%",
+          justifyContent: "space-between",
+          marginBottom: isExpanded ? "var(--space-5)" : 0,
+          border: "1px solid var(--border-default)",
+          background: isExpanded ? "var(--bg-interactive)" : "transparent",
+          color: "var(--text-primary)",
+        }}
+        aria-expanded={isExpanded}
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
+          {isExpanded ? <IconChevronUp /> : <IconChevronDown />}
+          Advanced settings
+        </span>
+        <span style={{ color: "var(--text-muted)" }}>
+          {isExpanded ? "Hide details" : "Show model overrides, filters, and instructions"}
+        </span>
+      </button>
 
       {/* Expanded Fields */}
       {isExpanded && (

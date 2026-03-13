@@ -15,11 +15,21 @@ Thanks for contributing to CustomRouter.
 ```bash
 npm install
 cp .env.example .env.local
+npm run db:seed
 npm run typecheck
 npm run dev -w @custom-router/web
 ```
 
 Without Cloudflare bindings, the app falls back to the in-memory repository for local UI work.
+
+For UI verification where `next dev` behaves inconsistently in locked-down browser environments, use:
+
+```bash
+npm run build -w @custom-router/web
+REGISTRATION_MODE=open npm run start -w @custom-router/web -- -p 3003
+```
+
+Then validate flows at `http://localhost:3003/admin`.
 
 ## Verification
 

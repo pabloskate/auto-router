@@ -167,7 +167,7 @@ function EmptyState({ onGenerate }: { onGenerate: () => void }) {
       <p className="empty-state-desc">
         Generate your first API key to start making requests to CustomRouter.
       </p>
-      <button className="btn" onClick={onGenerate}>
+      <button className="btn btn--primary" onClick={onGenerate}>
         <IconPlus />
         Generate API Key
       </button>
@@ -468,7 +468,7 @@ export function ApiKeyPanel({ keys, onKeysChanged, onStatus, onError }: Props) {
         <>
           {/* Generate Button */}
           <div style={{ marginBottom: "var(--space-5)" }}>
-            <button className="btn" onClick={() => void generateKey()}>
+            <button className="btn btn--primary" onClick={() => void generateKey()}>
               <IconPlus />
               Generate New Key
             </button>

@@ -95,7 +95,7 @@ export function OssHomepage() {
           hosting, billing, and operations stay outside the repo by design.
         </p>
         <div className="quickstart-actions">
-          <Link className="btn" href="/admin">Open Dashboard</Link>
+          <Link className="btn btn--primary" href="/admin">Open Dashboard</Link>
           <a className="btn btn--secondary" href="#quickstart">View Quickstart</a>
           <Link className="btn btn--ghost" href="/open-source">Source and License</Link>
         </div>

@@ -365,7 +365,7 @@ export function AuthGate({ onAuthenticated }: Props) {
 
             {/* Submit Button */}
             <button
-              className="btn"
+              className="btn btn--primary"
               style={{
                 width: "100%",
                 marginTop: "var(--space-6)",

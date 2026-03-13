@@ -205,7 +205,7 @@ function GatewayForm({ initial, isEdit, saving, onSave, onCancel }: GatewayFormP
         <span className="form-hint">Stored encrypted. Used only for requests routed to this gateway.</span>
       </div>
       <div style={{ display: "flex", gap: "var(--space-3)" }}>
-        <button type="submit" className="btn btn--sm" disabled={saving}>
+        <button type="submit" className="btn btn--primary btn--sm" disabled={saving}>
           {saving ? "Saving…" : isEdit ? "Save changes" : "Add gateway"}
         </button>
         <button type="button" className="btn btn--secondary btn--sm" onClick={onCancel}>Cancel</button>
@@ -313,7 +313,7 @@ function ModelForm({ initial, saving, lockId = false, onSave, onCancel }: ModelF
         />
       </div>
       <div style={{ display: "flex", gap: "var(--space-2)" }}>
-        <button type="submit" className="btn btn--sm" disabled={saving}>
+        <button type="submit" className="btn btn--primary btn--sm" disabled={saving}>
           {saving ? "Saving…" : lockId ? "Save" : "Add model"}
         </button>
         <button type="button" className="btn btn--secondary btn--sm" onClick={onCancel}>Cancel</button>
@@ -383,7 +383,7 @@ function FetchPicker({ models, existing, onImport, onClose }: FetchPickerProps) 
         })}
       </div>
       <div style={{ display: "flex", gap: "var(--space-2)" }}>
-        <button className="btn btn--sm" disabled={selected.size === 0 || saving} onClick={handleImport}>
+        <button className="btn btn--primary btn--sm" disabled={selected.size === 0 || saving} onClick={handleImport}>
           {saving ? "Importing…" : `Import ${selected.size > 0 ? selected.size : ""} selected`}
         </button>
         <button className="btn btn--secondary btn--sm" onClick={() => setSelected(new Set(models.filter((model) => !existingIds.has(model.id)).map((model) => model.id)))}>
@@ -794,7 +794,7 @@ export function GatewayPanel({ onStatus, onError }: Props) {
           <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: "var(--space-6)", maxWidth: 360, margin: "0 auto var(--space-6)" }}>
             Add a gateway to connect an upstream API provider and assign models to it.
           </p>
-          <button className="btn" onClick={() => setShowAddForm(true)}>
+          <button className="btn btn--primary" onClick={() => setShowAddForm(true)}>
             <IconPlus /> Add your first gateway
           </button>
         </div>

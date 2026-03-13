@@ -48,6 +48,24 @@ For `verify:admin`, ensure a **fresh DB** (run `npm run db:seed` after clearing 
 
 Unit tests mock the database and external services, so they always pass regardless of D1 setup. Use them for CI and pre-deploy checks.
 
+## Reliable UI Validation Loop
+
+When validating UI changes in restricted browser environments (where `next dev` may fail to hydrate due CSP/eval restrictions), use a local production run:
+
+```bash
+npm run db:seed
+npm run build -w @custom-router/web
+REGISTRATION_MODE=open npm run start -w @custom-router/web -- -p 3003
+```
+
+Then open `http://localhost:3003/admin`.
+
+Why this helps:
+
+- `next start` serves production bundles (no dev eval hooks), so client interactivity is more reliable.
+- `REGISTRATION_MODE=open` avoids getting blocked by closed-registration state during local UX checks.
+- You can keep Cloudflare out of the loop for fast iteration.
+
 ## Cloudflare Deployment
 
 1. Create a D1 database and KV namespace.

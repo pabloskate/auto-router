@@ -184,7 +184,7 @@ export function InviteCodePanel({ onStatus, onError }: Props) {
         </div>
 
         {/* Still allow generating codes even in other modes, for convenience */}
-        <button className="btn" onClick={() => void generateInvite()}>
+        <button className="btn btn--primary" onClick={() => void generateInvite()}>
           <IconPlus />
           Generate Invite Code
         </button>
@@ -224,7 +224,7 @@ export function InviteCodePanel({ onStatus, onError }: Props) {
         <p className="empty-state-desc">
           Generate invite codes to allow new users to sign up on this instance.
         </p>
-        <button className="btn" onClick={() => void generateInvite()}>
+        <button className="btn btn--primary" onClick={() => void generateInvite()}>
           <IconPlus />
           Generate Invite Code
         </button>
@@ -235,7 +235,7 @@ export function InviteCodePanel({ onStatus, onError }: Props) {
   return (
     <div>
       <div style={{ marginBottom: "var(--space-5)" }}>
-        <button className="btn" onClick={() => void generateInvite()}>
+        <button className="btn btn--primary" onClick={() => void generateInvite()}>
           <IconPlus />
           Generate Invite Code
         </button>

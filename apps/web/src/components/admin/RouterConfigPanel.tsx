@@ -123,82 +123,34 @@ function RoutingLogicSection({
         description="Configure how CustomRouter selects models for each request"
       />
 
-      {/* Row 1: Blocklist + toggles (matches prototype) */}
-      <div className="global-settings-row" style={{ marginBottom: 0 }}>
-        <div className="form-group" style={{ flex: "1 1 200px" }}>
-          <label className="form-label">
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-              <IconBlock style={{ width: 14, height: 14 } as any} />
-              Global Blocklist
-            </div>
-          </label>
+      {/* Toggles */}
+      <div style={{ marginBottom: "var(--space-5)" }}>
+        <label
+          className="checkbox-wrapper"
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "var(--space-3)",
+            padding: "var(--space-4)",
+            background: "var(--bg-interactive)",
+            borderRadius: "var(--radius-md)",
+            border: "1px solid var(--border-default)",
+            maxWidth: "400px"
+          }}
+        >
           <input
-            className="input input--mono"
-            type="text"
-            value={config.blocklist?.join(", ") || ""}
-            onChange={(e) => {
-              const ids = e.target.value
-                .split(",")
-                .map((v) => v.trim())
-                .filter((v) => v.length > 0);
-              onChange({ ...config, blocklist: ids });
-            }}
-            placeholder="model/id-1, model/id-2, ..."
+            type="checkbox"
+            checked={config.showModelInResponse}
+            onChange={(e) => onChange({ ...config, showModelInResponse: e.target.checked })}
+            style={{ marginTop: 2 }}
           />
-          <span className="form-hint">Comma-separated model IDs excluded from all routing decisions.</span>
-        </div>
-        <div className="global-toggles">
-          <label
-            className="checkbox-wrapper"
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "var(--space-3)",
-              padding: "var(--space-4)",
-              background: "var(--bg-interactive)",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--border-default)",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={config.showModelInResponse}
-              onChange={(e) => onChange({ ...config, showModelInResponse: e.target.checked })}
-              style={{ marginTop: 2 }}
-            />
-            <div>
-              <span className="checkbox-label" style={{ fontWeight: 500 }}>Show model in responses</span>
-              <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>
-                Appends the selected model ID to non-tool-call responses.
-              </p>
-            </div>
-          </label>
-          <label
-            className="checkbox-wrapper"
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "var(--space-3)",
-              padding: "var(--space-4)",
-              background: "var(--bg-interactive)",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--border-default)",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={config.configAgentEnabled}
-              onChange={(e) => onChange({ ...config, configAgentEnabled: e.target.checked })}
-              style={{ marginTop: 2 }}
-            />
-            <div>
-              <span className="checkbox-label" style={{ fontWeight: 500 }}>Enable Config Agent</span>
-              <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>
-                Users can enter chat config mode with <code style={{ fontSize: "0.75rem" }}>$$config</code>.
-              </p>
-            </div>
-          </label>
-        </div>
+          <div>
+            <span className="checkbox-label" style={{ fontWeight: 500 }}>Show model in responses</span>
+            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>
+              Appends the selected model ID to non-tool-call responses.
+            </p>
+          </div>
+        </label>
       </div>
 
       <div className="divider" style={{ margin: "var(--space-4) 0" }} />
@@ -281,6 +233,29 @@ function RoutingLogicSection({
         <span className="form-hint">
           Plain-text instructions for the classifier. Be specific about when to use each model type.
         </span>
+      </div>
+
+      <div className="form-group" style={{ marginBottom: "var(--space-5)" }}>
+        <label className="form-label">
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+            <IconBlock style={{ width: 14, height: 14 } as any} />
+            Global Blocklist
+          </div>
+        </label>
+        <input
+          className="input input--mono"
+          type="text"
+          value={config.blocklist?.join(", ") || ""}
+          onChange={(e) => {
+            const ids = e.target.value
+              .split(",")
+              .map((v) => v.trim())
+              .filter((v) => v.length > 0);
+            onChange({ ...config, blocklist: ids });
+          }}
+          placeholder="model/id-1, model/id-2, ..."
+        />
+        <span className="form-hint">Comma-separated model IDs excluded from all routing decisions.</span>
       </div>
     </div>
   );
@@ -413,11 +388,7 @@ export function RouterConfigPanel({ config, gatewayModelOptions, onChange, saveS
         onChange={onChange}
       />
 
-      <ConfigAgentSection
-        config={config}
-        gatewayModelOptions={gatewayModelOptions}
-        onChange={onChange}
-      />
+      {/* ConfigAgentSection hidden for now */}
 
       <div style={{ marginTop: "var(--space-8)", paddingTop: "var(--space-6)", borderTop: "1px solid var(--border-subtle)" }}>
         <SaveActionBar state={saveState} onSave={handleSave} saveLabel="Save configuration" />

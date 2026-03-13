@@ -411,7 +411,7 @@ export function PlaygroundPanel({ profiles }: { profiles?: import("./ProfilesPan
             rows={2}
           />
           <button
-            className="btn"
+            className="btn btn--primary"
             onClick={handleSubmit}
             disabled={loading || !input.trim()}
             style={{ alignSelf: "flex-end" }}

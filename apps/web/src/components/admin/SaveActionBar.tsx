@@ -45,7 +45,7 @@ export function SaveActionBar({ state, onSave, saveLabel = "Save changes" }: Pro
         <span className={`badge ${status.badgeClass}`}>{status.title}</span>
         <span className="save-action-bar__hint">{status.hint}</span>
       </div>
-      <button className="btn" onClick={() => void onSave()} disabled={!canSave || isSaving}>
+      <button className="btn btn--primary" onClick={() => void onSave()} disabled={!canSave || isSaving}>
         {isSaving ? "Saving..." : saveLabel}
       </button>
     </div>
