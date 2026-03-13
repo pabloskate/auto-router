@@ -17,9 +17,6 @@ const TEST_USER: UserInfo = {
   customCatalog: null,
   profiles: null,
   showModelInResponse: false,
-  configAgentEnabled: false,
-  configAgentOrchestratorModel: null,
-  configAgentSearchModel: null,
 };
 
 function createBaseTabs(registrationMode: "open" | "closed" | "invite" = "closed") {

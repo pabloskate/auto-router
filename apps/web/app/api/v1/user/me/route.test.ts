@@ -8,7 +8,6 @@ import {
   upsertUserUpstreamCredentials,
 } from "@/src/lib/auth";
 import { getRuntimeBindings } from "@/src/lib/infra";
-import { gatewayRowToPublic, loadGatewaysWithMigration } from "@/src/lib/storage";
 import { GET, PUT } from "./route";
 
 vi.mock("@/src/lib/infra", async () => {
@@ -32,11 +31,6 @@ vi.mock("@/src/lib/auth", async () => {
   };
 });
 
-vi.mock("@/src/lib/storage", () => ({
-  loadGatewaysWithMigration: vi.fn(),
-  gatewayRowToPublic: vi.fn(),
-}));
-
 function createAuth(overrides: Partial<AuthResult> = {}): AuthResult {
   return {
     userId: "user_1",
@@ -49,9 +43,6 @@ function createAuth(overrides: Partial<AuthResult> = {}): AuthResult {
     customCatalog: null,
     profiles: null,
     showModelInResponse: false,
-    configAgentEnabled: false,
-    configAgentOrchestratorModel: null,
-    configAgentSearchModel: null,
     upstreamBaseUrl: null,
     upstreamApiKeyEnc: null,
     classifierBaseUrl: null,
@@ -77,20 +68,18 @@ describe("/api/v1/user/me route", () => {
   const sameOriginMock = vi.mocked(isSameOriginRequest);
   const upstreamGetMock = vi.mocked(getUserUpstreamCredentials);
   const upstreamUpsertMock = vi.mocked(upsertUserUpstreamCredentials);
-  const loadGatewaysMock = vi.mocked(loadGatewaysWithMigration);
-  const toPublicMock = vi.mocked(gatewayRowToPublic);
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("GET includes config agent fields", async () => {
+  it("GET includes routing fields", async () => {
     runtimeMock.mockReturnValue({ ROUTER_DB: {} as any });
     authMock.mockResolvedValue(
       createAuth({
-        configAgentEnabled: true,
-        configAgentOrchestratorModel: "model/orchestrator",
-        configAgentSearchModel: "model/search",
+        defaultModel: "model/default",
+        classifierModel: "model/classifier",
+        showModelInResponse: true,
       })
     );
 
@@ -98,12 +87,13 @@ describe("/api/v1/user/me route", () => {
     expect(response.status).toBe(200);
 
     const body = await response.json() as any;
-    expect(body.user.configAgentEnabled).toBe(true);
-    expect(body.user.configAgentOrchestratorModel).toBe("model/orchestrator");
-    expect(body.user.configAgentSearchModel).toBe("model/search");
+    expect(body.user.defaultModel).toBe("model/default");
+    expect(body.user.classifierModel).toBe("model/classifier");
+    expect(body.user.showModelInResponse).toBe(true);
+    expect(body.user.configAgentEnabled).toBeUndefined();
   });
 
-  it("PUT persists new config agent fields when models are valid gateway models", async () => {
+  it("PUT persists routing fields without config-agent columns", async () => {
     const db = createDbMock();
     runtimeMock.mockReturnValue({ ROUTER_DB: db as any, BYOK_ENCRYPTION_SECRET: "1234567890abcdef" });
     sameOriginMock.mockReturnValue(true);
@@ -116,24 +106,6 @@ describe("/api/v1/user/me route", () => {
       classifier_api_key_enc: null,
       updated_at: "2026-03-11T00:00:00.000Z",
     });
-    loadGatewaysMock.mockResolvedValue([
-      {
-        id: "gw_1",
-        user_id: "user_1",
-        name: "Gateway",
-        base_url: "https://gateway.example/v1",
-        api_key_enc: "enc",
-        models_json: "[]",
-        created_at: "2026-03-11T00:00:00.000Z",
-        updated_at: "2026-03-11T00:00:00.000Z",
-      },
-    ] as any);
-    toPublicMock.mockReturnValue({
-      id: "gw_1",
-      baseUrl: "https://gateway.example/v1",
-      apiKeyEnc: "enc",
-      models: [{ id: "model/orchestrator" }, { id: "model/search" }],
-    } as any);
     upstreamUpsertMock.mockResolvedValue(undefined);
 
     const response = await PUT(
@@ -149,23 +121,16 @@ describe("/api/v1/user/me route", () => {
           custom_catalog: null,
           profiles: null,
           show_model_in_response: false,
-          config_agent_enabled: true,
-          config_agent_orchestrator_model: "model/orchestrator",
-          config_agent_search_model: "model/search",
         }),
       })
     );
 
     expect(response.status).toBe(200);
-    expect(db.prepare).toHaveBeenCalled();
     const updateSql = db.prepare.mock.calls.find((entry: [string]) => entry[0].includes("UPDATE users"))?.[0] ?? "";
-    expect(updateSql).toContain("config_agent_enabled");
-    expect(updateSql).toContain("config_agent_orchestrator_model");
-    expect(updateSql).toContain("config_agent_search_model");
-    const bindArgs = db.__bindMock.mock.calls.at(-1) ?? [];
-    expect(bindArgs).toContain(1);
-    expect(bindArgs).toContain("model/orchestrator");
-    expect(bindArgs).toContain("model/search");
+    expect(updateSql).toContain("show_model_in_response");
+    expect(updateSql).not.toContain("config_agent_enabled");
+    expect(updateSql).not.toContain("config_agent_orchestrator_model");
+    expect(updateSql).not.toContain("config_agent_search_model");
   });
 
   it("PUT rejects profiles that omit the required auto profile", async () => {
@@ -181,8 +146,6 @@ describe("/api/v1/user/me route", () => {
       classifier_api_key_enc: null,
       updated_at: "2026-03-11T00:00:00.000Z",
     });
-    loadGatewaysMock.mockResolvedValue([]);
-    toPublicMock.mockReturnValue({ id: "gw_1", baseUrl: "https://x", apiKeyEnc: "enc", models: [] } as any);
 
     const response = await PUT(
       new Request("http://localhost/api/v1/user/me", {
@@ -197,9 +160,6 @@ describe("/api/v1/user/me route", () => {
           custom_catalog: null,
           profiles: [{ id: "auto-cheap", name: "Cheap Auto" }],
           show_model_in_response: false,
-          config_agent_enabled: false,
-          config_agent_orchestrator_model: null,
-          config_agent_search_model: null,
         }),
       })
     );
@@ -223,8 +183,6 @@ describe("/api/v1/user/me route", () => {
       classifier_api_key_enc: null,
       updated_at: "2026-03-11T00:00:00.000Z",
     });
-    loadGatewaysMock.mockResolvedValue([]);
-    toPublicMock.mockReturnValue({ id: "gw_1", baseUrl: "https://x", apiKeyEnc: "enc", models: [] } as any);
 
     const response = await PUT(
       new Request("http://localhost/api/v1/user/me", {
@@ -242,9 +200,6 @@ describe("/api/v1/user/me route", () => {
             { id: "auto-cheap", name: "Cheap Auto", overrideModels: true, defaultModel: "model/cheap" },
           ],
           show_model_in_response: false,
-          config_agent_enabled: false,
-          config_agent_orchestrator_model: null,
-          config_agent_search_model: null,
         }),
       })
     );
@@ -266,8 +221,6 @@ describe("/api/v1/user/me route", () => {
       classifier_api_key_enc: null,
       updated_at: "2026-03-11T00:00:00.000Z",
     });
-    loadGatewaysMock.mockResolvedValue([]);
-    toPublicMock.mockReturnValue({ id: "gw_1", baseUrl: "https://x", apiKeyEnc: "enc", models: [] } as any);
 
     const response = await PUT(
       new Request("http://localhost/api/v1/user/me", {
@@ -293,9 +246,6 @@ describe("/api/v1/user/me route", () => {
             },
           ],
           show_model_in_response: false,
-          config_agent_enabled: false,
-          config_agent_orchestrator_model: null,
-          config_agent_search_model: null,
         }),
       })
     );
@@ -313,61 +263,5 @@ describe("/api/v1/user/me route", () => {
         catalogFilter: ["model/allowed"],
       },
     ]);
-  });
-
-  it("PUT rejects config agent models that are not in the effective gateway catalog", async () => {
-    runtimeMock.mockReturnValue({ ROUTER_DB: createDbMock() as any, BYOK_ENCRYPTION_SECRET: "1234567890abcdef" });
-    sameOriginMock.mockReturnValue(true);
-    authMock.mockResolvedValue(createAuth({ userId: "user_1" }));
-    upstreamGetMock.mockResolvedValue({
-      user_id: "user_1",
-      upstream_base_url: null,
-      upstream_api_key_enc: null,
-      classifier_base_url: null,
-      classifier_api_key_enc: null,
-      updated_at: "2026-03-11T00:00:00.000Z",
-    });
-    loadGatewaysMock.mockResolvedValue([
-      {
-        id: "gw_1",
-        user_id: "user_1",
-        name: "Gateway",
-        base_url: "https://gateway.example/v1",
-        api_key_enc: "enc",
-        models_json: "[]",
-        created_at: "2026-03-11T00:00:00.000Z",
-        updated_at: "2026-03-11T00:00:00.000Z",
-      },
-    ] as any);
-    toPublicMock.mockReturnValue({
-      id: "gw_1",
-      baseUrl: "https://gateway.example/v1",
-      apiKeyEnc: "enc",
-      models: [{ id: "model/valid-only" }],
-    } as any);
-
-    const response = await PUT(
-      new Request("http://localhost/api/v1/user/me", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          preferred_models: [],
-          blocklist: [],
-          default_model: null,
-          classifier_model: null,
-          routing_instructions: null,
-          custom_catalog: null,
-          profiles: null,
-          show_model_in_response: false,
-          config_agent_enabled: true,
-          config_agent_orchestrator_model: "model/invalid",
-          config_agent_search_model: null,
-        }),
-      })
-    );
-
-    expect(response.status).toBe(400);
-    const body = await response.json() as { error: string };
-    expect(body.error).toContain("Invalid config_agent_orchestrator_model");
   });
 });

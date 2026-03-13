@@ -124,26 +124,6 @@ export const ROUTER_CACHE = {
 
 // ── Upstream (OpenAI-compatible) Transport ──────────────────────────────────
 
-// ── Config Chat ──────────────────────────────────────────────────────────────
-//
-// Conversational config editor: users type $$config in a chat message to enter
-// an interactive session where they can view/modify their routing instructions,
-// model catalog, default model, blocklist, etc.  The session stays active until
-// the orchestrator LLM emits #endconfig.
-
-export const CONFIG_CHAT = {
-  TRIGGER_KEYWORD: "$$config",
-  END_KEYWORD: "#endconfig",
-
-  // Safety limit on tool-call rounds to prevent runaway loops.
-  MAX_TOOL_ROUNDS: 6,
-
-  MAX_TOKENS: 2048,
-  TEMPERATURE: 0.2,
-} as const;
-
-// ── Upstream (OpenAI-compatible) Transport ──────────────────────────────────
-
 export const UPSTREAM = {
   // Default upstream when no per-request override is provided.
   DEFAULT_BASE_URL: "https://openrouter.ai/api/v1",

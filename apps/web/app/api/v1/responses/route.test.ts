@@ -3,12 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthResult } from "@/src/lib/auth";
 import { authenticateRequest, authenticateSession, isSameOriginRequest } from "@/src/lib/auth";
 import { getRuntimeBindings } from "@/src/lib/infra";
-import {
-  extractResponsesInputMessages,
-  handleConfigChat,
-  isResponsesConfigMode,
-  routeAndProxy,
-} from "@/src/lib/routing";
+import { routeAndProxy } from "@/src/lib/routing";
 import { gatewayRowToPublic, loadGatewaysWithMigration } from "@/src/lib/storage";
 import { POST } from "./route";
 
@@ -33,9 +28,6 @@ vi.mock("@/src/lib/storage", () => ({
 
 vi.mock("@/src/lib/routing", () => ({
   routeAndProxy: vi.fn(),
-  extractResponsesInputMessages: vi.fn(),
-  handleConfigChat: vi.fn(),
-  isResponsesConfigMode: vi.fn(),
 }));
 
 function createAuth(overrides: Partial<AuthResult> = {}): AuthResult {
@@ -50,9 +42,6 @@ function createAuth(overrides: Partial<AuthResult> = {}): AuthResult {
     customCatalog: null,
     profiles: null,
     showModelInResponse: false,
-    configAgentEnabled: true,
-    configAgentOrchestratorModel: "gateway/orchestrator",
-    configAgentSearchModel: "gateway/search",
     upstreamBaseUrl: null,
     upstreamApiKeyEnc: null,
     classifierBaseUrl: null,
@@ -69,9 +58,6 @@ describe("/api/v1/responses route", () => {
   const loadGatewaysMock = vi.mocked(loadGatewaysWithMigration);
   const toPublicMock = vi.mocked(gatewayRowToPublic);
   const routeAndProxyMock = vi.mocked(routeAndProxy);
-  const extractMessagesMock = vi.mocked(extractResponsesInputMessages);
-  const handleConfigChatMock = vi.mocked(handleConfigChat);
-  const isResponsesConfigModeMock = vi.mocked(isResponsesConfigMode);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -83,27 +69,14 @@ describe("/api/v1/responses route", () => {
     toPublicMock.mockImplementation((row: any) => row);
   });
 
-  it("intercepts $$config requests on the Responses endpoint", async () => {
-    const configMessages = [{ role: "user", content: "$$config show me config" }];
-    const configResponse = new Response(
-      JSON.stringify({
-        object: "response",
-        output: [
-          {
-            role: "assistant",
-            content: [{ type: "output_text", text: "Here is your config." }],
-          },
-        ],
-      }),
-      {
+  it("routes responses payloads through routeAndProxy", async () => {
+    routeAndProxyMock.mockResolvedValue({
+      requestId: "router_test",
+      response: new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { "content-type": "application/json" },
-      }
-    );
-
-    isResponsesConfigModeMock.mockReturnValue(true);
-    extractMessagesMock.mockReturnValue(configMessages);
-    handleConfigChatMock.mockResolvedValue(configResponse);
+      }),
+    });
 
     const response = await POST(
       new Request("http://localhost/api/v1/responses", {
@@ -117,17 +90,12 @@ describe("/api/v1/responses route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(isResponsesConfigModeMock).toHaveBeenCalledWith("$$config show me config");
-    expect(extractMessagesMock).toHaveBeenCalledWith("$$config show me config");
-    expect(handleConfigChatMock).toHaveBeenCalledWith(
-      configMessages,
-      expect.objectContaining({ userId: "user_1" }),
-      expect.objectContaining({ ROUTER_DB: expect.anything() }),
-      [],
-      false,
-      "responses"
+    expect(routeAndProxyMock).toHaveBeenCalledTimes(1);
+    expect(routeAndProxyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        apiPath: "/responses",
+      })
     );
-    expect(routeAndProxyMock).not.toHaveBeenCalled();
   });
 
   it("forwards showModelInResponse to the router service", async () => {
@@ -140,7 +108,6 @@ describe("/api/v1/responses route", () => {
     });
 
     authRequestMock.mockResolvedValue(createAuth({ showModelInResponse: true }));
-    isResponsesConfigModeMock.mockReturnValue(false);
 
     const response = await POST(
       new Request("http://localhost/api/v1/responses", {

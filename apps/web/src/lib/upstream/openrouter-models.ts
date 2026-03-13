@@ -2,9 +2,8 @@
 // openrouter-models.ts
 //
 // Lightweight helpers for validating and searching model IDs against the
-// OpenRouter /api/v1/models endpoint.  Used by the config-chat service to
-// confirm that user-supplied model IDs actually exist before writing them to
-// D1.  The /models endpoint is public and requires no API key.
+// OpenRouter /api/v1/models endpoint. The /models endpoint is public and
+// requires no API key.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";

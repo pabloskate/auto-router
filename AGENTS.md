@@ -78,7 +78,7 @@ Client
 | `routing/router-service.ts` | Orchestrates one routed request end-to-end (config merge → decide → proxy → guardrail → pin). |
 | `routing/guardrail-manager.ts` | In-process circuit breaker per model/provider. Three triggers: error rate, fallback rate, latency spike. |
 | `routing/frontier-classifier.ts` | Calls a cheap LLM on OpenRouter to pick the best model. Returns null on any failure. |
-| `routing/config-chat.ts` | Conversational config editor for `$$config` sessions. |
+| `docs/config-agent-deprecation.md` | Background on the retired Config Agent feature and why its runtime hooks were removed. |
 | `storage/repository.ts` | `CloudflareRepository` (D1+KV) and `MemoryRepository` (local dev). `getRouterRepository()` auto-selects. |
 | `storage/gateway-store.ts` | D1 helpers for user-configured upstream gateways and model catalogs. |
 | `storage/defaults.ts` | Default catalog and router config used in local dev / bootstrapping. |

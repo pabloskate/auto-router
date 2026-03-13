@@ -1,11 +1,6 @@
 import { authenticateRequest, authenticateSession, isSameOriginRequest } from "@/src/lib/auth";
 import { json, getRuntimeBindings } from "@/src/lib/infra";
-import {
-  extractResponsesInputMessages,
-  handleConfigChat,
-  isResponsesConfigMode,
-  routeAndProxy,
-} from "@/src/lib/routing";
+import { routeAndProxy } from "@/src/lib/routing";
 import { responsesSchema } from "@/src/lib/schemas";
 import { gatewayRowToPublic, loadGatewaysWithMigration } from "@/src/lib/storage";
 
@@ -53,17 +48,6 @@ export async function POST(request: Request): Promise<Response> {
     upstreamApiKeyEnc: auth.upstreamApiKeyEnc ?? null,
     customCatalogJson: auth.customCatalog ? JSON.stringify(auth.customCatalog) : null,
   }).then((rows) => rows.map(gatewayRowToPublic)).catch(() => []);
-
-  if (isResponsesConfigMode(parsed.data.input)) {
-    return handleConfigChat(
-      extractResponsesInputMessages(parsed.data.input),
-      auth,
-      bindings,
-      gatewayRows,
-      parsed.data.stream ?? false,
-      "responses"
-    );
-  }
 
   const result = await routeAndProxy({
     body: parsed.data,

@@ -41,7 +41,6 @@ Recommended repo split:
 - **Precedence:** Global fallback and classifier models apply to all profiles. Each profile can optionally override them via "Override global models" — when enabled, the profile’s fallback/classifier values take precedence; when disabled, the profile inherits global defaults. The `auto` profile is always required and non-deletable.
 - The first successful routed turn pins the selected model to the thread fingerprint for 1 hour. Continuations reuse that pin until a constraint breaks it or the cooldown window expires.
 - Putting `$$route` in the latest user turn bypasses the active thread pin for that turn and forces a fresh routing decision.
-- Sending `$$config` in chat enters the conversational router-config editor. The session stays in config mode until the assistant emits `#endconfig`.
 - Tool-enabled threads can break a thread pin after the router detects its phase-complete sentinel. Non-tool threads ignore that sentinel and keep the existing pin.
 
 ## Failure Semantics
@@ -69,6 +68,7 @@ npm run dev -w @custom-router/web
 - [Quickstart](docs/quickstart.md)
 - [Cloudflare deployment](docs/deployment-cloudflare.md)
 - [Open-core boundary](docs/open-core.md)
+- [Config Agent deprecation](docs/config-agent-deprecation.md)
 - [Release process](docs/release-process.md)
 - [Changelog](CHANGELOG.md)
 

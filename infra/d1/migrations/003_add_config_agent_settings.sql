@@ -1,4 +1,4 @@
--- Migration 003: optional per-user config-agent settings for $$config mode
+-- Migration 003: legacy per-user config-agent settings (feature retired)
 --
 -- Safe to run once on existing deployments upgraded from older schemas.
 ALTER TABLE users ADD COLUMN config_agent_enabled INTEGER NOT NULL DEFAULT 0;
