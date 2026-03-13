@@ -412,6 +412,7 @@ body {
 
 .card-body {
   padding: var(--space-6);
+  min-width: 0;
 }
 
 .card-footer {
@@ -871,6 +872,21 @@ body {
   border-radius: var(--radius-md);
   overflow-x: auto;
   color: var(--text-secondary);
+}
+
+.playground-request-preview {
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.playground-request-code {
+  width: 100%;
+  max-width: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* ─── Section Titles ─────────────────────────────────────────────────────────── */

@@ -430,21 +430,19 @@ export function PlaygroundPanel({ profiles }: { profiles?: import("./ProfilesPan
 
       {/* Request Preview */}
       {messages.length > 0 && (
-        <div className="card mt-4">
+        <div className="card mt-4" style={{ minWidth: 0, maxWidth: "100%" }}>
           <div className="card-header">
             <h4 style={{ fontSize: "0.875rem", fontWeight: 600 }}>Last Request</h4>
           </div>
-          <div className="card-body" style={{ padding: 0 }}>
+          <div className="card-body playground-request-preview" style={{ padding: 0, minWidth: 0, maxWidth: "100%" }}>
             <pre
-              className="code-block"
+              className="code-block playground-request-code"
               style={{
                 margin: 0,
                 borderRadius: 0,
                 fontSize: "0.75rem",
                 maxHeight: 200,
-                overflow: "auto",
                 maxWidth: "100%",
-                wordBreak: "break-word",
               }}
             >
               {JSON.stringify(
