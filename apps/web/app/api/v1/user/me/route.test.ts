@@ -253,6 +253,68 @@ describe("/api/v1/user/me route", () => {
     expect(db.__bindMock).toHaveBeenCalled();
   });
 
+  it("PUT normalizes blank profile model override fields before persisting", async () => {
+    const db = createDbMock();
+    runtimeMock.mockReturnValue({ ROUTER_DB: db as any });
+    sameOriginMock.mockReturnValue(true);
+    authMock.mockResolvedValue(createAuth({ userId: "user_1" }));
+    upstreamGetMock.mockResolvedValue({
+      user_id: "user_1",
+      upstream_base_url: null,
+      upstream_api_key_enc: null,
+      classifier_base_url: null,
+      classifier_api_key_enc: null,
+      updated_at: "2026-03-11T00:00:00.000Z",
+    });
+    loadGatewaysMock.mockResolvedValue([]);
+    toPublicMock.mockReturnValue({ id: "gw_1", baseUrl: "https://x", apiKeyEnc: "enc", models: [] } as any);
+
+    const response = await PUT(
+      new Request("http://localhost/api/v1/user/me", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          preferred_models: [],
+          blocklist: [],
+          default_model: "global/fallback",
+          classifier_model: "global/classifier",
+          routing_instructions: null,
+          custom_catalog: null,
+          profiles: [
+            { id: "auto", name: "Auto", defaultModel: "", classifierModel: "   " },
+            {
+              id: "auto-cheap",
+              name: "Cheap Auto",
+              overrideModels: true,
+              defaultModel: "",
+              classifierModel: "   ",
+              blocklist: ["", " model/blocked ", "   "],
+              catalogFilter: ["", " model/allowed ", "   "],
+            },
+          ],
+          show_model_in_response: false,
+          config_agent_enabled: false,
+          config_agent_orchestrator_model: null,
+          config_agent_search_model: null,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const bindArgs = db.__bindMock.mock.calls.at(-1) ?? [];
+    const persistedProfiles = JSON.parse(String(bindArgs[6])) as Array<Record<string, unknown>>;
+    expect(persistedProfiles).toEqual([
+      { id: "auto", name: "Auto" },
+      {
+        id: "auto-cheap",
+        name: "Cheap Auto",
+        overrideModels: true,
+        blocklist: ["model/blocked"],
+        catalogFilter: ["model/allowed"],
+      },
+    ]);
+  });
+
   it("PUT rejects config agent models that are not in the effective gateway catalog", async () => {
     runtimeMock.mockReturnValue({ ROUTER_DB: createDbMock() as any, BYOK_ENCRYPTION_SECRET: "1234567890abcdef" });
     sameOriginMock.mockReturnValue(true);

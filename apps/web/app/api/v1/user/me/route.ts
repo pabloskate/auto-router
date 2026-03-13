@@ -16,6 +16,39 @@ function hasOwn(body: Record<string, unknown>, key: string): boolean {
     return Object.prototype.hasOwnProperty.call(body, key);
 }
 
+function sanitizeOptionalString(value: string | undefined): string | undefined {
+    if (typeof value !== "string") {
+        return undefined;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function sanitizeOptionalStringArray(values: string[] | undefined): string[] | undefined {
+    if (!Array.isArray(values)) {
+        return undefined;
+    }
+
+    const sanitized = values
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+
+    return sanitized.length > 0 ? sanitized : undefined;
+}
+
+function sanitizeRouterProfile(profile: z.infer<typeof routerProfileSchema>): z.infer<typeof routerProfileSchema> {
+    return {
+        ...profile,
+        description: sanitizeOptionalString(profile.description),
+        defaultModel: sanitizeOptionalString(profile.defaultModel),
+        classifierModel: sanitizeOptionalString(profile.classifierModel),
+        routingInstructions: sanitizeOptionalString(profile.routingInstructions),
+        blocklist: sanitizeOptionalStringArray(profile.blocklist),
+        catalogFilter: sanitizeOptionalStringArray(profile.catalogFilter),
+    };
+}
+
 export async function GET(request: Request): Promise<Response> {
     const bindings = getRuntimeBindings();
     if (!bindings.ROUTER_DB) {
@@ -90,7 +123,7 @@ export async function PUT(request: Request): Promise<Response> {
     const profilesParsed = Array.isArray(body.profiles)
         ? z.array(routerProfileSchema).safeParse(body.profiles)
         : null;
-    let profiles = profilesParsed?.success ? profilesParsed.data : null;
+    let profiles = profilesParsed?.success ? profilesParsed.data.map(sanitizeRouterProfile) : null;
 
     // Enforce required "auto" profile: must exist and cannot be removed
     if (profiles !== null) {
