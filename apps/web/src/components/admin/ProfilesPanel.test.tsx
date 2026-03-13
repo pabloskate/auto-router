@@ -18,12 +18,15 @@ describe("ProfilesPanel", () => {
         ],
         gatewayModelOptions: ["model/a", "model/b"],
         onChange: () => undefined,
+        saveState: "dirty",
         onSave: async () => true,
       })
     );
 
     expect(markup).toContain("Override global models");
     expect(markup).toContain("Required");
+    expect(markup).toContain("Unsaved changes");
+    expect(markup).toContain("Save profiles");
   });
 
   it("shows auto profile as required and non-deletable", () => {
@@ -32,12 +35,14 @@ describe("ProfilesPanel", () => {
         profiles: [{ id: "auto", name: "Auto" }],
         gatewayModelOptions: [],
         onChange: () => undefined,
+        saveState: "saved",
         onSave: async () => true,
       })
     );
 
     expect(markup).toContain("auto");
     expect(markup).toContain("Required");
+    expect(markup).toContain("All changes saved");
   });
 
   it("always shows at least auto profile when profiles is empty", () => {
@@ -46,6 +51,7 @@ describe("ProfilesPanel", () => {
         profiles: [],
         gatewayModelOptions: [],
         onChange: () => undefined,
+        saveState: "pristine",
         onSave: async () => true,
       })
     );

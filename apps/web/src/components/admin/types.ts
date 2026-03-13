@@ -1,7 +1,8 @@
 import type { ComponentType, ReactNode } from "react";
 
-import { type CatalogItem } from "../CatalogEditorPanel";
-import { type RouterProfile } from "../ProfilesPanel";
+import { type CatalogItem } from "./CatalogEditorPanel";
+import { type RouterProfile } from "./ProfilesPanel";
+import { type SaveActionState } from "./SaveActionBar";
 
 export type AdminSection = "configure" | "use" | "account";
 
@@ -25,6 +26,7 @@ export type ServerUserInfo = {
 };
 
 export type UserInfo = ServerUserInfo;
+export type RoutingDraftState = SaveActionState;
 
 export type GatewaySummary = {
   id: string;
@@ -46,6 +48,9 @@ export type AdminExtensionContext = {
   setStatus: (message: string) => void;
   setError: (message?: string) => void;
   saveUserData: (updates: Partial<UserInfo>) => Promise<boolean>;
+  routingDraftState: RoutingDraftState;
+  markRoutingDirty: () => void;
+  saveRoutingData: (updates: Partial<UserInfo>) => Promise<boolean>;
 };
 
 export type AdminTabDefinition = {

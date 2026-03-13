@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-import { AuthGate } from "../AuthGate";
+import { AuthGate } from "./AuthGate";
 import { getAdminExtensionTabs } from "./admin-extensions";
 import { getInitialAdminTabId, groupAdminTabsBySection, mergeAdminTabs } from "./admin-tab-registry";
 import { getBaseAdminTabs } from "./admin-tabs";
-import { type AdminTabDefinition, type UserInfo, type ApiKeyInfo, type ServerUserInfo, type GatewaySummary, hydrateUser } from "./types";
+import { type AdminTabDefinition, type UserInfo, type ApiKeyInfo, type ServerUserInfo, type GatewaySummary, type RoutingDraftState, hydrateUser } from "./types";
 
 function IconLogout({ className }: { className?: string }) {
   return (
@@ -160,6 +160,7 @@ export function AdminShell() {
   const [status, setStatus] = useState("Loading...");
   const [error, setError] = useState<string | undefined>();
   const [gatewayModelOptions, setGatewayModelOptions] = useState<string[]>([]);
+  const [routingDraftState, setRoutingDraftState] = useState<RoutingDraftState>("pristine");
 
   async function loadData() {
     setStatus("Loading...");
@@ -205,6 +206,7 @@ export function AdminShell() {
     setUser(hydrateUser(userData.user));
     setKeys(keysData.keys);
     setIsAuthenticated(true);
+    setRoutingDraftState("pristine");
     setStatus("Ready");
   }
 
@@ -217,8 +219,13 @@ export function AdminShell() {
     setIsAuthenticated(false);
     setUser(null);
     setKeys([]);
+    setRoutingDraftState("pristine");
     setStatus("Logged out");
     setActiveTab("gateways");
+  }
+
+  function markRoutingDirty() {
+    setRoutingDraftState((current) => (current === "dirty" ? current : "dirty"));
   }
 
   async function saveUserData(updates: Partial<UserInfo>) {
@@ -261,6 +268,13 @@ export function AdminShell() {
     return false;
   }
 
+  async function saveRoutingData(updates: Partial<UserInfo>) {
+    setRoutingDraftState("saving");
+    const saved = await saveUserData(updates);
+    setRoutingDraftState(saved ? "saved" : "dirty");
+    return saved;
+  }
+
   const baseTabs = user
     ? getBaseAdminTabs({
         setUser,
@@ -270,6 +284,9 @@ export function AdminShell() {
         setStatus,
         setError,
         saveUserData,
+        routingDraftState,
+        markRoutingDirty,
+        saveRoutingData,
       })
     : [];
   const tabs = user ? mergeAdminTabs(baseTabs, getAdminExtensionTabs()) : [];
@@ -310,6 +327,9 @@ export function AdminShell() {
               setStatus,
               setError,
               saveUserData,
+              routingDraftState,
+              markRoutingDirty,
+              saveRoutingData,
             })}
           </>
         )}

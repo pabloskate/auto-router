@@ -399,6 +399,32 @@ body {
   border-top: 1px solid var(--border-subtle);
 }
 
+.save-action-bar {
+  position: sticky;
+  bottom: var(--space-4);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-elevated) 85%, black 15%);
+  box-shadow: var(--shadow-md);
+}
+
+.save-action-bar__status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.save-action-bar__hint {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
 /* ─── Form Elements ────────────────────────────────────────────────────────── */
 .form-group {
   display: flex;

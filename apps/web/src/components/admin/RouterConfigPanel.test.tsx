@@ -20,6 +20,7 @@ describe("RouterConfigPanel", () => {
         },
         gatewayModelOptions: ["model/a", "model/b"],
         onChange: () => undefined,
+        saveState: "pristine",
         onSave: async () => true,
       })
     );
@@ -45,6 +46,7 @@ describe("RouterConfigPanel", () => {
         },
         gatewayModelOptions: ["model/orchestrator", "model/search"],
         onChange: () => undefined,
+        saveState: "dirty",
         onSave: async () => true,
       })
     );
@@ -54,6 +56,8 @@ describe("RouterConfigPanel", () => {
     expect(markup).toContain("$$config");
     expect(markup).toContain("#endconfig");
     expect(markup).toContain("Recommend latest model for coding");
+    expect(markup).toContain("Unsaved changes");
+    expect(markup).toContain("Save configuration");
   });
 
   it("hides Config Agent details when disabled", () => {
@@ -71,6 +75,7 @@ describe("RouterConfigPanel", () => {
         },
         gatewayModelOptions: ["model/orchestrator", "model/search"],
         onChange: () => undefined,
+        saveState: "saving",
         onSave: async () => true,
       })
     );
@@ -80,5 +85,7 @@ describe("RouterConfigPanel", () => {
     expect(markup).not.toContain("Config Agent (Optional)");
     expect(markup).not.toContain("Config Orchestrator Model");
     expect(markup).not.toContain("#endconfig");
+    expect(markup).toContain("Saving changes...");
+    expect(markup).toContain("Saving...");
   });
 });

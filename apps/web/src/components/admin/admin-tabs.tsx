@@ -1,12 +1,12 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import { ApiKeyPanel } from "../ApiKeyPanel";
-import { GatewayPanel } from "../GatewayPanel";
-import { InviteCodePanel } from "../InviteCodePanel";
-import { PlaygroundPanel } from "../PlaygroundPanel";
-import { ProfilesPanel } from "../ProfilesPanel";
-import { RouterConfigPanel } from "../RouterConfigPanel";
-import { type AdminExtensionContext, type AdminTabDefinition, type ApiKeyInfo, type UserInfo } from "./types";
+import { ApiKeyPanel } from "./ApiKeyPanel";
+import { GatewayPanel } from "./GatewayPanel";
+import { InviteCodePanel } from "./InviteCodePanel";
+import { PlaygroundPanel } from "./PlaygroundPanel";
+import { ProfilesPanel } from "./ProfilesPanel";
+import { RouterConfigPanel } from "./RouterConfigPanel";
+import { type AdminExtensionContext, type AdminTabDefinition, type ApiKeyInfo, type RoutingDraftState, type UserInfo } from "./types";
 
 type BaseAdminTabsArgs = {
   setUser: Dispatch<SetStateAction<UserInfo | null>>;
@@ -16,6 +16,9 @@ type BaseAdminTabsArgs = {
   setStatus: (message: string) => void;
   setError: (message?: string) => void;
   saveUserData: (updates: Partial<UserInfo>) => Promise<boolean>;
+  routingDraftState: RoutingDraftState;
+  markRoutingDirty: () => void;
+  saveRoutingData: (updates: Partial<UserInfo>) => Promise<boolean>;
 };
 
 function IconGateway({ className }: { className?: string }) {
@@ -135,8 +138,10 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
                 gatewayModelOptions={args.gatewayModelOptions}
                 onChange={(updated) => {
                   args.setUser((current) => (current ? { ...current, ...updated } : current));
+                  args.markRoutingDirty();
                 }}
-                onSave={ctx.saveUserData}
+                saveState={ctx.routingDraftState}
+                onSave={ctx.saveRoutingData}
               />
             </div>
           </div>
@@ -151,8 +156,10 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
                 gatewayModelOptions={args.gatewayModelOptions}
                 onChange={(profiles) => {
                   args.setUser((current) => (current ? { ...current, profiles } : current));
+                  args.markRoutingDirty();
                 }}
-                onSave={() => ctx.saveUserData({})}
+                saveState={ctx.routingDraftState}
+                onSave={() => ctx.saveRoutingData({})}
               />
             </div>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
+import { SaveActionBar, type SaveActionState } from "./SaveActionBar";
 
 interface RouterConfigFields {
   defaultModel: string | null;
@@ -17,6 +18,7 @@ interface Props {
   config: RouterConfigFields;
   gatewayModelOptions: string[];
   onChange: (updated: RouterConfigFields) => void;
+  saveState: SaveActionState;
   onSave: (updates: Partial<RouterConfigFields>) => Promise<boolean>;
 }
 
@@ -40,14 +42,6 @@ function IconBlock({ className, style }: { className?: string; style?: React.CSS
   return (
     <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
-    </svg>
-  );
-}
-
-function IconSave({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <svg className={className} style={style} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
     </svg>
   );
 }
@@ -406,13 +400,9 @@ function ConfigAgentSection({
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export function RouterConfigPanel({ config, gatewayModelOptions, onChange, onSave }: Props) {
-  const [saving, setSaving] = useState(false);
-
+export function RouterConfigPanel({ config, gatewayModelOptions, onChange, saveState, onSave }: Props) {
   async function handleSave() {
-    setSaving(true);
     await onSave(config);
-    setSaving(false);
   }
 
   return (
@@ -429,12 +419,8 @@ export function RouterConfigPanel({ config, gatewayModelOptions, onChange, onSav
         onChange={onChange}
       />
 
-      {/* Save Button */}
       <div style={{ marginTop: "var(--space-8)", paddingTop: "var(--space-6)", borderTop: "1px solid var(--border-subtle)" }}>
-        <button className="btn" onClick={handleSave} disabled={saving}>
-          <IconSave />
-          {saving ? "Saving..." : "Save Configuration"}
-        </button>
+        <SaveActionBar state={saveState} onSave={handleSave} saveLabel="Save configuration" />
       </div>
     </div>
   );

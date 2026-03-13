@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { SaveActionBar, type SaveActionState } from "./SaveActionBar";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProfilesPanel.tsx
@@ -35,6 +36,7 @@ interface Props {
   profiles: RouterProfile[] | null;
   gatewayModelOptions: string[];
   onChange: (updated: RouterProfile[]) => void;
+  saveState: SaveActionState;
   onSave: () => Promise<boolean>;
 }
 
@@ -51,14 +53,6 @@ function IconTrash({ className, style }: { className?: string; style?: React.CSS
   return (
     <svg className={className} style={style} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-    </svg>
-  );
-}
-
-function IconSave({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <svg className={className} style={style} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
     </svg>
   );
 }
@@ -456,17 +450,10 @@ const DEFAULT_AUTO_PROFILE: RouterProfile = {
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export function ProfilesPanel({ profiles, gatewayModelOptions, onChange, onSave }: Props) {
-  const [saving, setSaving] = useState(false);
+export function ProfilesPanel({ profiles, gatewayModelOptions, onChange, saveState, onSave }: Props) {
   const baseItems = (profiles ?? []).map(normalizeProfile);
   const hasAuto = baseItems.some((p) => p.id === "auto");
   const items = hasAuto ? baseItems : [DEFAULT_AUTO_PROFILE, ...baseItems];
-
-  useEffect(() => {
-    if (!hasAuto) {
-      onChange([DEFAULT_AUTO_PROFILE, ...(profiles ?? []).map(normalizeProfile)]);
-    }
-  }, [hasAuto, profiles, onChange]);
 
   function updateProfile(idx: number, patch: Partial<RouterProfile>) {
     const updated = [...items];
@@ -485,9 +472,7 @@ export function ProfilesPanel({ profiles, gatewayModelOptions, onChange, onSave 
   }
 
   async function handleSave() {
-    setSaving(true);
     await onSave();
-    setSaving(false);
   }
 
   return (
@@ -526,10 +511,7 @@ export function ProfilesPanel({ profiles, gatewayModelOptions, onChange, onSave 
       {/* Save Button */}
       {items.length > 0 && (
         <div style={{ marginTop: "var(--space-6)", paddingTop: "var(--space-6)", borderTop: "1px solid var(--border-subtle)" }}>
-          <button className="btn" onClick={() => void handleSave()} disabled={saving}>
-            <IconSave />
-            {saving ? "Saving..." : "Save All Profiles"}
-          </button>
+          <SaveActionBar state={saveState} onSave={handleSave} saveLabel="Save profiles" />
         </div>
       )}
     </div>

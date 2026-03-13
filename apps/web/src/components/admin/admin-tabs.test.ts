@@ -31,6 +31,9 @@ function createBaseTabs() {
     setStatus: () => undefined,
     setError: () => undefined,
     saveUserData: async () => true,
+    routingDraftState: "pristine",
+    markRoutingDirty: () => undefined,
+    saveRoutingData: async () => true,
   });
 }
 

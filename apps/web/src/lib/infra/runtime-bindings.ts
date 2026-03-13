@@ -20,7 +20,6 @@ export interface RouterRuntimeBindings {
   ROUTER_KV?: KVNamespace;
   OPENAI_COMPAT_BASE_URL?: string;
   BYOK_ENCRYPTION_SECRET?: string;
-  AA_API_KEY?: string;
   ROUTER_CLASSIFIER_MODEL?: string;
   ADMIN_SECRET?: string;
   SESSION_COOKIE_SECURE?: string;
@@ -61,7 +60,6 @@ export function getRuntimeBindings(): RouterRuntimeBindings {
       fromGlobal?.OPENAI_COMPAT_BASE_URL ?? process.env.OPENAI_COMPAT_BASE_URL,
     BYOK_ENCRYPTION_SECRET:
       fromGlobal?.BYOK_ENCRYPTION_SECRET ?? process.env.BYOK_ENCRYPTION_SECRET,
-    AA_API_KEY: fromGlobal?.AA_API_KEY ?? process.env.AA_API_KEY,
     ROUTER_CLASSIFIER_MODEL:
       fromGlobal?.ROUTER_CLASSIFIER_MODEL ?? process.env.ROUTER_CLASSIFIER_MODEL,
     ADMIN_SECRET:

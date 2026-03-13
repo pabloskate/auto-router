@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { GATEWAY_PRESETS, CUSTOM_PRESET_ID } from "../../lib/gateway-presets";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GatewayPanel.tsx
@@ -135,6 +136,23 @@ function GatewayForm({ initial, isEdit, saving, onSave, onCancel }: GatewayFormP
   const [baseUrl, setBaseUrl] = useState(initial?.baseUrl ?? "");
   const [apiKey, setApiKey] = useState("");
   const [err, setErr] = useState("");
+  const [selectedPreset, setSelectedPreset] = useState("");
+
+  const isPresetSelected = selectedPreset !== "" && selectedPreset !== CUSTOM_PRESET_ID;
+
+  function handlePresetChange(presetId: string) {
+    setSelectedPreset(presetId);
+    if (presetId === "" || presetId === CUSTOM_PRESET_ID) {
+      setName("");
+      setBaseUrl("");
+    } else {
+      const preset = GATEWAY_PRESETS.find((p) => p.id === presetId);
+      if (preset) {
+        setName(preset.name);
+        setBaseUrl(preset.baseUrl);
+      }
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -152,14 +170,26 @@ function GatewayForm({ initial, isEdit, saving, onSave, onCancel }: GatewayFormP
           {err}
         </div>
       )}
+      {!isEdit && (
+        <div className="form-group">
+          <label className="form-label">Provider</label>
+          <select className="input" value={selectedPreset} onChange={(e) => handlePresetChange(e.target.value)}>
+            <option value="">Select a provider…</option>
+            {GATEWAY_PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.id}>{preset.name}</option>
+            ))}
+            <option value={CUSTOM_PRESET_ID}>Other / Custom</option>
+          </select>
+        </div>
+      )}
       <div className="form-row">
         <div className="form-group">
           <label className="form-label">Name</label>
-          <input className="input" placeholder="e.g. OpenAI Direct" value={name} onChange={e => setName(e.target.value)} />
+          <input className="input" placeholder="e.g. OpenAI Direct" value={name} onChange={e => setName(e.target.value)} readOnly={isPresetSelected} style={isPresetSelected ? { opacity: 0.7, cursor: "default" } : undefined} />
         </div>
         <div className="form-group">
           <label className="form-label">Base URL</label>
-          <input className="input input--mono" placeholder="https://api.openai.com/v1" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} />
+          <input className="input input--mono" placeholder="https://api.openai.com/v1" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} readOnly={isPresetSelected} style={isPresetSelected ? { opacity: 0.7, cursor: "default" } : undefined} />
         </div>
       </div>
       <div className="form-group">
