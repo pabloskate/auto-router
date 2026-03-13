@@ -16,7 +16,6 @@ const TEST_USER: UserInfo = {
   blocklist: null,
   customCatalog: null,
   profiles: null,
-  showModelInResponse: false,
 };
 
 function createBaseTabs(registrationMode: "open" | "closed" | "invite" = "closed") {

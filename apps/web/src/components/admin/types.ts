@@ -19,7 +19,6 @@ export type ServerUserInfo = {
   blocklist: string[] | null;
   customCatalog: CatalogItem[] | null;
   profiles: RouterProfile[] | null;
-  showModelInResponse: boolean;
 };
 
 export type UserInfo = ServerUserInfo;

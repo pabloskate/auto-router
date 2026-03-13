@@ -41,7 +41,6 @@ function createAuth(overrides: Partial<AuthResult> = {}): AuthResult {
     blocklist: null,
     customCatalog: null,
     profiles: null,
-    showModelInResponse: false,
     upstreamBaseUrl: null,
     upstreamApiKeyEnc: null,
     classifierBaseUrl: null,
@@ -94,39 +93,6 @@ describe("/api/v1/responses route", () => {
     expect(routeAndProxyMock).toHaveBeenCalledWith(
       expect.objectContaining({
         apiPath: "/responses",
-      })
-    );
-  });
-
-  it("forwards showModelInResponse to the router service", async () => {
-    routeAndProxyMock.mockResolvedValue({
-      requestId: "router_test",
-      response: new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    });
-
-    authRequestMock.mockResolvedValue(createAuth({ showModelInResponse: true }));
-
-    const response = await POST(
-      new Request("http://localhost/api/v1/responses", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          model: "auto",
-          input: "hello",
-        }),
-      })
-    );
-
-    expect(response.status).toBe(200);
-    expect(routeAndProxyMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        apiPath: "/responses",
-        userConfig: expect.objectContaining({
-          showModelInResponse: true,
-        }),
       })
     );
   });

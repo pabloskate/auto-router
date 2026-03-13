@@ -59,7 +59,7 @@ export interface RouterProfile {
 
 export interface RouterConfig {
   version: string;
-  defaultModel: string;
+  defaultModel?: string;
   classifierModel?: string; // The LLM to use for making routing decisions
   globalBlocklist: string[];
   routingInstructions?: string; // Markdown instructions for the LLM
@@ -141,6 +141,11 @@ export interface RoutingExplanation {
   fallbackChain: string[];
   notes: string[];
   profileId?: string;  // Set when request was matched to a named profile
+  classifierInvoked?: boolean;
+  classifierModel?: string;
+  classifierBaseUrl?: string;
+  classifierGatewayId?: string;
+  pinBypassReason?: string;
 }
 
 export interface RouteDecision {
@@ -156,6 +161,7 @@ export interface RouteDecision {
   fallbackModels: string[];
   shouldPin: boolean;
   pinTurnCount?: number;
+  routingError?: string;
 }
 
 export const REASONING_PRESETS = [

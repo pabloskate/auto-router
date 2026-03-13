@@ -1,5 +1,3 @@
-import { UPSTREAM } from "../constants";
-
 export interface UpstreamTarget {
   baseUrl: string;
   apiKey: string;
@@ -156,7 +154,6 @@ export async function callOpenAiCompatible(args: {
   apiPath: "/chat/completions" | "/responses" | "/completions";
   payload: unknown;
   apiKey: string;
-  requestId: string;
   baseUrl: string;
   fetchImpl?: typeof fetch;
 }): Promise<UpstreamCallResult> {
@@ -164,12 +161,7 @@ export async function callOpenAiCompatible(args: {
   const requestHeaders: Record<string, string> = {
     Authorization: `Bearer ${args.apiKey}`,
     "Content-Type": "application/json",
-    [UPSTREAM.REQUEST_ID_HEADER]: args.requestId,
   };
-
-  if (isOpenRouterHost(args.baseUrl)) {
-    requestHeaders[UPSTREAM.OPENROUTER_TITLE_HEADER] = UPSTREAM.OPENROUTER_TITLE_VALUE;
-  }
 
   const response = await fetchImpl(joinUpstreamUrl(args.baseUrl, args.apiPath), {
     method: "POST",

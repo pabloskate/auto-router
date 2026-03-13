@@ -101,14 +101,14 @@ export async function routeWithFrontierModel(args: {
   input: string;
   catalog: CatalogEntry[];
   routingInstructions?: string;
-  model?: string;
+  model: string;
   currentModel?: string;
   fetchImpl?: typeof fetch;
 }): Promise<LlmRoutingResult | null> {
   const fetchImpl = args.fetchImpl ?? fetch;
 
   const baseRequest = {
-    model: args.model ?? CLASSIFIER.DEFAULT_MODEL,
+    model: args.model,
     messages: [{ role: "user", content: buildPrompt(args) }],
     temperature: CLASSIFIER.TEMPERATURE,
     max_tokens: CLASSIFIER.MAX_TOKENS,

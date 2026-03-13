@@ -70,7 +70,6 @@ export async function GET(request: Request): Promise<Response> {
             blocklist: auth.blocklist,
             customCatalog: auth.customCatalog,
             profiles: auth.profiles,
-            showModelInResponse: auth.showModelInResponse,
         }
     });
 }
@@ -103,7 +102,6 @@ export async function PUT(request: Request): Promise<Response> {
     const classifierModel = typeof body.classifier_model === "string" ? body.classifier_model : null;
     const routingInstructions = typeof body.routing_instructions === "string" ? body.routing_instructions : null;
     const customCatalog = Array.isArray(body.custom_catalog) ? body.custom_catalog : null;
-    const showModelInResponse = body.show_model_in_response === true;
     const clearClassifierApiKey = body.clear_classifier_api_key === true;
 
     // Validate and sanitise profiles array
@@ -190,9 +188,8 @@ export async function PUT(request: Request): Promise<Response> {
                  routing_instructions = ?5,
                  custom_catalog = ?6,
                  profiles = ?7,
-                 show_model_in_response = ?8,
-                 updated_at = ?9
-             WHERE id = ?10`
+                 updated_at = ?8
+             WHERE id = ?9`
         )
         .bind(
             preferredModels.length > 0 ? JSON.stringify(preferredModels) : null,
@@ -202,7 +199,6 @@ export async function PUT(request: Request): Promise<Response> {
             routingInstructions,
             customCatalog ? JSON.stringify(customCatalog) : null,
             profiles ? JSON.stringify(profiles) : null,
-            showModelInResponse ? 1 : 0,
             now,
             auth.userId
         )

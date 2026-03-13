@@ -42,7 +42,6 @@ function createAuth(overrides: Partial<AuthResult> = {}): AuthResult {
     blocklist: null,
     customCatalog: null,
     profiles: null,
-    showModelInResponse: false,
     upstreamBaseUrl: null,
     upstreamApiKeyEnc: null,
     classifierBaseUrl: null,
@@ -79,7 +78,6 @@ describe("/api/v1/user/me route", () => {
       createAuth({
         defaultModel: "model/default",
         classifierModel: "model/classifier",
-        showModelInResponse: true,
       })
     );
 
@@ -89,7 +87,6 @@ describe("/api/v1/user/me route", () => {
     const body = await response.json() as any;
     expect(body.user.defaultModel).toBe("model/default");
     expect(body.user.classifierModel).toBe("model/classifier");
-    expect(body.user.showModelInResponse).toBe(true);
     expect(body.user.configAgentEnabled).toBeUndefined();
   });
 
@@ -120,14 +117,13 @@ describe("/api/v1/user/me route", () => {
           routing_instructions: null,
           custom_catalog: null,
           profiles: null,
-          show_model_in_response: false,
         }),
       })
     );
 
     expect(response.status).toBe(200);
     const updateSql = db.prepare.mock.calls.find((entry: [string]) => entry[0].includes("UPDATE users"))?.[0] ?? "";
-    expect(updateSql).toContain("show_model_in_response");
+    expect(updateSql).not.toContain("show_model_in_response");
     expect(updateSql).not.toContain("config_agent_enabled");
     expect(updateSql).not.toContain("config_agent_orchestrator_model");
     expect(updateSql).not.toContain("config_agent_search_model");
@@ -159,7 +155,6 @@ describe("/api/v1/user/me route", () => {
           routing_instructions: null,
           custom_catalog: null,
           profiles: [{ id: "auto-cheap", name: "Cheap Auto" }],
-          show_model_in_response: false,
         }),
       })
     );
@@ -199,7 +194,6 @@ describe("/api/v1/user/me route", () => {
             { id: "auto", name: "Auto" },
             { id: "auto-cheap", name: "Cheap Auto", overrideModels: true, defaultModel: "model/cheap" },
           ],
-          show_model_in_response: false,
         }),
       })
     );
@@ -245,7 +239,6 @@ describe("/api/v1/user/me route", () => {
               catalogFilter: ["", " model/allowed ", "   "],
             },
           ],
-          show_model_in_response: false,
         }),
       })
     );

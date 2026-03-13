@@ -51,7 +51,6 @@ When the schema changes, run migrations against your production D1 database:
 
 ```bash
 # From project root (ensure wrangler is logged in: wrangler login)
-npx wrangler d1 execute custom-router --remote --file=infra/d1/migrations/001_add_show_model_in_response.sql --config apps/web/wrangler.toml
 npx wrangler d1 execute custom-router --remote --file=infra/d1/migrations/002_add_user_gateways.sql --config apps/web/wrangler.toml
 ```
 

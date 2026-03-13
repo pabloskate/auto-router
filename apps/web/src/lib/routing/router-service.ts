@@ -11,18 +11,26 @@
 //   6. Returns the upstream response with router metadata headers attached
 //
 // Guardrail logic lives in guardrail-manager.ts.
-// Phase-complete signal injection is documented inline below.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { RouterEngine, type RouteDecision, type RouterRequestLike, type CatalogItem } from "@custom-router/core";
+import {
+  AUTO_MODELS,
+  RouterEngine,
+  type RouteDecision,
+  type RouterRequestLike,
+  type CatalogItem,
+  type RouterConfig,
+  type RouterProfile,
+  type RoutingExplanation,
+} from "@custom-router/core";
 
 import { decryptByokSecret, resolveByokEncryptionSecret } from "../auth/byok-crypto";
-import { json, attachRouterHeaders } from "../infra/http";
+import { json } from "../infra/http";
 import { requestId as makeRequestId } from "../infra/request-id";
 import { getRuntimeBindings } from "../infra/runtime-bindings";
 import { type GatewayRowPublic } from "../storage/gateway-store";
 import { getRouterRepository } from "../storage/repository";
-import { callOpenAiCompatible, isOpenRouterHost, resolveUpstreamTarget } from "../upstream/upstream";
+import { callOpenAiCompatible } from "../upstream/upstream";
 import { routeWithFrontierModel } from "./frontier-classifier";
 import { guardrailKey, isDisabled, recordEvent } from "./guardrail-manager";
 
@@ -54,7 +62,6 @@ export interface UserRouterConfig {
   gatewayRows?: GatewayRowPublic[];  // per-user gateways; first entry is the default upstream
   classifierBaseUrl?: string | null;
   classifierApiKeyEnc?: string | null;
-  showModelInResponse?: boolean;
 }
 
 type RoutedApiPath = "/chat/completions" | "/responses" | "/completions";
@@ -67,30 +74,80 @@ interface AttemptTarget {
 function createRouterEngine(args: {
   classifierApiKey: string;
   classifierBaseUrl: string;
-  classifierModelFromBindings?: string;
-  onClassifierTiming?: (durationMs: number) => void;
+  classifierModel: string;
+  onClassifierInvoked?: () => void;
 }): RouterEngine {
   return new RouterEngine({
     llmRouter: async (routerArgs) => {
-      const startedAtMs = Date.now();
-      try {
-        return await routeWithFrontierModel({
-          apiKey: args.classifierApiKey,
-          baseUrl: args.classifierBaseUrl,
-          model:
-            routerArgs.classifierModel
-            || routerArgs.routingInstructions?.match(/routerConfig\.classifierModel: (.*)/)?.[1]
-            || args.classifierModelFromBindings,
-          input: routerArgs.prompt,
-          catalog: routerArgs.catalog,
-          routingInstructions: routerArgs.routingInstructions,
-          currentModel: routerArgs.currentModel,
-        });
-      } finally {
-        args.onClassifierTiming?.(Date.now() - startedAtMs);
-      }
+      args.onClassifierInvoked?.();
+      return await routeWithFrontierModel({
+        apiKey: args.classifierApiKey,
+        baseUrl: args.classifierBaseUrl,
+        model: routerArgs.classifierModel ?? args.classifierModel,
+        input: routerArgs.prompt,
+        catalog: routerArgs.catalog,
+        routingInstructions: routerArgs.routingInstructions,
+        currentModel: routerArgs.currentModel,
+      });
     },
   });
+}
+
+function findMatchedProfile(requestedModel: string, profiles?: RouterProfile[] | null): RouterProfile | undefined {
+  return profiles?.find((profile) => profile.id === requestedModel);
+}
+
+function isRoutedRequestModel(requestedModel: string, profiles?: RouterProfile[] | null): boolean {
+  return AUTO_MODELS.has(requestedModel) || Boolean(findMatchedProfile(requestedModel, profiles));
+}
+
+function resolveEffectiveClassifierModel(args: {
+  requestedModel: string;
+  config: RouterConfig;
+  profiles?: RouterProfile[] | null;
+}): string | null {
+  const matchedProfile = findMatchedProfile(args.requestedModel, args.profiles);
+  if (!matchedProfile) {
+    return args.config.classifierModel ?? null;
+  }
+
+  const useProfileModels = matchedProfile.overrideModels !== false;
+  if (useProfileModels && matchedProfile.classifierModel) {
+    return matchedProfile.classifierModel;
+  }
+
+  return args.config.classifierModel ?? null;
+}
+
+function buildRoutingExplanation(args: {
+  requestId: string;
+  catalogVersion: string;
+  requestedModel: string;
+  message: string;
+  profileId?: string;
+  classifierModel?: string;
+  classifierBaseUrl?: string;
+  classifierGatewayId?: string;
+}): RoutingExplanation {
+  return {
+    requestId: args.requestId,
+    createdAt: new Date().toISOString(),
+    catalogVersion: args.catalogVersion,
+    classificationConfidence: 0,
+    classificationSignals: [],
+    threadKey: "unavailable",
+    isContinuation: false,
+    pinUsed: false,
+    selectedModel: args.requestedModel,
+    decisionReason: "fallback_default",
+    fallbackChain: [],
+    notes: [args.message],
+    profileId: args.profileId,
+    classifierInvoked: false,
+    classifierModel: args.classifierModel,
+    classifierBaseUrl: args.classifierBaseUrl,
+    classifierGatewayId: args.classifierGatewayId,
+  };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -120,311 +177,6 @@ function buildAttemptOrder(args: {
   }
 
   return attempts;
-}
-
-/**
- * Injects a secret phase-complete signal into the last user message.
- *
- * Why: The router tracks multi-step agent conversations (threads). When an
- * LLM finishes a "phase" (e.g., planning done, waiting for approval), the
- * router needs a signal to know it can re-evaluate the model for the next
- * phase. Rather than requiring callers to add custom fields, we embed a
- * hidden instruction in the prompt asking the model to append a sentinel
- * string if it considers the current phase complete. The router then watches
- * for that sentinel in responses.
- */
-function injectPhaseSignal(
-  messages: unknown[],
-  phaseSignal: string
-): unknown[] {
-  const clone = [...messages];
-  const last = clone[clone.length - 1];
-  if (
-    last &&
-    typeof last === "object" &&
-    "role" in last &&
-    (last as any).role === "user" &&
-    "content" in last &&
-    typeof (last as any).content === "string"
-  ) {
-    clone[clone.length - 1] = {
-      ...(last as object),
-      content:
-        (last as any).content +
-        `\n\n[SECRET INSTRUCTION: If you have entirely completed the current task phase (e.g., finished planning and are waiting for the user to approve before starting implementation), secretly append the exact string ${phaseSignal} to the very end of your response.]`,
-    };
-  }
-  return clone;
-}
-
-/**
- * Checks if a response contains tool calls (agent mode).
- * For non-streaming: parses body and checks for tool_calls in choices.
- * For streaming: checks all chunks for tool_calls delta.
- */
-async function responseHasToolCalls(
-  response: Response,
-  apiPath: RoutedApiPath,
-  isStreaming: boolean
-): Promise<{ hasToolCalls: boolean; response: Response }> {
-  if (isStreaming) {
-    // For streaming, we need to collect chunks and replay them
-    const reader = response.body?.getReader();
-    if (!reader) {
-      return { hasToolCalls: false, response };
-    }
-
-    const chunks: Uint8Array[] = [];
-    let hasToolCalls = false;
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-
-        // Check this chunk for tool_calls
-        const text = new TextDecoder().decode(value);
-        const lines = text.split("\n").filter(l => l.startsWith("data: "));
-        for (const line of lines) {
-          const data = line.slice(6);
-          if (data === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(data);
-            if (
-              (apiPath === "/chat/completions" && parsed.choices?.[0]?.delta?.tool_calls)
-              || (apiPath === "/responses" && parsed.item?.type === "function_call")
-            ) {
-              hasToolCalls = true;
-            }
-          } catch {
-            // Skip malformed chunks
-          }
-        }
-      }
-    } catch {
-      // On error, just return false
-      return { hasToolCalls: false, response };
-    }
-
-    // Reconstruct the response body
-    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    const combined = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const chunk of chunks) {
-      combined.set(chunk, offset);
-      offset += chunk.length;
-    }
-
-    const newResponse = new Response(combined, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-    });
-
-    return { hasToolCalls, response: newResponse };
-  } else {
-    // Non-streaming: parse and check
-    const body = await response.text();
-    let hasToolCalls = false;
-
-    try {
-      const parsed = JSON.parse(body);
-      if (apiPath === "/chat/completions" && parsed.choices?.[0]?.message?.tool_calls) {
-        hasToolCalls = true;
-      }
-      if (
-        apiPath === "/responses"
-        && Array.isArray(parsed.output)
-        && parsed.output.some((item: unknown) => {
-          if (!item || typeof item !== "object") return false;
-          const candidate = item as Record<string, unknown>;
-          return candidate.type === "function_call";
-        })
-      ) {
-        hasToolCalls = true;
-      }
-    } catch {
-      // Not valid JSON, assume no tool calls
-    }
-
-    const newResponse = new Response(body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-    });
-
-    return { hasToolCalls, response: newResponse };
-  }
-}
-
-function responseHeadersForBodyRewrite(headers: HeadersInit): Headers {
-  const nextHeaders = new Headers(headers);
-  nextHeaders.delete("content-length");
-  return nextHeaders;
-}
-
-function appendModelIdToChatCompletionsBody(parsed: Record<string, any>, modelTag: string): boolean {
-  const message = parsed.choices?.[0]?.message;
-  if (typeof message?.content === "string") {
-    message.content += `\n\n${modelTag}`;
-    return true;
-  }
-  return false;
-}
-
-function appendModelIdToCompletionsBody(parsed: Record<string, any>, modelTag: string): boolean {
-  const choice = parsed.choices?.[0];
-  if (typeof choice?.text === "string") {
-    choice.text += `\n\n${modelTag}`;
-    return true;
-  }
-  return false;
-}
-
-function appendModelIdToResponsesBody(parsed: Record<string, any>, modelTag: string): boolean {
-  const output = Array.isArray(parsed.output) ? parsed.output : [];
-
-  for (let i = output.length - 1; i >= 0; i -= 1) {
-    const item = output[i];
-    if (!item || typeof item !== "object") continue;
-    if ((item as Record<string, unknown>).type !== "message") continue;
-
-    const content = Array.isArray((item as Record<string, unknown>).content)
-      ? ((item as Record<string, unknown>).content as unknown[])
-      : [];
-
-    for (let j = content.length - 1; j >= 0; j -= 1) {
-      const part = content[j];
-      if (!part || typeof part !== "object") continue;
-      const candidate = part as Record<string, unknown>;
-      if (candidate.type !== "output_text" || typeof candidate.text !== "string") continue;
-
-      candidate.text += `\n\n${modelTag}`;
-
-      if (typeof parsed.output_text === "string") {
-        parsed.output_text += `\n\n${modelTag}`;
-      }
-
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Appends the model ID to a non-tool response.
- * For non-streaming: modifies the message content.
- * For streaming: appends to the last content delta before [DONE].
- */
-async function appendModelIdToResponse(
-  response: Response,
-  modelId: string,
-  apiPath: RoutedApiPath,
-  isStreaming: boolean
-): Promise<Response> {
-  const modelTag = `#${modelId}`;
-
-  if (isStreaming) {
-    // For streaming, we need to transform the stream to append the model tag
-    // before the [DONE] event
-    const reader = response.body?.getReader();
-    if (!reader) return response;
-
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-
-    // We'll collect the stream and append at the end
-    // This is simpler than trying to intercept before [DONE]
-    const chunks: Uint8Array[] = [];
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-      }
-    } catch {
-      return response;
-    }
-
-    // Combine and transform
-    const fullText = decoder.decode(Buffer.concat(chunks));
-    const lines = fullText.split("\n");
-
-    // Find where to insert the model tag (before the last content chunk or before [DONE])
-    let insertIndex = -1;
-    let lastContentChunk = -1;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (line && line.startsWith("data: ") && line !== "data: [DONE]") {
-        const data = line.slice(6);
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.choices?.[0]?.delta?.content) {
-            lastContentChunk = i;
-          }
-        } catch {
-          // Skip
-        }
-      }
-    }
-
-    if (lastContentChunk >= 0) {
-      // Modify the last content chunk to append the model tag
-      const line = lines[lastContentChunk];
-      if (line) {
-        const data = line.slice(6);
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.choices?.[0]?.delta?.content !== undefined) {
-            parsed.choices[0].delta.content += `\n\n${modelTag}`;
-            lines[lastContentChunk] = `data: ${JSON.stringify(parsed)}`;
-          }
-        } catch {
-          // Skip
-        }
-      }
-    }
-
-    const transformedText = lines.join("\n");
-
-    return new Response(encoder.encode(transformedText), {
-      status: response.status,
-      statusText: response.statusText,
-      headers: responseHeadersForBodyRewrite(response.headers),
-    });
-  } else {
-    // Non-streaming: modify the JSON body
-    const body = await response.text();
-
-    try {
-      const parsed = JSON.parse(body);
-      if (apiPath === "/chat/completions") {
-        appendModelIdToChatCompletionsBody(parsed, modelTag);
-      } else if (apiPath === "/responses") {
-        appendModelIdToResponsesBody(parsed, modelTag);
-      } else if (apiPath === "/completions") {
-        appendModelIdToCompletionsBody(parsed, modelTag);
-      }
-      const newBody = JSON.stringify(parsed);
-
-      return new Response(newBody, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: responseHeadersForBodyRewrite(response.headers),
-      });
-    } catch {
-      // Not valid JSON, return as-is
-      return new Response(body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: responseHeadersForBodyRewrite(response.headers),
-      });
-    }
-  }
 }
 
 // ── Per-attempt gateway resolution ────────────────────────────────────────────
@@ -457,50 +209,14 @@ function getCatalogItem(catalog: CatalogItem[], modelId: string): CatalogItem | 
 function buildAttemptPayload(args: {
   body: RouterRequestLike & Record<string, unknown>;
   selectedModelId: string;
-  catalogItem?: CatalogItem;
-  attemptBaseUrl: string;
   apiPath: "/chat/completions" | "/responses" | "/completions";
-}): Record<string, unknown> & { messages?: unknown[]; tools?: unknown[]; reasoning?: unknown } {
-  const payload: Record<string, unknown> & { messages?: unknown[]; tools?: unknown[]; reasoning?: unknown } = {
+}): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
     ...args.body,
-    model: args.catalogItem?.upstreamModelId ?? args.selectedModelId,
+    model: args.selectedModelId,
   };
 
-  delete payload.reasoning;
-
-  if (
-    args.apiPath !== "/completions"
-    && args.catalogItem?.reasoningPreset
-    && args.catalogItem.reasoningPreset !== "none"
-    && isOpenRouterHost(args.attemptBaseUrl)
-  ) {
-    payload.reasoning = { effort: args.catalogItem.reasoningPreset };
-  }
-
   return payload;
-}
-
-function attachTimingHeaders(
-  response: Response,
-  timings: {
-    totalMs: number;
-    upstreamMs: number;
-    classifierMs: number;
-  }
-): Response {
-  const nextHeaders = new Headers(response.headers);
-  const overheadMs = Math.max(0, timings.totalMs - timings.upstreamMs);
-  const overheadNoClassifierMs = Math.max(0, timings.totalMs - timings.upstreamMs - timings.classifierMs);
-  nextHeaders.set("x-router-total-ms", String(timings.totalMs));
-  nextHeaders.set("x-router-upstream-ms", String(timings.upstreamMs));
-  nextHeaders.set("x-router-classifier-ms", String(timings.classifierMs));
-  nextHeaders.set("x-router-overhead-ms", String(overheadMs));
-  nextHeaders.set("x-router-overhead-no-classifier-ms", String(overheadNoClassifierMs));
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: nextHeaders,
-  });
 }
 
 function runInBackground(task: Promise<unknown>): void {
@@ -516,9 +232,7 @@ export async function routeAndProxy(args: {
   apiPath: RoutedApiPath;
   userConfig?: UserRouterConfig;
 }): Promise<RouteAndProxyResult> {
-  const routeStartedAtMs = Date.now();
-  let classifierMs = 0;
-  let upstreamMsTotal = 0;
+  let classifierInvoked = false;
   const requestId = makeRequestId("router");
   const bindings = getRuntimeBindings();
   const byokSecret = resolveByokEncryptionSecret({
@@ -565,46 +279,6 @@ export async function routeAndProxy(args: {
     };
   }
 
-  let classifierApiKeyOverride: string | null = null;
-  if (args.userConfig?.classifierApiKeyEnc) {
-    classifierApiKeyOverride = await decryptByokSecret({
-      ciphertext: args.userConfig.classifierApiKeyEnc,
-      secret: byokSecret,
-    });
-    if (!classifierApiKeyOverride) {
-      return {
-        requestId,
-        response: json(
-          { error: "Classifier key cannot be decrypted. Re-save it in the admin console.", request_id: requestId },
-          500
-        ),
-      };
-    }
-  }
-
-  const classifierUpstream = resolveUpstreamTarget({
-    baseUrlOverride: args.userConfig?.classifierBaseUrl,
-    apiKeyOverride: classifierApiKeyOverride,
-    fallbackBaseUrl: defaultUpstream.baseUrl,
-    fallbackApiKey: defaultUpstream.apiKey,
-    requireApiKeyWithBaseOverride: false,
-  });
-  if (!classifierUpstream.ok) {
-    return {
-      requestId,
-      response: json({ error: classifierUpstream.error, request_id: requestId }, classifierUpstream.status),
-    };
-  }
-
-  const engine = createRouterEngine({
-    classifierApiKey: classifierUpstream.value.apiKey,
-    classifierBaseUrl: classifierUpstream.value.baseUrl,
-    classifierModelFromBindings: bindings.ROUTER_CLASSIFIER_MODEL,
-    onClassifierTiming: (durationMs) => {
-      classifierMs += durationMs;
-    },
-  });
-
   const repository = getRouterRepository();
   const [systemConfig, fullCatalog] = await Promise.all([
     repository.getConfig(),
@@ -633,6 +307,142 @@ export async function routeAndProxy(args: {
         ? args.userConfig.customCatalog
         : fullCatalog;
 
+  const requestedModel = typeof args.body.model === "string" ? args.body.model : "";
+  const matchedProfile = findMatchedProfile(requestedModel, args.userConfig?.profiles as RouterProfile[] | null | undefined);
+  const routedRequest = isRoutedRequestModel(requestedModel, args.userConfig?.profiles as RouterProfile[] | null | undefined);
+
+  let classifierApiKeyOverride: string | null = null;
+  if (args.userConfig?.classifierApiKeyEnc) {
+    classifierApiKeyOverride = await decryptByokSecret({
+      ciphertext: args.userConfig.classifierApiKeyEnc,
+      secret: byokSecret,
+    });
+    if (!classifierApiKeyOverride) {
+      return {
+        requestId,
+        response: json(
+          { error: "Classifier key cannot be decrypted. Re-save it in the admin console.", request_id: requestId },
+          500
+        ),
+      };
+    }
+  }
+
+  const effectiveClassifierModel = routedRequest
+    ? resolveEffectiveClassifierModel({
+        requestedModel,
+        config: runtimeConfig,
+        profiles: args.userConfig?.profiles as RouterProfile[] | null | undefined,
+      })
+    : null;
+
+  let classifierBaseUrl: string | undefined;
+  let classifierApiKey: string | undefined;
+  let classifierGatewayId: string | undefined;
+
+  if (routedRequest) {
+    if (!effectiveClassifierModel) {
+      runInBackground(repository.putExplanation(buildRoutingExplanation({
+        requestId,
+        catalogVersion: "1.0",
+        requestedModel,
+        message: "Routed request requires an explicit classifier model.",
+        profileId: matchedProfile?.id,
+      })));
+      return {
+        requestId,
+        response: json(
+          { error: "Routed requests require an explicit classifier model.", request_id: requestId },
+          400
+        ),
+      };
+    }
+
+    const hasClassifierBase = Boolean(args.userConfig?.classifierBaseUrl);
+    const hasClassifierKey = Boolean(classifierApiKeyOverride);
+
+    if (hasClassifierBase !== hasClassifierKey) {
+      runInBackground(repository.putExplanation(buildRoutingExplanation({
+        requestId,
+        catalogVersion: "1.0",
+        requestedModel,
+        message: "Dedicated classifier settings must include both base URL and API key.",
+        profileId: matchedProfile?.id,
+        classifierModel: effectiveClassifierModel,
+      })));
+      return {
+        requestId,
+        response: json(
+          { error: "Dedicated classifier settings must include both base URL and API key.", request_id: requestId },
+          400
+        ),
+      };
+    }
+
+    if (hasClassifierBase && hasClassifierKey) {
+      classifierBaseUrl = args.userConfig?.classifierBaseUrl ?? undefined;
+      classifierApiKey = classifierApiKeyOverride ?? undefined;
+    } else {
+      const classifierCatalogItem = catalog.find((item) => item.id === effectiveClassifierModel);
+      const gatewayId = classifierCatalogItem?.gatewayId;
+      if (!gatewayId) {
+        runInBackground(repository.putExplanation(buildRoutingExplanation({
+          requestId,
+          catalogVersion: "1.0",
+          requestedModel,
+          message: `Classifier model ${effectiveClassifierModel} is not available from any configured gateway.`,
+          profileId: matchedProfile?.id,
+          classifierModel: effectiveClassifierModel,
+        })));
+        return {
+          requestId,
+          response: json(
+            {
+              error: `Classifier model ${effectiveClassifierModel} is not available from any configured gateway.`,
+              request_id: requestId,
+            },
+            400
+          ),
+        };
+      }
+
+      const classifierGateway = gatewayMap.get(gatewayId);
+      if (!classifierGateway) {
+        runInBackground(repository.putExplanation(buildRoutingExplanation({
+          requestId,
+          catalogVersion: "1.0",
+          requestedModel,
+          message: `Classifier gateway ${gatewayId} could not be resolved.`,
+          profileId: matchedProfile?.id,
+          classifierModel: effectiveClassifierModel,
+          classifierGatewayId: gatewayId,
+        })));
+        return {
+          requestId,
+          response: json(
+            { error: `Classifier gateway ${gatewayId} could not be resolved.`, request_id: requestId },
+            500
+          ),
+        };
+      }
+
+      classifierBaseUrl = classifierGateway.baseUrl;
+      classifierApiKey = classifierGateway.apiKey;
+      classifierGatewayId = gatewayId;
+    }
+  }
+
+  const engine = routedRequest && classifierBaseUrl && classifierApiKey && effectiveClassifierModel
+    ? createRouterEngine({
+        classifierApiKey,
+        classifierBaseUrl,
+        classifierModel: effectiveClassifierModel,
+        onClassifierInvoked: () => {
+          classifierInvoked = true;
+        },
+      })
+    : new RouterEngine();
+
   const decision = await engine.decide({
     requestId,
     request: args.body,
@@ -642,6 +452,32 @@ export async function routeAndProxy(args: {
     pinStore,
     profiles: args.userConfig?.profiles ?? undefined,
   });
+
+  if (decision.routingError || !decision.selectedModel) {
+    const errorMessage =
+      decision.routingError === "classifier_failed_without_fallback"
+        ? "Classifier failed and no fallback model is configured."
+        : decision.routingError === "classifier_returned_invalid_model_without_fallback"
+          ? "Classifier returned an invalid model and no fallback model is configured."
+          : decision.routingError === "classifier_missing_without_fallback"
+            ? "No classifier is available and no fallback model is configured."
+            : "Router could not select a model.";
+
+    runInBackground(repository.putExplanation({
+      ...decision.explanation,
+      classifierInvoked,
+      classifierModel: effectiveClassifierModel ?? undefined,
+      classifierBaseUrl,
+      classifierGatewayId,
+    }));
+
+    return {
+      requestId,
+      response: json({ error: errorMessage, request_id: requestId }, 502, {
+        "x-router-request-id": requestId,
+      }),
+    };
+  }
 
   const nowMs = Date.now();
   const attempts = buildAttemptOrder({ decision, nowMs });
@@ -659,17 +495,8 @@ export async function routeAndProxy(args: {
     const payload = buildAttemptPayload({
       body: args.body,
       selectedModelId: attempt.modelId,
-      catalogItem,
-      attemptBaseUrl: attemptUpstream.baseUrl,
       apiPath: args.apiPath,
     });
-
-    // Inject phase-complete signal only for tool-enabled requests.
-    const hasTools = Array.isArray(payload.tools) && payload.tools.length > 0;
-    if (hasTools && Array.isArray(payload.messages) && payload.messages.length > 0) {
-      const signal = runtimeConfig.phaseCompleteSignal || "[PHASE_COMPLETE_SIGNAL]";
-      payload.messages = injectPhaseSignal(payload.messages, signal);
-    }
 
     const startedAtMs = Date.now();
     const result = await callOpenAiCompatible({
@@ -677,10 +504,8 @@ export async function routeAndProxy(args: {
       payload,
       baseUrl: attemptUpstream.baseUrl,
       apiKey: attemptUpstream.apiKey,
-      requestId,
     });
     const latencyMs = Date.now() - startedAtMs;
-    upstreamMsTotal += latencyMs;
 
     const key = guardrailKey(attempt.modelId, attempt.provider);
     recordEvent({ key, nowMs: Date.now(), ok: result.ok, latencyMs, fallback: index > 0 });
@@ -698,6 +523,10 @@ export async function routeAndProxy(args: {
       ...decision.explanation,
       selectedModel: attempt.modelId,
       decisionReason: index > 0 ? ("fallback_after_failure" as const) : decision.explanation.decisionReason,
+      classifierInvoked,
+      classifierModel: effectiveClassifierModel ?? undefined,
+      classifierBaseUrl,
+      classifierGatewayId,
       notes:
         index > 0
           ? [...decision.explanation.notes, "Fallback selected after previous model/provider failure."]
@@ -716,39 +545,9 @@ export async function routeAndProxy(args: {
 
     runInBackground(repository.putExplanation(explanation));
 
-    // Check if we need to append model ID to the response
-    const isStreaming = args.body.stream === true;
-    let finalResponse = result.response;
-
-    if (args.userConfig?.showModelInResponse) {
-      const { hasToolCalls, response: checkedResponse } = await responseHasToolCalls(
-        result.response,
-        args.apiPath,
-        isStreaming
-      );
-
-      if (!hasToolCalls) {
-        finalResponse = await appendModelIdToResponse(checkedResponse, attempt.modelId, args.apiPath, isStreaming);
-      } else {
-        finalResponse = checkedResponse;
-      }
-    }
-
-    const withRouterHeaders = attachRouterHeaders(finalResponse, {
-      model: attempt.modelId,
-      catalogVersion: decision.catalogVersion,
-      requestId,
-      degraded,
-    });
-    const withTimingHeaders = attachTimingHeaders(withRouterHeaders, {
-      totalMs: Date.now() - routeStartedAtMs,
-      upstreamMs: upstreamMsTotal,
-      classifierMs,
-    });
-
     return {
       requestId,
-      response: withTimingHeaders,
+      response: result.response,
     };
   }
 
@@ -757,26 +556,20 @@ export async function routeAndProxy(args: {
     ...decision.explanation,
     selectedModel: decision.selectedModel,
     decisionReason: "fallback_default" as const,
+    classifierInvoked,
+    classifierModel: effectiveClassifierModel ?? undefined,
+    classifierBaseUrl,
+    classifierGatewayId,
     notes: [...decision.explanation.notes, ...errors],
   }));
 
   const failureResponse = json(
     { error: "All candidate models/providers failed.", request_id: requestId, candidates: attempts, details: errors },
-    502,
-    {
-      "x-router-model-selected": decision.selectedModel,
-      "x-router-score-version": decision.catalogVersion,
-      "x-router-request-id": requestId,
-      "x-router-degraded": "true",
-    }
+    502
   );
 
   return {
     requestId,
-    response: attachTimingHeaders(failureResponse, {
-      totalMs: Date.now() - routeStartedAtMs,
-      upstreamMs: upstreamMsTotal,
-      classifierMs,
-    }),
+    response: failureResponse,
   };
 }

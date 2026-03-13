@@ -171,17 +171,6 @@ export function isAgentLoop(messages: ChatMessage[] = []): boolean {
   return false;
 }
 
-export function hasPhaseCompleteSignal(messages: ChatMessage[] = [], signal?: string): boolean {
-  if (!signal) return false;
-
-  // Look for the last assistant message
-  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-  if (!lastAssistant) return false;
-
-  const text = contentToText(lastAssistant.content);
-  return text.includes(signal);
-}
-
 function normalizeText(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
 }

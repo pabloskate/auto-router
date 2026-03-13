@@ -21,6 +21,7 @@ describe("routeWithFrontierModel", () => {
     await routeWithFrontierModel({
       apiKey: "test",
       baseUrl: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-5-mini",
       input: "what was trumps latest tweet",
       catalog,
       fetchImpl,
@@ -53,6 +54,7 @@ describe("routeWithFrontierModel", () => {
     const result = await routeWithFrontierModel({
       apiKey: "test",
       baseUrl: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-5-mini",
       input: "what was trumps latest tweet",
       catalog,
       fetchImpl,
@@ -79,6 +81,7 @@ describe("routeWithFrontierModel", () => {
     const result = await routeWithFrontierModel({
       apiKey: "test",
       baseUrl: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-5-mini",
       input: "what was trumps latest tweet",
       catalog,
       fetchImpl,

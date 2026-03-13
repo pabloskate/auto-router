@@ -255,7 +255,6 @@ export function AdminShell() {
       blocklist: updatedUser.blocklist,
       custom_catalog: updatedUser.customCatalog,
       profiles: updatedUser.profiles,
-      show_model_in_response: updatedUser.showModelInResponse,
     };
 
     const response = await fetch("/api/v1/user/me", {

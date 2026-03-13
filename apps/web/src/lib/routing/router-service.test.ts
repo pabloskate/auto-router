@@ -48,6 +48,7 @@ function createRepository() {
   const config: RouterConfig = {
     version: "test",
     defaultModel: "model/alpha",
+    classifierModel: "model/classifier",
     globalBlocklist: [],
   };
 
@@ -167,7 +168,10 @@ describe("routeAndProxy", () => {
             id: "gw_default",
             baseUrl: "https://gateway.example/v1",
             apiKeyEnc: defaultApiKeyEnc,
-            models: [{ id: "model/alpha", name: "Alpha" }],
+            models: [
+              { id: "model/classifier", name: "Classifier" },
+              { id: "model/alpha", name: "Alpha" },
+            ],
           },
         ],
       },
@@ -181,7 +185,112 @@ describe("routeAndProxy", () => {
     expect(body.details[0]).not.toContain("Authorization");
   });
 
-  it("appends the selected model to Responses API text output when enabled", async () => {
+  it("fails fast when routed request has no explicit classifier model", async () => {
+    const secret = "1234567890abcdef";
+    const defaultApiKeyEnc = await encryptByokSecret({
+      plaintext: "gateway-default-key",
+      secret,
+    });
+    const repository = createRepository();
+    repository.getConfig.mockResolvedValue({
+      version: "test",
+      globalBlocklist: [],
+    });
+
+    runtimeMock.mockReturnValue({
+      BYOK_ENCRYPTION_SECRET: secret,
+    });
+    repositoryMock.mockReturnValue(repository as any);
+
+    const result = await routeAndProxy({
+      apiPath: "/chat/completions",
+      body: {
+        model: "auto",
+        messages: [{ role: "user", content: "route this" }],
+      },
+      userConfig: {
+        gatewayRows: [
+          {
+            id: "gw_default",
+            baseUrl: "https://gateway.example/v1",
+            apiKeyEnc: defaultApiKeyEnc,
+            models: [{ id: "model/alpha", name: "Alpha" }],
+          },
+        ],
+      },
+    });
+
+    expect(result.response.status).toBe(400);
+    const body = await result.response.json() as { error: string };
+    expect(body.error).toContain("explicit classifier model");
+    expect(classifierMock).not.toHaveBeenCalled();
+  });
+
+  it("resolves classifier traffic through the gateway that owns the classifier model", async () => {
+    const secret = "1234567890abcdef";
+    const alphaKeyEnc = await encryptByokSecret({ plaintext: "alpha-key", secret });
+    const classifierKeyEnc = await encryptByokSecret({ plaintext: "classifier-key", secret });
+    const repository = createRepository();
+
+    runtimeMock.mockReturnValue({
+      BYOK_ENCRYPTION_SECRET: secret,
+    });
+    repositoryMock.mockReturnValue(repository as any);
+    classifierMock.mockResolvedValue({
+      selectedModel: "model/alpha",
+      confidence: 0.9,
+      signals: ["frontier_classification"],
+    });
+    upstreamMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      response: new Response(
+        JSON.stringify({ choices: [{ message: { content: "ok" } }], model: "model/alpha" }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      ),
+    });
+
+    const result = await routeAndProxy({
+      apiPath: "/chat/completions",
+      body: {
+        model: "auto",
+        messages: [{ role: "user", content: "route this" }],
+      },
+      userConfig: {
+        gatewayRows: [
+          {
+            id: "gw_alpha",
+            baseUrl: "https://alpha.example/v1",
+            apiKeyEnc: alphaKeyEnc,
+            models: [{ id: "model/alpha", name: "Alpha" }],
+          },
+          {
+            id: "gw_classifier",
+            baseUrl: "https://classifier.example/v1",
+            apiKeyEnc: classifierKeyEnc,
+            models: [{ id: "model/classifier", name: "Classifier" }],
+          },
+        ],
+      },
+    });
+
+    expect(result.response.status).toBe(200);
+    expect(classifierMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        apiKey: "classifier-key",
+        baseUrl: "https://classifier.example/v1",
+        model: "model/classifier",
+      })
+    );
+    expect(upstreamMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        apiKey: "alpha-key",
+        baseUrl: "https://alpha.example/v1",
+      })
+    );
+  });
+
+  it("returns upstream responses unchanged", async () => {
     const secret = "1234567890abcdef";
     const defaultApiKeyEnc = await encryptByokSecret({
       plaintext: "gateway-default-key",
@@ -235,10 +344,12 @@ describe("routeAndProxy", () => {
             id: "gw_default",
             baseUrl: "https://gateway.example/v1",
             apiKeyEnc: defaultApiKeyEnc,
-            models: [{ id: "model/alpha", name: "Alpha" }],
+            models: [
+              { id: "model/classifier", name: "Classifier" },
+              { id: "model/alpha", name: "Alpha" },
+            ],
           },
         ],
-        showModelInResponse: true,
       },
     });
 
@@ -246,11 +357,11 @@ describe("routeAndProxy", () => {
     const body = await result.response.json() as {
       output: Array<{ content: Array<{ text: string }> }>;
     };
-    expect(body.output[0]?.content[0]?.text).toBe("ok\n\n#model/alpha");
-    expect(result.response.headers.get("content-length")).toBeNull();
+    expect(body.output[0]?.content[0]?.text).toBe("ok");
+    expect(result.response.headers.get("x-router-model-selected")).toBeNull();
   });
 
-  it("uses upstreamModelId and injects the stored reasoning preset for OpenRouter variants", async () => {
+  it("passes the selected model through unchanged for OpenRouter gateways", async () => {
     const secret = "1234567890abcdef";
     const defaultApiKeyEnc = await encryptByokSecret({
       plaintext: "gateway-default-key",
@@ -291,6 +402,10 @@ describe("routeAndProxy", () => {
             apiKeyEnc: defaultApiKeyEnc,
             models: [
               {
+                id: "model/classifier",
+                name: "Classifier",
+              },
+              {
                 id: "openai/gpt-5.2:high",
                 name: "GPT-5.2 High",
                 upstreamModelId: "openai/gpt-5.2",
@@ -305,14 +420,14 @@ describe("routeAndProxy", () => {
     expect(upstreamMock).toHaveBeenCalledWith(
       expect.objectContaining({
         payload: expect.objectContaining({
-          model: "openai/gpt-5.2",
-          reasoning: { effort: "high" },
+          model: "openai/gpt-5.2:high",
+          reasoning: { effort: "xhigh" },
         }),
       })
     );
   });
 
-  it("strips inbound reasoning and does not inject presets for non-OpenRouter gateways", async () => {
+  it("does not rewrite payload fields for non-OpenRouter gateways", async () => {
     const secret = "1234567890abcdef";
     const defaultApiKeyEnc = await encryptByokSecret({
       plaintext: "gateway-default-key",
@@ -353,6 +468,10 @@ describe("routeAndProxy", () => {
             apiKeyEnc: defaultApiKeyEnc,
             models: [
               {
+                id: "model/classifier",
+                name: "Classifier",
+              },
+              {
                 id: "openai/gpt-5.2:high",
                 name: "GPT-5.2 High",
                 upstreamModelId: "openai/gpt-5.2",
@@ -365,7 +484,7 @@ describe("routeAndProxy", () => {
     });
 
     const payload = upstreamMock.mock.calls[0]?.[0]?.payload as Record<string, unknown>;
-    expect(payload.model).toBe("openai/gpt-5.2");
-    expect(payload).not.toHaveProperty("reasoning");
+    expect(payload.model).toBe("openai/gpt-5.2:high");
+    expect(payload.reasoning).toEqual({ effort: "xhigh" });
   });
 });

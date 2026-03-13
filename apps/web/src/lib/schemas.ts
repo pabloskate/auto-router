@@ -41,7 +41,7 @@ const profilePolicySchema = z.object({
 
 export const routerConfigSchema = z.object({
   version: z.string().min(1),
-  defaultModel: z.string().min(1),
+  defaultModel: z.string().min(1).optional(),
   classifierModel: z.string().optional(),
   globalBlocklist: z.array(z.string()),
   routingInstructions: z.string().optional(),

@@ -8,7 +8,6 @@ interface RouterConfigFields {
   classifierModel: string | null;
   routingInstructions: string | null;
   blocklist: string[] | null;
-  showModelInResponse: boolean;
 }
 
 interface Props {
@@ -111,38 +110,6 @@ function RoutingLogicSection({
         title="Routing Logic"
         description="Configure how CustomRouter selects models for each request"
       />
-
-      {/* Toggles */}
-      <div style={{ marginBottom: "var(--space-5)" }}>
-        <label
-          className="checkbox-wrapper"
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: "var(--space-3)",
-            padding: "var(--space-4)",
-            background: "var(--bg-interactive)",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--border-default)",
-            maxWidth: "400px"
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={config.showModelInResponse}
-            onChange={(e) => onChange({ ...config, showModelInResponse: e.target.checked })}
-            style={{ marginTop: 2 }}
-          />
-          <div>
-            <span className="checkbox-label" style={{ fontWeight: 500 }}>Show model in responses</span>
-            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>
-              Appends the selected model ID to non-tool-call responses.
-            </p>
-          </div>
-        </label>
-      </div>
-
-      <div className="divider" style={{ margin: "var(--space-4) 0" }} />
 
       {/* Row 2: Default Fallback + Default Classifier */}
       <div className="global-settings-row" style={{ marginBottom: "var(--space-5)" }}>

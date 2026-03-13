@@ -119,7 +119,6 @@ CREATE TABLE IF NOT EXISTS users (
   blocklist TEXT,
   custom_catalog TEXT,
   profiles TEXT,           -- JSON: RouterProfile[] — named routing configurations
-  show_model_in_response INTEGER DEFAULT 0,  -- 0 = off, 1 = on — append model ID to non-tool responses
   config_agent_enabled INTEGER NOT NULL DEFAULT 0, -- legacy/deprecated: retained for schema compatibility
   config_agent_orchestrator_model TEXT, -- legacy/deprecated: retained for schema compatibility
   config_agent_search_model TEXT, -- legacy/deprecated: retained for schema compatibility

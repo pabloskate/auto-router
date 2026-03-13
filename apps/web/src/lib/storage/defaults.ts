@@ -14,14 +14,6 @@
 
 import type { CatalogItem, RouterConfig } from "@custom-router/core";
 
-// ── Default fallback model ────────────────────────────────────────────────────
-//
-// Used when the LLM classifier fails or returns an invalid model.
-// Claude Sonnet 4.6 is the best balance of quality, speed, and cost for
-// general-purpose fallback (Feb 2026 rankings).
-
-export const DEFAULT_MODEL = "anthropic/claude-sonnet-4-6";
-
 // ── Default routing instructions ─────────────────────────────────────────────
 //
 // Plain-text prompt injected verbatim into the classifier's system context.
@@ -275,7 +267,6 @@ export const DEFAULT_CATALOG: CatalogItem[] = [
 
 export const DEFAULT_ROUTER_CONFIG: RouterConfig = {
   version: "1",
-  defaultModel: DEFAULT_MODEL,
   globalBlocklist: [],
   routingInstructions: DEFAULT_ROUTING_INSTRUCTIONS,
   cooldownTurns: 3

@@ -100,11 +100,6 @@ export type RegistrationMode = (typeof REGISTRATION.MODES)[number];
 // engine decides it cannot make the decision with heuristics alone.
 
 export const CLASSIFIER = {
-  // Fallback model when neither the user nor the system config specifies one.
-  // Must be a valid OpenRouter model ID.
-  // GLM-5: Advanced agentic planning, 204K context, ~20% of Opus pricing
-  DEFAULT_MODEL: "z-ai/glm-5",
-
   // Force deterministic output so routing decisions are reproducible.
   TEMPERATURE: 0,
 
