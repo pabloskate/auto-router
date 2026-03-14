@@ -5,6 +5,7 @@ import { GatewayPanel } from "./GatewayPanel";
 import { InviteCodePanel } from "./InviteCodePanel";
 import { PlaygroundPanel } from "./PlaygroundPanel";
 import { ProfilesPanel } from "./ProfilesPanel";
+import { QuickstartPanel } from "./QuickstartPanel";
 import { RouterConfigPanel } from "./RouterConfigPanel";
 import { type AdminExtensionContext, type AdminTabDefinition, type ApiKeyInfo, type RoutingDraftState, type UserInfo } from "./types";
 import { type RegistrationMode } from "@/src/lib/constants";
@@ -49,6 +50,14 @@ function IconKeys({ className }: { className?: string }) {
     <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
+function IconQuickstart({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
     </svg>
   );
 }
@@ -195,6 +204,23 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
           </div>
         );
       },
+    },
+    {
+      id: "quickstart",
+      label: "Quickstart",
+      section: "use",
+      title: "Quickstart",
+      subtitle: "Get up and running with code examples for every integration",
+      order: 150,
+      icon: IconQuickstart,
+      render: (ctx: AdminExtensionContext) => (
+        <div className="animate-fade-in">
+          <QuickstartPanel
+            profiles={ctx.user.profiles}
+            hasKeys={args.keys.some((k) => !k.revoked)}
+          />
+        </div>
+      ),
     },
     {
       id: "playground",

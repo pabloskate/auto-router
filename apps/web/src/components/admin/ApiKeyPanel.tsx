@@ -10,7 +10,7 @@
 // - Empty state with helpful CTA
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 
 export type ApiKeyInfo = {
   id: string;
@@ -183,230 +183,6 @@ function EmptyState({ onGenerate }: { onGenerate: () => void }) {
   );
 }
 
-function QuickstartCopyButton({
-  copied,
-  label,
-  onClick,
-}: {
-  copied: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className={`btn btn--sm ${copied ? "btn--secondary" : ""}`}
-      onClick={onClick}
-      disabled={copied}
-    >
-      {copied ? (
-        <>
-          <IconCheck />
-          Copied
-        </>
-      ) : (
-        <>
-          <IconCopy />
-          {label}
-        </>
-      )}
-    </button>
-  );
-}
-
-function QuickstartGuide({
-  apiKey,
-  onStatus,
-}: {
-  apiKey?: string | null;
-  onStatus?: (msg: string) => void;
-}) {
-  const [apiBaseUrl, setApiBaseUrl] = useState("/api/v1");
-  const [copiedItem, setCopiedItem] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setApiBaseUrl(`${window.location.origin}/api/v1`);
-    }
-  }, []);
-
-  const sampleApiKey = apiKey ?? "YOUR_API_KEY";
-  const openAiSdkExample = [
-    'import OpenAI from "openai";',
-    "",
-    "const client = new OpenAI({",
-    `  apiKey: "${sampleApiKey}",`,
-    `  baseURL: "${apiBaseUrl}",`,
-    "});",
-    "",
-    "const response = await client.chat.completions.create({",
-    '  model: "auto",',
-    '  messages: [{ role: "user", content: "Write a hello world in Python." }],',
-    "});",
-  ].join("\n");
-  const curlExample = [
-    `curl ${apiBaseUrl}/chat/completions \\`,
-    `  -H "Authorization: Bearer ${sampleApiKey}" \\`,
-    `  -H "Content-Type: application/json" \\`,
-    "  -d '{",
-    '    "model": "auto",',
-    '    "messages": [{"role": "user", "content": "Write a hello world in Python."}]',
-    "  }'",
-  ].join("\n");
-  const endpointsExample = [
-    `POST ${apiBaseUrl}/chat/completions`,
-    `POST ${apiBaseUrl}/responses`,
-    `GET ${apiBaseUrl}/models`,
-  ].join("\n");
-
-  async function copySnippet(id: string, label: string, value: string) {
-    await navigator.clipboard.writeText(value);
-    setCopiedItem(id);
-    onStatus?.(`${label} copied`);
-    setTimeout(() => {
-      setCopiedItem((current) => (current === id ? null : current));
-    }, 2000);
-  }
-
-  return (
-    <div
-      style={{
-        marginBottom: "var(--space-6)",
-        padding: "var(--space-5)",
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border-subtle)",
-        borderRadius: "var(--radius-lg)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "var(--space-3)",
-          marginBottom: "var(--space-3)",
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <div style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: "var(--space-1)" }}>
-            Quickstart
-          </div>
-          <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--text-muted)", lineHeight: 1.5 }}>
-            This proxy is OpenAI-compatible. Point your SDK or HTTP client at the base URL below and send
-            <code className="mono" style={{ marginLeft: "0.35rem" }}>model: "auto"</code>.
-          </p>
-        </div>
-        <span className="badge badge--info">OpenAI-compatible</span>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-2)", flexWrap: "wrap" }}>
-            <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)" }}>
-              Base URL
-            </div>
-            <QuickstartCopyButton
-              copied={copiedItem === "base-url"}
-              label="Copy base URL"
-              onClick={() => void copySnippet("base-url", "Base URL", apiBaseUrl)}
-            />
-          </div>
-          <code
-            style={{
-              display: "block",
-              padding: "var(--space-3) var(--space-4)",
-              borderRadius: "var(--radius-md)",
-              background: "var(--bg-interactive)",
-              border: "1px solid var(--border-default)",
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.8125rem",
-              color: "var(--text-primary)",
-              wordBreak: "break-all",
-            }}
-          >
-            {apiBaseUrl}
-          </code>
-        </div>
-
-        <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-2)", flexWrap: "wrap" }}>
-            <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)" }}>
-              Common endpoints
-            </div>
-            <QuickstartCopyButton
-              copied={copiedItem === "endpoints"}
-              label="Copy endpoints"
-              onClick={() => void copySnippet("endpoints", "Endpoints", endpointsExample)}
-            />
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            <code className="mono">POST {apiBaseUrl}/chat/completions</code>
-            <code className="mono">POST {apiBaseUrl}/responses</code>
-            <code className="mono">GET {apiBaseUrl}/models</code>
-          </div>
-        </div>
-
-        <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-2)", flexWrap: "wrap" }}>
-            <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)" }}>
-              OpenAI SDK example
-            </div>
-            <QuickstartCopyButton
-              copied={copiedItem === "sdk"}
-              label="Copy SDK"
-              onClick={() => void copySnippet("sdk", "SDK example", openAiSdkExample)}
-            />
-          </div>
-          <pre
-            style={{
-              margin: 0,
-              padding: "var(--space-4)",
-              borderRadius: "var(--radius-md)",
-              background: "var(--bg-interactive)",
-              border: "1px solid var(--border-default)",
-              overflowX: "auto",
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.8125rem",
-              color: "var(--text-primary)",
-              lineHeight: 1.6,
-            }}
-          >
-            {openAiSdkExample}
-          </pre>
-        </div>
-
-        <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-2)", flexWrap: "wrap" }}>
-            <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)" }}>
-              Example request
-            </div>
-            <QuickstartCopyButton
-              copied={copiedItem === "curl"}
-              label="Copy curl"
-              onClick={() => void copySnippet("curl", "Curl example", curlExample)}
-            />
-          </div>
-          <pre
-            style={{
-              margin: 0,
-              padding: "var(--space-4)",
-              borderRadius: "var(--radius-md)",
-              background: "var(--bg-interactive)",
-              border: "1px solid var(--border-default)",
-              overflowX: "auto",
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.8125rem",
-              color: "var(--text-primary)",
-              lineHeight: 1.6,
-            }}
-          >
-            {curlExample}
-          </pre>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function ApiKeyPanel({ keys, onKeysChanged, onStatus, onError }: Props) {
   const [newKey, setNewKey] = useState<string | null>(null);
@@ -493,10 +269,7 @@ export function ApiKeyPanel({ keys, onKeysChanged, onStatus, onError }: Props) {
 
       {/* Empty State */}
       {keys.length === 0 ? (
-        <>
-          <EmptyState onGenerate={() => void generateKey()} />
-          <QuickstartGuide apiKey={newKey} onStatus={onStatus} />
-        </>
+        <EmptyState onGenerate={() => void generateKey()} />
       ) : (
         <>
           {/* Generate Button */}
@@ -618,7 +391,6 @@ export function ApiKeyPanel({ keys, onKeysChanged, onStatus, onError }: Props) {
             </span>
           </div>
 
-          <QuickstartGuide apiKey={newKey} onStatus={onStatus} />
         </>
       )}
     </div>
