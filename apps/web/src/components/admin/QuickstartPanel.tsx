@@ -249,10 +249,12 @@ function ConnectionRow({
 }) {
   return (
     <div
+      className="qs-connection-row"
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "0.75rem",
+        flexWrap: "wrap",
+        gap: "0.5rem",
         padding: "0.625rem 0.875rem",
         background: "var(--bg-interactive)",
         border: "1px solid var(--border-default)",
@@ -280,6 +282,7 @@ function ConnectionRow({
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
+          minWidth: 0,
         }}
       >
         {value}
@@ -660,6 +663,7 @@ export async function POST(req: Request) {
           gap: "0.25rem",
           margin: "0.875rem 0 0.625rem",
           borderBottom: "1px solid var(--border-subtle)",
+          overflowX: "auto",
         }}
       >
         {tabs.map((t) => (
@@ -679,6 +683,8 @@ export async function POST(req: Request) {
               cursor: "pointer",
               fontFamily: "var(--font-sans)",
               transition: "color 150ms ease",
+              flexShrink: 0,
+              whiteSpace: "nowrap",
             }}
           >
             {t.label}
@@ -792,6 +798,7 @@ curl ${baseUrl}/chat/completions \\
       cursor: "pointer",
       transition: "all 150ms ease",
       flex: 1,
+      minWidth: "min(100%, 220px)",
     };
   }
 
@@ -851,9 +858,9 @@ curl ${baseUrl}/chat/completions \\
           <h3>How do you want to use models?</h3>
         </div>
         <div className="card-body">
-          <div style={{ display: "flex", gap: "0.75rem" }}>
+          <div className="qs-mode-cards" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
             {/* Auto routing */}
-            <div style={modeCardStyle("auto")} onClick={() => setSelectedMode("auto")}>
+            <div className="qs-mode-card" style={modeCardStyle("auto")} onClick={() => setSelectedMode("auto")}>
               <div
                 style={{
                   display: "flex",
@@ -905,7 +912,7 @@ curl ${baseUrl}/chat/completions \\
             </div>
 
             {/* Direct model */}
-            <div style={modeCardStyle("direct")} onClick={() => setSelectedMode("direct")}>
+            <div className="qs-mode-card" style={modeCardStyle("direct")} onClick={() => setSelectedMode("direct")}>
               <div
                 style={{
                   display: "flex",
@@ -1029,7 +1036,7 @@ curl ${baseUrl}/chat/completions \\
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))",
               gap: "0.625rem",
             }}
           >

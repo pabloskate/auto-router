@@ -114,12 +114,13 @@ function NewKeyReveal({
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             gap: "var(--space-3)",
             padding: "var(--space-3) var(--space-4)",
             background: "var(--bg-interactive)",
             borderRadius: "var(--radius-md)",
             border: "1px solid var(--border-default)",
+            flexWrap: "wrap",
           }}
         >
           <code
@@ -129,6 +130,7 @@ function NewKeyReveal({
               color: "var(--text-primary)",
               wordBreak: "break-all",
               flex: 1,
+              minWidth: 0,
             }}
           >
             {apiKey}
@@ -137,6 +139,7 @@ function NewKeyReveal({
             className={`btn btn--sm ${copied ? "btn--secondary" : ""}`}
             onClick={handleCopy}
             disabled={copied}
+            style={{ flexShrink: 0 }}
           >
             {copied ? (
               <>
@@ -280,93 +283,103 @@ export function ApiKeyPanel({ keys, onKeysChanged, onStatus, onError }: Props) {
             </button>
           </div>
 
-          {/* Keys Table */}
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Key</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {keys.map((key) => (
-                  <tr key={key.id}>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-                        <div
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: "var(--radius-md)",
-                            background: key.revoked ? "var(--danger-dim)" : "var(--accent-dim)",
-                            display: "grid",
-                            placeItems: "center",
-                          }}
-                        >
-                          <IconKey
-                            style={{
-                              width: 16,
-                              height: 16,
-                              color: key.revoked ? "var(--danger)" : "var(--accent)",
-                            } as any}
-                          />
-                        </div>
-                        <code className="mono" style={{ color: "var(--text-primary)" }}>
-                          {key.prefix}••••••••
-                        </code>
-                      </div>
-                    </td>
-                    <td>
-                      {key.revoked ? (
-                        <span className="badge badge--danger">
-                          <span className="status-dot status-dot--danger" />
-                          Revoked
-                        </span>
-                      ) : (
-                        <span className="badge badge--success">
-                          <span className="status-dot status-dot--success" />
-                          Active
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <span style={{ color: "var(--text-muted)" }}>
-                        {new Date(key.createdAt).toLocaleDateString(undefined, {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
+          {/* Keys List */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+            {/* Table header — hidden on mobile */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto auto auto",
+                gap: "var(--space-4)",
+                padding: "var(--space-2) var(--space-3)",
+                borderBottom: "1px solid var(--border-subtle)",
+              }}
+              className="api-key-table-header"
+            >
+              <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)" }}>Key</span>
+              <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)" }}>Status</span>
+              <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)" }}>Created</span>
+              <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", textAlign: "right" }}>Actions</span>
+            </div>
+            {keys.map((key) => (
+              <div
+                key={key.id}
+                style={{
+                  padding: "var(--space-3)",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px solid var(--border-subtle)",
+                  background: "var(--bg-card)",
+                }}
+              >
+                {/* Mobile: stacked layout */}
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: "var(--radius-md)",
+                      background: key.revoked ? "var(--danger-dim)" : "var(--accent-dim)",
+                      display: "grid",
+                      placeItems: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <IconKey
+                      style={{
+                        width: 16,
+                        height: 16,
+                        color: key.revoked ? "var(--danger)" : "var(--accent)",
+                      } as any}
+                    />
+                  </div>
+                  <code className="mono" style={{ color: "var(--text-primary)", fontSize: "0.875rem", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {key.prefix}••••••••
+                  </code>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "var(--space-2)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+                    {key.revoked ? (
+                      <span className="badge badge--danger">
+                        <span className="status-dot status-dot--danger" />
+                        Revoked
                       </span>
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <div style={{ display: "inline-flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                        {!key.revoked && (
-                          <button
-                            className="btn btn--sm btn--danger"
-                            onClick={() => void revokeKey(key.id)}
-                            disabled={revokingId === key.id || deletingId === key.id}
-                          >
-                            <IconRevoke />
-                            {revokingId === key.id ? "Revoking..." : "Revoke"}
-                          </button>
-                        )}
-                        <button
-                          className="btn btn--sm btn--ghost"
-                          onClick={() => void deleteKey(key.id)}
-                          disabled={deletingId === key.id || revokingId === key.id}
-                        >
-                          <IconTrash />
-                          {deletingId === key.id ? "Deleting..." : "Delete"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    ) : (
+                      <span className="badge badge--success">
+                        <span className="status-dot status-dot--success" />
+                        Active
+                      </span>
+                    )}
+                    <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                      {new Date(key.createdAt).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: "var(--space-2)", flexShrink: 0 }}>
+                    {!key.revoked && (
+                      <button
+                        className="btn btn--sm btn--danger"
+                        onClick={() => void revokeKey(key.id)}
+                        disabled={revokingId === key.id || deletingId === key.id}
+                      >
+                        <IconRevoke />
+                        {revokingId === key.id ? "Revoking..." : "Revoke"}
+                      </button>
+                    )}
+                    <button
+                      className="btn btn--sm btn--ghost"
+                      onClick={() => void deleteKey(key.id)}
+                      disabled={deletingId === key.id || revokingId === key.id}
+                    >
+                      <IconTrash />
+                      {deletingId === key.id ? "Deleting..." : "Delete"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Summary Footer */}
@@ -374,7 +387,8 @@ export function ApiKeyPanel({ keys, onKeysChanged, onStatus, onError }: Props) {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "var(--space-6)",
+              flexWrap: "wrap",
+              gap: "var(--space-3)",
               marginTop: "var(--space-4)",
               paddingTop: "var(--space-4)",
               borderTop: "1px solid var(--border-subtle)",

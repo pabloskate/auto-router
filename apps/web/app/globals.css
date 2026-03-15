@@ -91,6 +91,7 @@ body {
   color: var(--text-primary);
   background: var(--bg);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* ─── Shell / Container ──────────────────────────────────────────────────── */
@@ -103,6 +104,9 @@ body {
 @media (max-width: 640px) {
   .shell {
     padding: var(--space-4);
+  }
+  input, select, textarea {
+    font-size: 16px !important;
   }
 }
 
@@ -467,6 +471,29 @@ body {
 @media (max-width: 640px) {
   .form-row {
     grid-template-columns: 1fr;
+  }
+  .card-header {
+    flex-wrap: wrap;
+    padding: var(--space-4);
+  }
+  .card-body {
+    padding: var(--space-4);
+  }
+  .card-footer {
+    padding: var(--space-4);
+    flex-wrap: wrap;
+  }
+  .qs-mode-cards {
+    flex-direction: column;
+  }
+  .qs-mode-card {
+    min-width: 0 !important;
+    flex: none !important;
+    width: 100%;
+  }
+  .qs-connection-row code {
+    white-space: normal;
+    word-break: break-all;
   }
 }
 
@@ -1189,6 +1216,11 @@ body {
   grid-template-columns: 220px 1fr;
   gap: var(--space-6);
   align-items: start;
+  min-width: 0;
+}
+
+.admin-layout > * {
+  min-width: 0;
 }
 
 .sidenav {
