@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { GATEWAY_PRESETS, CUSTOM_PRESET_ID } from "../../lib/gateway-presets";
+import { ROUTING_PRESETS, type RoutingPreset } from "../../lib/routing-presets";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GatewayPanel.tsx
@@ -40,6 +41,8 @@ export interface GatewayInfo {
 interface Props {
   onStatus?: (msg: string) => void;
   onError?: (msg?: string) => void;
+  onApplyRoutingPreset?: (preset: RoutingPreset) => Promise<boolean>;
+  existingProfileIds?: string[];
 }
 
 const REASONING_OPTIONS = [
@@ -381,6 +384,93 @@ function FetchPicker({ models, existing, onImport, onClose }: FetchPickerProps) 
   );
 }
 
+// ─── Routing preset picker ───────────────────────────────────────────────────
+
+function IconZap({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+  );
+}
+
+interface RoutingPresetPickerProps {
+  existingModelCount: number;
+  existingProfileIds: string[];
+  applying: boolean;
+  onApply: (preset: RoutingPreset) => void;
+}
+
+function RoutingPresetPicker({ existingModelCount, existingProfileIds, applying, onApply }: RoutingPresetPickerProps) {
+  if (ROUTING_PRESETS.length === 0) return null;
+
+  function handleClick(preset: RoutingPreset) {
+    if (applying || existingProfileIds.includes(preset.id)) return;
+    if (
+      existingModelCount > 0 &&
+      !window.confirm(
+        `This will replace all ${existingModelCount} existing model(s) and add a "${preset.name}" routing profile.\n\nContinue?`
+      )
+    ) {
+      return;
+    }
+    onApply(preset);
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+        <IconZap />
+        <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-secondary)" }}>Quick setup</span>
+      </div>
+      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+        {ROUTING_PRESETS.map((preset) => {
+          const isAdded = existingProfileIds.includes(preset.id);
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              className="btn btn--ghost btn--sm"
+              disabled={applying || isAdded}
+              onClick={() => handleClick(preset)}
+              title={isAdded ? "Already added as a routing profile" : preset.description}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: "var(--space-1)",
+                padding: "var(--space-3) var(--space-4)",
+                background: isAdded ? "var(--accent-dim)" : "var(--bg-elevated)",
+                border: `1px solid ${isAdded ? "var(--accent)" : "var(--border-subtle)"}`,
+                borderRadius: "var(--radius-md)",
+                cursor: isAdded ? "default" : applying ? "wait" : "pointer",
+                textAlign: "left",
+                minWidth: 160,
+                opacity: isAdded ? 0.8 : 1,
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "0.8125rem", fontWeight: 600, color: isAdded ? "var(--accent)" : "var(--text-primary)" }}>
+                {isAdded && (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+                {preset.name}
+              </span>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                {isAdded ? "Profile added" : `${preset.models.length} models`}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+        Adds models to this gateway and creates a routing profile
+      </span>
+    </div>
+  );
+}
+
 // ─── Gateway card ─────────────────────────────────────────────────────────────
 
 interface GatewayCardProps {
@@ -388,9 +478,11 @@ interface GatewayCardProps {
   onRefresh: () => void;
   onStatus?: (msg: string) => void;
   onError?: (msg?: string) => void;
+  onApplyRoutingPreset?: (preset: RoutingPreset) => Promise<boolean>;
+  existingProfileIds?: string[];
 }
 
-function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps) {
+function GatewayCard({ gateway, onRefresh, onStatus, onError, onApplyRoutingPreset, existingProfileIds = [] }: GatewayCardProps) {
   const [editingGateway, setEditingGateway] = useState(false);
   const [deletingGateway, setDeletingGateway] = useState(false);
   const [savingGateway, setSavingGateway] = useState(false);
@@ -403,6 +495,26 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
 
   const [fetchedModels, setFetchedModels] = useState<FetchedModel[] | null>(null);
   const [fetching, setFetching] = useState(false);
+  const [applyingPreset, setApplyingPreset] = useState(false);
+
+  async function applyPreset(preset: RoutingPreset) {
+    setApplyingPreset(true);
+    try {
+      const models = preset.models.map((m) => ({ ...m }));
+      if (!(await saveModels(models))) return;
+
+      if (onApplyRoutingPreset) {
+        const ok = await onApplyRoutingPreset(preset);
+        if (!ok) {
+          onError?.("Models were updated but the routing profile failed to save.");
+          return;
+        }
+      }
+      onStatus?.(`Applied "${preset.name}" preset.`);
+    } finally {
+      setApplyingPreset(false);
+    }
+  }
 
   async function saveGateway(data: { name: string; baseUrl: string; apiKey: string }) {
     setSavingGateway(true);
@@ -626,6 +738,13 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
           </div>
         </div>
 
+        <RoutingPresetPicker
+          existingModelCount={gateway.models.length}
+          existingProfileIds={existingProfileIds}
+          applying={applyingPreset}
+          onApply={applyPreset}
+        />
+
         {fetchedModels && (
           <FetchPicker
             models={fetchedModels}
@@ -703,7 +822,7 @@ function GatewayCard({ gateway, onRefresh, onStatus, onError }: GatewayCardProps
 
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
-export function GatewayPanel({ onStatus, onError }: Props) {
+export function GatewayPanel({ onStatus, onError, onApplyRoutingPreset, existingProfileIds = [] }: Props) {
   const [gateways, setGateways] = useState<GatewayInfo[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -804,6 +923,8 @@ export function GatewayPanel({ onStatus, onError }: Props) {
           onRefresh={load}
           onStatus={onStatus}
           onError={onError}
+          onApplyRoutingPreset={onApplyRoutingPreset}
+          existingProfileIds={existingProfileIds}
         />
       ))}
     </div>

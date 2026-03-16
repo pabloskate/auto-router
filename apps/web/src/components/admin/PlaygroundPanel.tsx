@@ -6,12 +6,25 @@
 // Integrated chat playground for testing routing decisions.
 // A compact, admin-optimized version of the chat tester with:
 // - Quick model selection (auto, profiles, or specific model)
+// - Router Test Mode (default): shows only the routing decision, no LLM response
+// - Full Chat Mode: streams the actual model response
 // - Message history with routing metadata
-// - Streaming support with real-time indicators
 // - Request preview for debugging
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useRef, useEffect, useCallback } from "react";
+
+type RouteResult = {
+  requestId: string;
+  selectedModel: string;
+  fallbackModels: string[];
+  decisionReason: string;
+  classifierInvoked: boolean;
+  classifierModel?: string;
+  isContinuation: boolean;
+  pinUsed: boolean;
+  latencyMs: number;
+};
 
 type Message = {
   id: string;
@@ -20,6 +33,7 @@ type Message = {
   model?: string;
   routedModel?: string;
   requestTime?: number;
+  routeResult?: RouteResult;
 };
 
 type StreamChunk = {
@@ -43,14 +57,6 @@ function IconClear({ className, style }: { className?: string; style?: React.CSS
   return (
     <svg className={className} style={style} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
-
-function IconKey({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <svg className={className} style={style} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="7.5" cy="15.5" r="5.5" /><path d="M21 2l-9.6 9.6" /><path d="M15.5 9.5l3 3L22 7l-3-3-3.5 3.5" />
     </svg>
   );
 }
@@ -95,7 +101,130 @@ function IconSparkles({ className, style }: { className?: string; style?: React.
   );
 }
 
+function IconRoute({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="6" cy="19" r="3" /><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /><circle cx="18" cy="5" r="3" />
+    </svg>
+  );
+}
+
+function IconArrowRight({ style }: { style?: React.CSSProperties }) {
+  return (
+    <svg style={style} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+    </svg>
+  );
+}
+
 // ─── Components ──────────────────────────────────────────────────────────────
+
+function DECISION_REASON_LABEL(reason: string): string {
+  const labels: Record<string, string> = {
+    classifier_selected: "Classifier",
+    thread_pinned: "Pinned thread",
+    fallback_default: "Default fallback",
+    fallback_after_failure: "Fallback (failure)",
+    passthrough: "Passthrough",
+    forced: "Forced",
+  };
+  return labels[reason] ?? reason;
+}
+
+function RouteCard({ result, latencyMs }: { result: RouteResult; latencyMs?: number }) {
+  const ms = result.latencyMs ?? latencyMs;
+  const isPinned = result.isContinuation || result.pinUsed;
+
+  return (
+    <div
+      style={{
+        background: "var(--bg-elevated)",
+        border: "1px solid var(--border-subtle)",
+        borderRadius: "var(--radius-lg)",
+        padding: "var(--space-4) var(--space-5)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--space-3)",
+        maxWidth: "480px",
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+        <IconRoute style={{ color: "var(--accent)", flexShrink: 0 } as React.CSSProperties} />
+        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          Routing Decision
+        </span>
+        {ms != null && (
+          <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "3px", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            <IconTime />
+            {ms}ms
+          </span>
+        )}
+      </div>
+
+      {/* Selected model — prominent */}
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+        <IconArrowRight style={{ color: "var(--accent)", flexShrink: 0 } as React.CSSProperties} />
+        <span
+          style={{
+            fontFamily: "var(--font-mono, monospace)",
+            fontSize: "0.9375rem",
+            fontWeight: 700,
+            color: "var(--text-primary)",
+            wordBreak: "break-all",
+          }}
+        >
+          {result.selectedModel}
+        </span>
+      </div>
+
+      {/* Metadata grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "var(--space-1) var(--space-4)", alignItems: "center" }}>
+        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Decision</span>
+        <span>
+          <span
+            className={`badge ${result.decisionReason === "classifier_selected" ? "badge--info" : result.decisionReason === "thread_pinned" ? "badge--warning" : "badge--default"}`}
+            style={{ fontSize: "0.6875rem" }}
+          >
+            {DECISION_REASON_LABEL(result.decisionReason)}
+          </span>
+        </span>
+
+        {result.classifierInvoked && result.classifierModel && (
+          <>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Classifier</span>
+            <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+              {result.classifierModel}
+            </span>
+          </>
+        )}
+
+        {isPinned && (
+          <>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Thread</span>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+              {result.isContinuation ? "Continuation" : "Newly pinned"}
+            </span>
+          </>
+        )}
+
+        {result.fallbackModels.length > 0 && (
+          <>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", alignSelf: "start" }}>Fallbacks</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              {result.fallbackModels.map((m) => (
+                <span key={m} style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                  {m}
+                </span>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MessageBubble({
   message,
   isStreaming,
@@ -104,6 +233,14 @@ function MessageBubble({
   isStreaming?: boolean;
 }) {
   const isUser = message.role === "user";
+
+  if (message.routeResult) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", alignSelf: "flex-start", maxWidth: "95%" }}>
+        <RouteCard result={message.routeResult} />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -146,7 +283,7 @@ function MessageBubble({
   );
 }
 
-function EmptyState() {
+function EmptyState({ routerTestMode }: { routerTestMode: boolean }) {
   return (
     <div className="empty-state" style={{ padding: "var(--space-8) var(--space-6)" }}>
       <div
@@ -159,12 +296,74 @@ function EmptyState() {
           placeItems: "center",
         }}
       >
-        <IconSparkles style={{ width: 24, height: 24, color: "var(--accent)" } as any} />
+        {routerTestMode
+          ? <IconRoute style={{ width: 24, height: 24, color: "var(--accent)" } as any} />
+          : <IconSparkles style={{ width: 24, height: 24, color: "var(--accent)" } as any} />
+        }
       </div>
-      <div className="empty-state-title">Test Your Router</div>
+      <div className="empty-state-title">
+        {routerTestMode ? "Test Your Router" : "Chat Playground"}
+      </div>
       <p className="empty-state-desc">
-        Send a message to see which model the router selects. Try different prompts to test routing logic.
+        {routerTestMode
+          ? "Enter a prompt to see which model would be selected — no tokens spent on the response."
+          : "Send a message to see which model the router selects and get a full response."}
       </p>
+    </div>
+  );
+}
+
+// ─── Mode Toggle ─────────────────────────────────────────────────────────────
+function ModeToggle({ routerTestMode, onChange }: { routerTestMode: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        borderRadius: "var(--radius-lg)",
+        border: "1px solid var(--border-subtle)",
+        overflow: "hidden",
+        fontSize: "0.8125rem",
+        background: "var(--bg-surface)",
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => onChange(true)}
+        style={{
+          padding: "6px 14px",
+          border: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          fontWeight: routerTestMode ? 600 : 400,
+          background: routerTestMode ? "var(--accent)" : "transparent",
+          color: routerTestMode ? "white" : "var(--text-secondary)",
+          transition: "background 0.15s, color 0.15s",
+        }}
+      >
+        <IconRoute style={{ width: 13, height: 13 } as React.CSSProperties} />
+        Router Test
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(false)}
+        style={{
+          padding: "6px 14px",
+          border: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          fontWeight: !routerTestMode ? 600 : 400,
+          background: !routerTestMode ? "var(--accent)" : "transparent",
+          color: !routerTestMode ? "white" : "var(--text-secondary)",
+          transition: "background 0.15s, color 0.15s",
+        }}
+      >
+        <IconSparkles style={{ width: 13, height: 13 } as React.CSSProperties} />
+        Full Chat
+      </button>
     </div>
   );
 }
@@ -177,6 +376,7 @@ export function PlaygroundPanel({ profiles }: { profiles?: import("./ProfilesPan
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStream, setCurrentStream] = useState("");
+  const [routerTestMode, setRouterTestMode] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const streaming = true;
@@ -193,7 +393,6 @@ export function PlaygroundPanel({ profiles }: { profiles?: import("./ProfilesPan
       id: `user-${Date.now()}`,
       role: "user",
       content: input.trim(),
-      requestTime: Date.now(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -202,91 +401,112 @@ export function PlaygroundPanel({ profiles }: { profiles?: import("./ProfilesPan
     setError(null);
     setCurrentStream("");
 
-    const payload = {
-      model,
-      messages: [...messages, userMessage]
-        .filter((m) => m.role !== "system")
-        .map((m) => ({ role: m.role, content: m.content })),
-      stream: streaming,
-    };
+    const conversationMessages = [...messages, userMessage]
+      .filter((m) => m.role !== "system")
+      .map((m) => ({ role: m.role, content: m.content }));
 
     try {
       const startTime = Date.now();
-      const response = await fetch("/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
 
-      if (!response.ok) {
-        const errData = (await response.json()) as { error?: string };
-        throw new Error(errData.error || `HTTP ${response.status}`);
-      }
+      if (routerTestMode) {
+        // ── Router Test Mode: call inspect endpoint, return routing decision only ──
+        const response = await fetch("/api/v1/router/inspect", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ model, messages: conversationMessages }),
+        });
 
-      if (streaming && response.body) {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let fullContent = "";
-        let routedModel: string | undefined;
+        if (!response.ok) {
+          const errData = (await response.json()) as { error?: string };
+          throw new Error(errData.error || `HTTP ${response.status}`);
+        }
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        const routeResult = (await response.json()) as RouteResult;
+        const resultMessage: Message = {
+          id: `route-${Date.now()}`,
+          role: "assistant",
+          content: "",
+          model,
+          routeResult,
+          requestTime: Date.now() - startTime,
+        };
+        setMessages((prev) => [...prev, resultMessage]);
+      } else {
+        // ── Full Chat Mode: stream the actual model response ──
+        const response = await fetch("/api/v1/chat/completions", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ model, messages: conversationMessages, stream: streaming }),
+        });
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n").filter((l) => l.trim());
+        if (!response.ok) {
+          const errData = (await response.json()) as { error?: string };
+          throw new Error(errData.error || `HTTP ${response.status}`);
+        }
 
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6);
-              if (data === "[DONE]") continue;
+        if (streaming && response.body) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let fullContent = "";
+          let routedModel: string | undefined;
 
-              try {
-                const parsed: StreamChunk = JSON.parse(data);
-                const content = parsed.choices?.[0]?.delta?.content;
-                if (content) fullContent += content;
-                if (parsed.model && !routedModel) routedModel = parsed.model;
-                setCurrentStream(fullContent);
-              } catch {
-                // Skip malformed chunks
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split("\n").filter((l) => l.trim());
+
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                const data = line.slice(6);
+                if (data === "[DONE]") continue;
+
+                try {
+                  const parsed: StreamChunk = JSON.parse(data);
+                  const content = parsed.choices?.[0]?.delta?.content;
+                  if (content) fullContent += content;
+                  if (parsed.model && !routedModel) routedModel = parsed.model;
+                  setCurrentStream(fullContent);
+                } catch {
+                  // Skip malformed chunks
+                }
               }
             }
           }
-        }
 
-        const assistantMessage: Message = {
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          content: fullContent,
-          model,
-          routedModel,
-          requestTime: Date.now() - startTime,
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
-        setCurrentStream("");
-      } else {
-        const data = (await response.json()) as {
-          choices?: Array<{ message?: { content?: string } }>;
-          model?: string;
-        };
-        const assistantMessage: Message = {
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          content: data.choices?.[0]?.message?.content || "",
-          model,
-          routedModel: data.model,
-          requestTime: Date.now() - startTime,
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
+          const assistantMessage: Message = {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: fullContent,
+            model,
+            routedModel,
+            requestTime: Date.now() - startTime,
+          };
+          setMessages((prev) => [...prev, assistantMessage]);
+          setCurrentStream("");
+        } else {
+          const data = (await response.json()) as {
+            choices?: Array<{ message?: { content?: string } }>;
+            model?: string;
+          };
+          const assistantMessage: Message = {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: data.choices?.[0]?.message?.content || "",
+            model,
+            routedModel: data.model,
+            requestTime: Date.now() - startTime,
+          };
+          setMessages((prev) => [...prev, assistantMessage]);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed");
     } finally {
       setLoading(false);
     }
-  }, [input, loading, model, messages, streaming]);
+  }, [input, loading, model, messages, streaming, routerTestMode]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -313,6 +533,12 @@ export function PlaygroundPanel({ profiles }: { profiles?: import("./ProfilesPan
               alignItems: "flex-end",
             }}
           >
+            {/* Mode toggle */}
+            <div className="form-group" style={{ minWidth: 0 }}>
+              <label className="form-label">Mode</label>
+              <ModeToggle routerTestMode={routerTestMode} onChange={setRouterTestMode} />
+            </div>
+
             {/* Model */}
             <div className="form-group" style={{ flex: 1, minWidth: 180 }}>
               <label className="form-label">Model</label>
@@ -345,7 +571,7 @@ export function PlaygroundPanel({ profiles }: { profiles?: import("./ProfilesPan
         {/* Messages */}
         <div style={{ flex: 1, overflow: "hidden" }}>
           {messages.length === 0 && !currentStream ? (
-            <EmptyState />
+            <EmptyState routerTestMode={routerTestMode} />
           ) : (
             <div
               className="chat-messages"
@@ -406,7 +632,11 @@ export function PlaygroundPanel({ profiles }: { profiles?: import("./ProfilesPan
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message... (Enter to send, Shift+Enter for new line)"
+            placeholder={
+              routerTestMode
+                ? "Ask something to see how it would be routed... (Enter to inspect)"
+                : "Type a message... (Enter to send, Shift+Enter for new line)"
+            }
             disabled={loading}
             rows={2}
           />
@@ -420,10 +650,12 @@ export function PlaygroundPanel({ profiles }: { profiles?: import("./ProfilesPan
               <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 12a9 9 0 1 1-6.219-8.56" />
               </svg>
+            ) : routerTestMode ? (
+              <IconRoute />
             ) : (
               <IconSend />
             )}
-            {loading ? "Sending..." : "Send"}
+            {loading ? (routerTestMode ? "Routing..." : "Sending...") : (routerTestMode ? "Inspect" : "Send")}
           </button>
         </div>
       </div>
@@ -451,7 +683,7 @@ export function PlaygroundPanel({ profiles }: { profiles?: import("./ProfilesPan
                   messages: messages
                     .filter((m) => m.role !== "system")
                     .map((m) => ({ role: m.role, content: m.content })),
-                  stream: streaming,
+                  ...(routerTestMode ? {} : { stream: streaming }),
                 },
                 null,
                 2

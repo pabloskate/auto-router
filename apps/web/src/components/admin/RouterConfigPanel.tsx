@@ -420,7 +420,7 @@ function ReroutingBehaviorSection({
                 border: "none",
                 borderRight: option.value !== "new_thread_only" ? "1px solid var(--border-default)" : "none",
                 background: activeFrequency === option.value ? "var(--accent)" : "transparent",
-                color: activeFrequency === option.value ? "white" : "var(--text-secondary)",
+                color: activeFrequency === option.value ? "#0a0a0f" : "var(--text-secondary)",
                 cursor: "pointer",
                 fontSize: "0.8125rem",
                 fontWeight: 500,

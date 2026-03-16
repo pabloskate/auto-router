@@ -51,6 +51,18 @@ export interface RouteAndProxyResult {
   requestId: string;
 }
 
+export interface RouteInspectResult {
+  requestId: string;
+  selectedModel: string;
+  fallbackModels: string[];
+  decisionReason: string;
+  classifierInvoked: boolean;
+  classifierModel?: string;
+  isContinuation: boolean;
+  pinUsed: boolean;
+  latencyMs: number;
+}
+
 export interface UserRouterConfig {
   preferredModels?: string[] | null;
   customCatalog?: any[] | null;
@@ -233,6 +245,7 @@ export async function routeAndProxy(args: {
   body: RouterRequestLike & Record<string, unknown>;
   apiPath: RoutedApiPath;
   userConfig?: UserRouterConfig;
+  dryRun?: boolean;
 }): Promise<RouteAndProxyResult> {
   let classifierInvoked = false;
   const requestId = makeRequestId("router");
@@ -447,6 +460,7 @@ export async function routeAndProxy(args: {
       })
     : new RouterEngine();
 
+  const decideStartMs = Date.now();
   const decision = await engine.decide({
     requestId,
     request: args.body,
@@ -456,6 +470,7 @@ export async function routeAndProxy(args: {
     pinStore,
     profiles: args.userConfig?.profiles ?? undefined,
   });
+  const decideLatencyMs = Date.now() - decideStartMs;
 
   if (decision.routingError || !decision.selectedModel) {
     const errorMessage =
@@ -480,6 +495,32 @@ export async function routeAndProxy(args: {
       response: json({ error: errorMessage, request_id: requestId }, 502, {
         "x-router-request-id": requestId,
       }),
+    };
+  }
+
+  // Dry-run mode: return routing decision without proxying to the upstream model.
+  if (args.dryRun) {
+    runInBackground(repository.putExplanation({
+      ...decision.explanation,
+      classifierInvoked,
+      classifierModel: effectiveClassifierModel ?? undefined,
+      classifierBaseUrl,
+      classifierGatewayId,
+    }));
+    const inspectResult: RouteInspectResult = {
+      requestId,
+      selectedModel: decision.selectedModel,
+      fallbackModels: decision.fallbackModels ?? [],
+      decisionReason: decision.explanation.decisionReason,
+      classifierInvoked,
+      classifierModel: effectiveClassifierModel ?? undefined,
+      isContinuation: decision.explanation.isContinuation,
+      pinUsed: decision.explanation.pinUsed,
+      latencyMs: decideLatencyMs,
+    };
+    return {
+      requestId,
+      response: json(inspectResult, 200, { "x-router-request-id": requestId }),
     };
   }
 

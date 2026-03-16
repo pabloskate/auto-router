@@ -4,7 +4,7 @@ import { ApiKeyPanel } from "./ApiKeyPanel";
 import { GatewayPanel } from "./GatewayPanel";
 import { InviteCodePanel } from "./InviteCodePanel";
 import { PlaygroundPanel } from "./PlaygroundPanel";
-import { ProfilesPanel } from "./ProfilesPanel";
+import { ProfilesPanel, type RouterProfile } from "./ProfilesPanel";
 import { QuickstartPanel } from "./QuickstartPanel";
 import { RouterConfigPanel } from "./RouterConfigPanel";
 import { type AdminExtensionContext, type AdminTabDefinition, type ApiKeyInfo, type RoutingDraftState, type UserInfo } from "./types";
@@ -107,7 +107,7 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
       subtitle: "Register upstream API providers and assign models to each gateway",
       order: 100,
       icon: IconGateway,
-      render: () => (
+      render: (ctx: AdminExtensionContext) => (
         <div className="animate-fade-in">
           <GatewayPanel
             onStatus={(message) => {
@@ -115,6 +115,22 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
               void args.reloadData();
             }}
             onError={(message) => args.setError(message)}
+            existingProfileIds={(ctx.user.profiles ?? []).map((p) => p.id)}
+            onApplyRoutingPreset={async (preset) => {
+              const newProfile: RouterProfile = {
+                id: preset.id,
+                name: preset.name,
+                description: preset.description,
+                overrideModels: true,
+                defaultModel: preset.defaultModel,
+                classifierModel: preset.classifierModel,
+                routingInstructions: preset.routingInstructions,
+                catalogFilter: preset.models.map((m) => m.id),
+              };
+              const updatedProfiles = [...(ctx.user.profiles ?? []), newProfile];
+              args.setUser((current) => current ? { ...current, profiles: updatedProfiles } : current);
+              return args.saveRoutingData({ profiles: updatedProfiles });
+            }}
           />
         </div>
       ),
