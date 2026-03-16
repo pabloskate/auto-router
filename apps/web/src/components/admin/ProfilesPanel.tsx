@@ -310,7 +310,7 @@ function ProfileCard({
                   <span className="form-hint">Used when the classifier fails to decide.</span>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Classifier Model</label>
+                  <label className="form-label">Router Model</label>
                   <select
                     className="input input--mono"
                     value={profile.classifierModel || ""}
@@ -320,7 +320,7 @@ function ProfileCard({
                       })
                     }
                   >
-                    <option value="">Select a classifier model</option>
+                    <option value="">Select a router model</option>
                     {allModelOptions.map((modelId) => (
                       <option key={modelId} value={modelId}>{modelId}</option>
                     ))}
@@ -373,7 +373,7 @@ function ProfileCard({
                       <span className="form-hint">Override the default fallback model for this profile.</span>
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Classifier Model</label>
+                      <label className="form-label">Router Model</label>
                       <select
                         className="input input--mono"
                         value={profile.classifierModel || ""}
@@ -383,12 +383,12 @@ function ProfileCard({
                           })
                         }
                       >
-                        <option value="">Select a classifier model</option>
+                        <option value="">Select a router model</option>
                         {allModelOptions.map((modelId) => (
                           <option key={modelId} value={modelId}>{modelId}</option>
                         ))}
                       </select>
-                      <span className="form-hint">Override the classifier model for this profile.</span>
+                      <span className="form-hint">Override the router model for this profile.</span>
                     </div>
                   </div>
                 )}

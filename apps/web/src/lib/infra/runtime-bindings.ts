@@ -18,7 +18,6 @@ import type { D1Database, KVNamespace } from "./cloudflare-types";
 export interface RouterRuntimeBindings {
   ROUTER_DB?: D1Database;
   ROUTER_KV?: KVNamespace;
-  OPENAI_COMPAT_BASE_URL?: string;
   BYOK_ENCRYPTION_SECRET?: string;
   ROUTER_CLASSIFIER_MODEL?: string;
   ADMIN_SECRET?: string;
@@ -56,8 +55,6 @@ export function getRuntimeBindings(): RouterRuntimeBindings {
   return {
     ROUTER_DB: fromGlobal?.ROUTER_DB,
     ROUTER_KV: fromGlobal?.ROUTER_KV,
-    OPENAI_COMPAT_BASE_URL:
-      fromGlobal?.OPENAI_COMPAT_BASE_URL ?? process.env.OPENAI_COMPAT_BASE_URL,
     BYOK_ENCRYPTION_SECRET:
       fromGlobal?.BYOK_ENCRYPTION_SECRET ?? process.env.BYOK_ENCRYPTION_SECRET,
     ROUTER_CLASSIFIER_MODEL:

@@ -38,7 +38,7 @@ Recommended repo split:
 ## Runtime Behavior
 
 - Routing activates for `model: "auto"` and named routing profiles. Explicit model IDs pass through unchanged.
-- **Precedence:** Global fallback and classifier models apply to all profiles. Each profile can optionally override them via "Override global models" — when enabled, the profile’s fallback/classifier values take precedence; when disabled, the profile inherits global defaults. The `auto` profile is always required and non-deletable.
+- **Precedence:** Global fallback and router models apply to all profiles. Each profile can optionally override them via "Override global models" — when enabled, the profile’s fallback/router model values take precedence; when disabled, the profile inherits global defaults. The `auto` profile is always required and non-deletable.
 - The first successful routed turn pins the selected model to the thread fingerprint for 1 hour. Continuations reuse that pin until a constraint breaks it or the cooldown window expires.
 - Putting `$$route` in the latest user turn bypasses the active thread pin for that turn and forces a fresh routing decision.
 - Tool-enabled threads can break a thread pin after the router detects its phase-complete sentinel. Non-tool threads ignore that sentinel and keep the existing pin.
@@ -66,6 +66,7 @@ npm run dev -w @custom-router/web
 ## Self-Host Docs
 
 - [Quickstart](docs/quickstart.md)
+- [Local dev troubleshooting](docs/local-dev-troubleshooting.md)
 - [Cloudflare deployment](docs/deployment-cloudflare.md)
 - [Open-core boundary](docs/open-core.md)
 - [Config Agent deprecation](docs/config-agent-deprecation.md)

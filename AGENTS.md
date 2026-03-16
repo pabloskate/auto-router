@@ -110,7 +110,7 @@ PUT  /api/v1/router/config     → verifyAdminSecret
 | `admin-console.tsx` | Root shell — loads data, wires sub-components together |
 | `AuthGate.tsx` | Login / signup form |
 | `ApiKeyPanel.tsx` | Generate, list, revoke API keys |
-| `RouterConfigPanel.tsx` | Global defaults: fallback model, classifier model, routing instructions, blocklist |
+| `RouterConfigPanel.tsx` | Global defaults: fallback model, router model, routing instructions, blocklist |
 | `ProfilesPanel.tsx` | Per-profile config with "Override global models" toggle. The `auto` profile is required and non-deletable. |
 | `CatalogEditorPanel.tsx` | Per-user model catalog editor ("constitution") |
 
@@ -201,6 +201,24 @@ npm run dev -w @custom-router/web  # starts Next.js on localhost:3000
 Auth (users, sessions, API keys) requires D1. With `initOpenNextCloudflareForDev` in next.config, local D1/KV emulation runs when using `next dev`; run `npm run db:seed` once to create the schema. Without it, login/signup returns 500 "Server misconfigured."
 
 Copy `.env.example` → `.env.local` and fill in `BYOK_ENCRYPTION_SECRET`.
+
+### Localhost Reliability Policy (for agents)
+
+When a user asks to "run localhost" and expects login/admin to work, follow this exact workflow:
+
+```bash
+# 1) Start stable local mode (kills stale next processes, rebuilds, starts on :3010)
+npm run local:stable
+
+# 2) Prove UI login works before claiming done
+BASE_URL=http://localhost:3010 npm run verify:admin
+```
+
+Rules:
+- Do not assume `http://localhost:3000`; verify the bound port from terminal output.
+- Do not claim success based only on API curl checks.
+- `verify:admin` (UI login + session + Routing/API Keys checks) is required proof.
+- If `verify:admin` fails, treat localhost as broken and keep debugging.
 
 ---
 

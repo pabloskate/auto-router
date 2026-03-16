@@ -22,7 +22,7 @@ describe("RouterConfigPanel", () => {
     );
 
     expect(markup).toContain("Fallback Model");
-    expect(markup).toContain("Classifier Model");
+    expect(markup).toContain("Router Model");
     expect(markup).toContain("Used when the classifier fails to decide");
     expect(markup).toContain("Cheap, fast model for routing decisions");
   });

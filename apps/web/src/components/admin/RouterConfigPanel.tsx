@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { SaveActionBar, type SaveActionState } from "./SaveActionBar";
 
 interface RouterConfigFields {
@@ -39,6 +39,110 @@ function IconBlock({ className, style }: { className?: string; style?: React.CSS
     <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
     </svg>
+  );
+}
+
+function IconSparkle({ style }: { style?: React.CSSProperties }) {
+  return (
+    <svg style={style} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 15l.75 2.25L22 18l-2.25.75L19 21l-.75-2.25L16 18l2.25-.75z"/>
+    </svg>
+  );
+}
+
+// ─── Setup Agent Modal ─────────────────────────────────────────────────────────
+function SetupAgentModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (!el) return;
+    if (open) {
+      el.showModal();
+    } else {
+      el.close();
+    }
+  }, [open]);
+
+  // Close on backdrop click
+  function handleDialogClick(e: React.MouseEvent<HTMLDialogElement>) {
+    const rect = dialogRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+      onClose();
+    }
+  }
+
+  return (
+    <dialog
+      ref={dialogRef}
+      onClick={handleDialogClick}
+      onCancel={onClose}
+      style={{
+        background: "var(--bg-card)",
+        border: "1px solid var(--border-default)",
+        borderRadius: "var(--radius-lg)",
+        padding: 0,
+        width: "min(560px, 90vw)",
+        maxHeight: "80vh",
+        overflow: "hidden",
+        color: "var(--text-primary)",
+        boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
+      }}
+    >
+      {/* Header */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "var(--space-5) var(--space-6)",
+        borderBottom: "1px solid var(--border-subtle)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+          <div style={{
+            width: 32, height: 32,
+            borderRadius: "var(--radius-md)",
+            background: "var(--accent-dim)",
+            display: "grid", placeItems: "center",
+          }}>
+            <IconSparkle style={{ color: "var(--accent)" }} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Setup with Agent</div>
+            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: 2 }}>AI-assisted routing configuration</div>
+          </div>
+        </div>
+        <button
+          className="btn btn--ghost btn--icon btn--sm"
+          onClick={onClose}
+          aria-label="Close"
+          style={{ flexShrink: 0 }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      {/* Body — placeholder until agent is wired up */}
+      <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--text-muted)" }}>
+        <div style={{
+          width: 48, height: 48,
+          borderRadius: "var(--radius-lg)",
+          background: "var(--accent-dim)",
+          display: "grid", placeItems: "center",
+          margin: "0 auto var(--space-4)",
+        }}>
+          <IconSparkle style={{ width: 22, height: 22, color: "var(--accent)" } as any} />
+        </div>
+        <p style={{ fontSize: "0.9375rem", fontWeight: 500, color: "var(--text-primary)", marginBottom: "var(--space-2)" }}>
+          Agent coming soon
+        </p>
+        <p style={{ fontSize: "0.875rem", lineHeight: 1.6 }}>
+          The setup agent will walk you through configuring routing profiles, models, and instructions based on your use case.
+        </p>
+      </div>
+    </dialog>
   );
 }
 
@@ -85,6 +189,7 @@ function RoutingLogicSection({
   onChange: (c: RouterConfigFields) => void;
 }) {
   const routingInstructionsRef = useRef<HTMLTextAreaElement | null>(null);
+  const [agentOpen, setAgentOpen] = useState(false);
   const allModelOptions = Array.from(
     new Set(
       [
@@ -105,11 +210,24 @@ function RoutingLogicSection({
 
   return (
     <div>
-      <SectionHeader
-        icon={IconBrain}
-        title="Routing Logic"
-        description="Configure how CustomRouter selects models for each request"
-      />
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <SectionHeader
+          icon={IconBrain}
+          title="Routing Logic"
+          description="Configure how CustomRouter selects models for each request"
+        />
+        <button
+          className="btn btn--ghost btn--sm"
+          type="button"
+          onClick={() => setAgentOpen(true)}
+          style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0, marginTop: 2 }}
+        >
+          <IconSparkle />
+          Setup with Agent
+        </button>
+      </div>
+
+      <SetupAgentModal open={agentOpen} onClose={() => setAgentOpen(false)} />
 
       {/* Row 2: Default Fallback + Default Classifier */}
       <div className="global-settings-row" style={{ marginBottom: "var(--space-5)" }}>
@@ -145,7 +263,7 @@ function RoutingLogicSection({
           <label className="form-label">
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
               <IconBrain style={{ width: 14, height: 14 } as any} />
-              Default Classifier Model
+              Default Router Model
             </div>
           </label>
           <select
@@ -158,7 +276,7 @@ function RoutingLogicSection({
               })
             }
           >
-            <option value="">Select a classifier model</option>
+            <option value="">Select a router model</option>
             {allModelOptions.map((modelId) => (
               <option key={modelId} value={modelId}>
                 {modelId}

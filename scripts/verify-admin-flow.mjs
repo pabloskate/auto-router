@@ -1,52 +1,100 @@
 #!/usr/bin/env node
 /**
- * Verifies admin flow: create account, login, check key sections load.
- * Run while dev server is up: npm run dev
+ * Verifies admin flow with real UI login.
+ *
+ * Usage:
+ *   BASE_URL=http://localhost:3010 node scripts/verify-admin-flow.mjs
+ *
+ * Optional:
+ *   VERIFY_EMAIL=existing@example.com VERIFY_PASSWORD=secret
+ *     -> skip signup and only validate UI login with existing credentials
  */
 import { chromium } from "playwright";
 import { writeFile } from "fs/promises";
 
-const BASE = "http://localhost:3000";
-const testUser = {
-  name: "Test User",
-  email: "verify-admin@test.local",
-  password: "TestPass123!",
+const BASE = process.env.BASE_URL || `http://localhost:${process.env.PORT || "3000"}`;
+const VERIFY_EMAIL = process.env.VERIFY_EMAIL || "";
+const VERIFY_PASSWORD = process.env.VERIFY_PASSWORD || "";
+const TEST_PASSWORD = VERIFY_PASSWORD || "TestPass123!";
+const TEST_USER = {
+  name: "Verify Admin User",
+  email: VERIFY_EMAIL || `verify-admin+${Date.now()}@test.local`,
+  password: TEST_PASSWORD,
 };
 
 async function main() {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
   const page = await context.newPage();
+  const runtimeIssues = [];
+
+  page.on("pageerror", (err) => {
+    runtimeIssues.push(`pageerror: ${String(err)}`);
+  });
+  page.on("console", (msg) => {
+    if (msg.type() === "error") {
+      runtimeIssues.push(`console:error: ${msg.text()}`);
+    }
+  });
+  page.on("requestfailed", (req) => {
+    runtimeIssues.push(`requestfailed: ${req.url()} :: ${req.failure()?.errorText || "unknown"}`);
+  });
 
   try {
-    // 1. Signup + login via request context (cookies stored in context)
-    console.log("Creating account...");
-    const signupRes = await context.request.post(`${BASE}/api/v1/auth/signup`, {
-      data: testUser,
+    console.log(`Checking registration status on ${BASE}...`);
+    const registrationRes = await context.request.get(`${BASE}/api/v1/auth/registration-status`, {
+      failOnStatusCode: false,
+    });
+    const registrationText = await registrationRes.text();
+    console.log(`Registration status ${registrationRes.status()}: ${registrationText}`);
+
+    if (!VERIFY_EMAIL) {
+      console.log("Creating account via API...");
+      const signupRes = await context.request.post(`${BASE}/api/v1/auth/signup`, {
+        data: TEST_USER,
+        headers: { "Content-Type": "application/json" },
+        failOnStatusCode: false,
+      });
+      const signupText = await signupRes.text();
+      if (signupRes.status() !== 201) {
+        throw new Error(
+          `Signup failed (${signupRes.status()}): ${signupText}\n` +
+            `Hint: start local with REGISTRATION_MODE=open or pass VERIFY_EMAIL/VERIFY_PASSWORD.`
+        );
+      }
+      console.log("✓ Account created");
+      await context.request.post(`${BASE}/api/v1/auth/logout`, { failOnStatusCode: false });
+    } else {
+      console.log(`Using existing credentials for ${VERIFY_EMAIL}`);
+    }
+
+    console.log("Opening /admin and performing UI login...");
+    await page.goto(`${BASE}/admin`, { waitUntil: "domcontentloaded" });
+    await page.getByPlaceholder("you@example.com").fill(TEST_USER.email);
+    await page.locator("#password-input").fill(TEST_USER.password);
+
+    const submit = page.locator("button.btn.btn--primary");
+    await submit.waitFor({ state: "visible", timeout: 10000 });
+    if (await submit.isDisabled()) {
+      throw new Error(
+        "Login submit button is disabled after entering credentials. " +
+          "This usually means hydration failed (chunk mismatch or CSP blocked dev runtime)."
+      );
+    }
+    await submit.click();
+    await page.waitForSelector("text=Routing", { timeout: 10000 });
+    console.log("✓ UI login succeeded");
+
+    // Verify authenticated session after UI login.
+    const loginRes = await context.request.get(`${BASE}/api/v1/user/me`, {
       headers: { "Content-Type": "application/json" },
       failOnStatusCode: false,
     });
-    if (signupRes.status() === 201) console.log("✓ Account created");
-    else if (signupRes.status() !== 400) throw new Error(`Signup ${signupRes.status()}: ${await signupRes.text()}`);
+    if (loginRes.status() !== 200) {
+      throw new Error(`Session check failed (${loginRes.status()}): ${await loginRes.text()}`);
+    }
 
-    const loginRes = await context.request.post(`${BASE}/api/v1/auth/login`, {
-      data: { email: testUser.email, password: testUser.password },
-      headers: { "Content-Type": "application/json" },
-      failOnStatusCode: false,
-    });
-    if (loginRes.status() !== 200) throw new Error(`Login ${loginRes.status()}: ${await loginRes.text()}`);
-    console.log("✓ Logged in");
-
-    // 2. Open admin (context shares cookies with page)
-    console.log("Opening /admin...");
-    await page.goto(`${BASE}/admin`, { waitUntil: "load" });
-    await page.waitForTimeout(1500);
-
-    // 3. Verify we're logged in (admin tabs: Gateways, Routing, API Keys)
-    const configureTab = page.locator("a, button", { hasText: /Gateways|Routing/i }).first();
-    await configureTab.waitFor({ state: "visible", timeout: 5000 });
-
-    // 8. Click Routing tab
+    // Verify key sections are interactive.
     const routingTab = page.locator("a, button", { hasText: "Routing" }).first();
     if (await routingTab.isVisible()) {
       await routingTab.click();
@@ -66,9 +114,18 @@ async function main() {
       console.log("✓ API Keys tab loads");
     }
 
-    console.log("\n✓ Admin flow verified successfully");
+    if (runtimeIssues.length > 0) {
+      console.log("\nRuntime warnings observed:");
+      for (const issue of runtimeIssues.slice(0, 10)) console.log(`- ${issue}`);
+    }
+
+    console.log(`\n✓ Admin flow verified successfully on ${BASE}`);
   } catch (err) {
     console.error("Failed:", err.message);
+    if (runtimeIssues.length > 0) {
+      console.error("Runtime issues observed:");
+      for (const issue of runtimeIssues.slice(0, 15)) console.error(`- ${issue}`);
+    }
     const outDir = "scripts";
     await page.screenshot({ path: `${outDir}/verify-admin-failure.png` });
     const html = await page.content();
