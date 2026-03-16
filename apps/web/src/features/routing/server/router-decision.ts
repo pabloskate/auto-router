@@ -9,8 +9,6 @@ import {
 
 import { routeWithFrontierModel } from "@/src/lib/routing/frontier-classifier";
 
-const DEPRECATED_ROUTING_ALIASES = new Set(["auto", "router/auto"]);
-
 export function createRouterEngine(args: {
   classifierApiKey: string;
   classifierBaseUrl: string;
@@ -39,10 +37,6 @@ export function findMatchedProfile(requestedModel: string, profiles?: RouterProf
 
 export function isRoutedRequestModel(requestedModel: string, profiles?: RouterProfile[] | null): boolean {
   return Boolean(findMatchedProfile(requestedModel, profiles));
-}
-
-export function isDeprecatedRoutingAlias(requestedModel: string): boolean {
-  return DEPRECATED_ROUTING_ALIASES.has(requestedModel);
 }
 
 export function resolveEffectiveClassifierModel(args: {

@@ -109,7 +109,6 @@ export async function routeAndProxy(args: {
     runtimeConfig,
     catalog,
     requestedModel,
-    deprecatedAliasRequested,
     matchedProfile,
     routedRequest,
   } = await resolveUserRoutingContext({
@@ -117,23 +116,6 @@ export async function routeAndProxy(args: {
     userConfig: args.userConfig,
   });
   const pinStore = repository.getPinStore();
-
-  if (deprecatedAliasRequested) {
-    const message = 'Routing now requires an explicit profile ID. Create a profile and call it by name instead of "auto".';
-    const explanation = buildRoutingExplanation({
-      requestId,
-      catalogVersion: "1.0",
-      requestedModel,
-      message,
-    });
-    persistExplanation(repository, explanation);
-    return {
-      requestId,
-      response: json({ error: message, request_id: requestId }, 400, {
-        "x-router-request-id": requestId,
-      }),
-    };
-  }
 
   if (routedRequest && catalog.length === 0) {
     const message = args.userConfig?.routingConfigRequiresReset

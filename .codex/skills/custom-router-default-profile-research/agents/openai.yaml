@@ -1,0 +1,4 @@
+interface:
+  display_name: "Routing Preset Research"
+  short_description: "Benchmark-backed routing presets"
+  default_prompt: "Add or update a benchmark-backed default routing profile preset for CustomRouter. Verify live model availability, pricing, context, benchmark evidence, and classifier fit before making repo changes."

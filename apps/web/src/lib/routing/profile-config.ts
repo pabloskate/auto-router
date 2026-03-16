@@ -26,10 +26,6 @@ export function getProfileIdValidationError(profileId: string): string | null {
     return "Profile ID is required.";
   }
 
-  if (profileId === "auto") {
-    return 'Profile ID "auto" is reserved. Use a descriptive named profile ID instead.';
-  }
-
   if (!PROFILE_ID_PATTERN.test(profileId)) {
     return "Profile IDs can only use lowercase letters, numbers, and hyphens.";
   }

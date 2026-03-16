@@ -12,7 +12,11 @@ import {
   normalizeProfile,
   normalizeProfileModel,
 } from "@/src/lib/routing/profile-config";
-import { ROUTING_PRESETS, type RoutingPreset } from "@/src/lib/routing-presets";
+import {
+  getGatewayPresetId,
+  ROUTING_PRESETS,
+  type RoutingPreset,
+} from "@/src/lib/routing-presets";
 
 export type ProfilesAutosaveState = "saved" | "dirty" | "saving" | "error" | "invalid";
 
@@ -314,8 +318,18 @@ export function createProfileFromPreset(preset: RoutingPreset, gateways: Gateway
   };
 }
 
-export function getQuickSetupPresets(): readonly RoutingPreset[] {
-  return ROUTING_PRESETS;
+export function getQuickSetupPresets(gateways: GatewayInfo[]): readonly RoutingPreset[] {
+  const supportedGatewayPresetIds = new Set(
+    gateways
+      .map((gateway) => getGatewayPresetId(gateway.baseUrl))
+      .filter((value): value is string => Boolean(value)),
+  );
+
+  if (supportedGatewayPresetIds.size === 0) {
+    return [];
+  }
+
+  return ROUTING_PRESETS.filter((preset) => supportedGatewayPresetIds.has(preset.gatewayPresetId));
 }
 
 export function createBlankProfile(input?: { id?: string; name?: string }): RouterProfile {

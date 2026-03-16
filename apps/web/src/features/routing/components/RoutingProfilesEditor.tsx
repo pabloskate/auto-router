@@ -442,10 +442,12 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
     <div className="routing-profiles">
       <div className="routing-profiles__toolbar">
         <div className="routing-profiles__toolbar-actions">
-          <button className="routing-profiles__accent-button" type="button" onClick={editor.openQuickSetup}>
-            <IconSpark />
-            Quick setup
-          </button>
+          {editor.presets.length > 0 ? (
+            <button className="routing-profiles__accent-button" type="button" onClick={editor.openQuickSetup}>
+              <IconSpark />
+              Quick setup
+            </button>
+          ) : null}
           <button className="routing-profiles__ghost-button" type="button" onClick={editor.openCreateProfile}>
             <IconPlus />
             Add profile

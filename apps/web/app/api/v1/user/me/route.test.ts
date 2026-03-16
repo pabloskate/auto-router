@@ -292,4 +292,31 @@ describe("/api/v1/user/me route", () => {
     const body = await response.json() as { error: string };
     expect(body.error).toContain("invalid");
   });
+
+  it('PUT accepts "auto" as a profile id', async () => {
+    const db = createDbMock();
+    runtimeMock.mockReturnValue({ ROUTER_DB: db as any, BYOK_ENCRYPTION_SECRET: "1234567890abcdef" });
+    sameOriginMock.mockReturnValue(true);
+    authMock.mockResolvedValue(createAuth({ userId: "user_1" }));
+
+    const response = await PUT(
+      new Request("http://localhost/api/v1/user/me", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          profiles: [{ id: "auto", name: "Auto", models: [] }],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const bindArgs = db.__bindMock.mock.calls.at(-1) ?? [];
+    expect(JSON.parse(String(bindArgs[1]))).toEqual([
+      {
+        id: "auto",
+        name: "Auto",
+        models: [],
+      },
+    ]);
+  });
 });

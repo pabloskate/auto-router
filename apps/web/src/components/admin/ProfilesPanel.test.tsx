@@ -18,6 +18,19 @@ const GATEWAYS = [
   },
 ];
 
+const CUSTOM_GATEWAYS = [
+  {
+    id: "gw_custom",
+    name: "Custom Gateway",
+    baseUrl: "https://gateway.example.com/v1",
+    models: [
+      { id: "model/a", name: "Model A" },
+    ],
+    createdAt: "2026-03-16T00:00:00.000Z",
+    updatedAt: "2026-03-16T00:00:00.000Z",
+  },
+];
+
 describe("ProfilesPanel", () => {
   it("renders quick setup and named routing profiles", () => {
     const markup = renderToStaticMarkup(
@@ -53,5 +66,20 @@ describe("ProfilesPanel", () => {
 
     expect(markup).toContain("Routing profiles need to be rebuilt");
     expect(markup).toContain("Reset routing profiles");
+  });
+
+  it("hides quick setup when no configured gateway matches a preset provider", () => {
+    const markup = renderToStaticMarkup(
+      createElement(ProfilesPanel, {
+        profiles: [{ id: "planning-backend", name: "Planning Backend", models: [] }],
+        gateways: CUSTOM_GATEWAYS,
+        onChange: () => undefined,
+        saveState: "dirty",
+        onSave: async () => true,
+      }),
+    );
+
+    expect(markup).not.toContain("Quick setup");
+    expect(markup).toContain("Add profile");
   });
 });

@@ -14,6 +14,7 @@ export interface GatewayPreset {
 
 export const GATEWAY_PRESETS: readonly GatewayPreset[] = [
   { id: "openrouter",  name: "OpenRouter",    baseUrl: "https://openrouter.ai/api/v1" },
+  { id: "vercel",      name: "Vercel AI Gateway", baseUrl: "https://ai-gateway.vercel.sh/v1" },
   { id: "openai",      name: "OpenAI",        baseUrl: "https://api.openai.com/v1" },
   { id: "fireworks",   name: "Fireworks AI",  baseUrl: "https://api.fireworks.ai/inference/v1" },
   { id: "together",    name: "Together AI",   baseUrl: "https://api.together.xyz/v1" },

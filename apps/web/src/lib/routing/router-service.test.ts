@@ -74,7 +74,7 @@ describe("routeAndProxy", () => {
     vi.clearAllMocks();
   });
 
-  it('rejects the deprecated "auto" routing alias', async () => {
+  it('passes through the explicit "auto" model when no profile matches', async () => {
     const secret = "1234567890abcdef";
     const defaultApiKeyEnc = await encryptByokSecret({
       plaintext: "gateway-default-key",
@@ -86,6 +86,16 @@ describe("routeAndProxy", () => {
       BYOK_ENCRYPTION_SECRET: secret,
     });
     repositoryMock.mockReturnValue(repository as any);
+    upstreamMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      response: new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "ok" } }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      ),
+    });
 
     const result = await routeAndProxy({
       apiPath: "/chat/completions",
@@ -110,19 +120,160 @@ describe("routeAndProxy", () => {
             id: "gw_default",
             baseUrl: "https://gateway.example/v1",
             apiKeyEnc: defaultApiKeyEnc,
+            models: [{ id: "auto", name: "Auto Model" }],
+          },
+        ],
+      },
+    });
+
+    expect(result.response.status).toBe(200);
+    expect(classifierMock).not.toHaveBeenCalled();
+    expect(upstreamMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          model: "auto",
+        }),
+      })
+    );
+  });
+
+  it('routes through the "auto" profile when a matching profile exists', async () => {
+    const secret = "1234567890abcdef";
+    const defaultApiKeyEnc = await encryptByokSecret({
+      plaintext: "gateway-default-key",
+      secret,
+    });
+    const repository = createRepository();
+
+    runtimeMock.mockReturnValue({
+      BYOK_ENCRYPTION_SECRET: secret,
+    });
+    repositoryMock.mockReturnValue(repository as any);
+    classifierMock.mockResolvedValue({
+      selectedModel: "model/alpha",
+      confidence: 0.91,
+      signals: ["frontier_classification"],
+    });
+    upstreamMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      response: new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "ok" } }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      ),
+    });
+
+    const result = await routeAndProxy({
+      apiPath: "/chat/completions",
+      body: {
+        model: "auto",
+        messages: [{ role: "user", content: "route this" }],
+      },
+      userConfig: {
+        profiles: [
+          {
+            id: "auto",
+            name: "Auto",
+            models: [
+              { gatewayId: "gw_default", modelId: "model/alpha", name: "Alpha" },
+            ],
+            defaultModel: key("gw_default", "model/alpha"),
+            classifierModel: key("gw_default", "model/alpha"),
+          },
+        ],
+        gatewayRows: [
+          {
+            id: "gw_default",
+            baseUrl: "https://gateway.example/v1",
+            apiKeyEnc: defaultApiKeyEnc,
             models: [{ id: "model/alpha", name: "Alpha" }],
           },
         ],
       },
     });
 
-    expect(result.response.status).toBe(400);
-    await expect(result.response.json()).resolves.toEqual(
+    expect(result.response.status).toBe(200);
+    expect(classifierMock).toHaveBeenCalled();
+    expect(upstreamMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        error: expect.stringContaining("explicit profile ID"),
-      }),
+        payload: expect.objectContaining({
+          model: "model/alpha",
+        }),
+      })
     );
-    expect(classifierMock).not.toHaveBeenCalled();
+  });
+
+  it("prefers an exact profile match over a gateway model with the same id", async () => {
+    const secret = "1234567890abcdef";
+    const defaultApiKeyEnc = await encryptByokSecret({
+      plaintext: "gateway-default-key",
+      secret,
+    });
+    const repository = createRepository();
+
+    runtimeMock.mockReturnValue({
+      BYOK_ENCRYPTION_SECRET: secret,
+    });
+    repositoryMock.mockReturnValue(repository as any);
+    classifierMock.mockResolvedValue({
+      selectedModel: "model/alpha",
+      confidence: 0.88,
+      signals: ["frontier_classification"],
+    });
+    upstreamMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      response: new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "ok" } }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      ),
+    });
+
+    const result = await routeAndProxy({
+      apiPath: "/chat/completions",
+      body: {
+        model: "shared-id",
+        messages: [{ role: "user", content: "route this" }],
+      },
+      userConfig: {
+        profiles: [
+          {
+            id: "shared-id",
+            name: "Shared",
+            models: [
+              { gatewayId: "gw_default", modelId: "model/alpha", name: "Alpha" },
+            ],
+            defaultModel: key("gw_default", "model/alpha"),
+            classifierModel: key("gw_default", "model/alpha"),
+          },
+        ],
+        gatewayRows: [
+          {
+            id: "gw_default",
+            baseUrl: "https://gateway.example/v1",
+            apiKeyEnc: defaultApiKeyEnc,
+            models: [
+              { id: "shared-id", name: "Shared Id Model" },
+              { id: "model/alpha", name: "Alpha" },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(result.response.status).toBe(200);
+    expect(classifierMock).toHaveBeenCalled();
+    expect(upstreamMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          model: "model/alpha",
+        }),
+      })
+    );
   });
 
   it("uses dedicated classifier BYOK credentials when configured", async () => {

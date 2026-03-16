@@ -73,8 +73,8 @@ interface CustomModelState {
 
 const INSTRUCTION_AUTOSAVE_DEBOUNCE_MS = 2400;
 
-function createQuickSetupState(): QuickSetupState {
-  const preset = getQuickSetupPresets()[0];
+function createQuickSetupState(presets: readonly RoutingPreset[]): QuickSetupState {
+  const preset = presets[0];
   return {
     open: false,
     selectedPresetId: preset?.id ?? "",
@@ -160,7 +160,7 @@ function nextGeneratedProfileId(existing: RouterProfile[]): string {
 
 export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
   const items = normalizeProfilesForEditor(props.profiles, props.gateways);
-  const presets = getQuickSetupPresets();
+  const presets = getQuickSetupPresets(props.gateways);
   const gatewaysRef = useRef(props.gateways);
   const onSaveRef = useRef(props.onSave);
   const mountedRef = useRef(true);
@@ -170,7 +170,7 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
   const [lastTouchedProfileId, setLastTouchedProfileId] = useState<string | null>(null);
   const [lastTouchedField, setLastTouchedField] = useState<"routingInstructions" | "profile" | "model" | null>(null);
   const [autosaveSnapshot, setAutosaveSnapshot] = useState<ProfilesAutosaveSnapshot>(DEFAULT_AUTOSAVE_SNAPSHOT);
-  const [quickSetup, setQuickSetup] = useState<QuickSetupState>(createQuickSetupState);
+  const [quickSetup, setQuickSetup] = useState<QuickSetupState>(() => createQuickSetupState(presets));
   const [createProfile, setCreateProfile] = useState<CreateProfileState>(createProfileState);
   const [modelEditor, setModelEditor] = useState<ModelEditorState>(() => createModelEditorState(props.gateways));
   const [customModel, setCustomModel] = useState<CustomModelState>(() => createCustomModelState(props.gateways));
@@ -202,6 +202,20 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
       setExpandedProfileId(null);
     }
   }, [expandedProfileId, items]);
+
+  useEffect(() => {
+    setQuickSetup((current) => {
+      if (presets.some((preset) => preset.id === current.selectedPresetId)) {
+        return current;
+      }
+
+      const next = createQuickSetupState(presets);
+      return {
+        ...next,
+        open: current.open && presets.length > 0,
+      };
+    });
+  }, [presets]);
 
   function commitProfiles(nextProfiles: RouterProfile[], args?: {
     autosaveDebounceMs?: number;
@@ -264,11 +278,15 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
 
   function openQuickSetup() {
     const preset = presets[0];
+    if (!preset) {
+      return;
+    }
+
     setQuickSetup({
       open: true,
-      selectedPresetId: preset?.id ?? "",
-      profileId: preset?.id ?? "",
-      displayName: preset?.name ?? "",
+      selectedPresetId: preset.id,
+      profileId: normalizeProfileIdInput(preset.id),
+      displayName: preset.name,
       error: null,
     });
   }
