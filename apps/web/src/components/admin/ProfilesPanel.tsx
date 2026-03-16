@@ -233,6 +233,26 @@ function ProfileCard({
         </div>
       </div>
 
+      {/* Custom Routing Instructions - Critical, always visible */}
+      <div className="form-group" style={{ marginBottom: "var(--space-5)" }}>
+        <label className="form-label">
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+            <IconInfo style={{ width: 12, height: 12 } as any} />
+            Custom Routing Instructions
+          </div>
+        </label>
+        <textarea
+          className="textarea"
+          value={profile.routingInstructions || ""}
+          onChange={(e) => onUpdate(index, { routingInstructions: e.target.value || undefined })}
+          placeholder="e.g., Always prefer the cheapest model. Prioritize DeepSeek and GLM for reasoning tasks..."
+          rows={3}
+        />
+        <span className="form-hint">
+          {isRequired ? "Base routing instructions for requests sent to auto." : "Only applies to this profile. Leave blank to route from catalog hints alone."}
+        </span>
+      </div>
+
       <button
         type="button"
         className="btn btn--sm"
@@ -252,7 +272,7 @@ function ProfileCard({
           Advanced settings
         </span>
         <span style={{ color: "var(--text-muted)" }}>
-          {isExpanded ? "Hide details" : "Show model overrides, filters, and instructions"}
+          {isExpanded ? "Hide details" : "Show model overrides and filters"}
         </span>
       </button>
 
@@ -456,26 +476,6 @@ function ProfileCard({
                 <span className="form-hint">If set, only these models will be considered (restricts catalog).</span>
               </div>
             </div>
-          </div>
-
-          {/* Instructions */}
-          <div className="form-group">
-            <label className="form-label">
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                <IconInfo style={{ width: 12, height: 12 } as any} />
-                Custom Routing Instructions
-              </div>
-            </label>
-            <textarea
-              className="textarea"
-              value={profile.routingInstructions || ""}
-              onChange={(e) => onUpdate(index, { routingInstructions: e.target.value || undefined })}
-              placeholder="e.g., Always prefer the cheapest model. Prioritize DeepSeek and GLM for reasoning tasks..."
-              rows={3}
-            />
-            <span className="form-hint">
-              {isRequired ? "Base routing instructions for requests sent to auto." : "Only applies to this profile. Leave blank to route from catalog hints alone."}
-            </span>
           </div>
         </>
       )}

@@ -45,6 +45,31 @@ Important:
 - Build with OpenNext for Cloudflare and deploy worker output.
 - Ensure `ROUTER_DB` and `ROUTER_KV` are bound in the web worker.
 
+## Post-Deploy Verification
+
+Run both checks after deploying to Cloudflare:
+
+```bash
+# 1) Fail fast on remote D1 schema drift
+npm run check:schema:remote
+
+# 2) Exercise real signup + login against the deployed worker
+BASE_URL=https://your-worker.your-subdomain.workers.dev npm run verify:admin:remote
+```
+
+Notes:
+
+- `check:schema:remote` validates that the remote D1 database has the user/session/auth tables and columns the current app expects.
+- `verify:admin:remote` reuses the real-browser admin verifier and catches the exact class of failure where signup/login succeeds but the dashboard bootstrap breaks afterward.
+- If your deployment does not allow open signup, pass an existing account instead:
+
+```bash
+BASE_URL=https://your-worker.your-subdomain.workers.dev \
+VERIFY_EMAIL=you@example.com \
+VERIFY_PASSWORD='your-password' \
+npm run verify:admin:remote
+```
+
 ## Migrations
 
 When the schema changes, run migrations against your production D1 database:
