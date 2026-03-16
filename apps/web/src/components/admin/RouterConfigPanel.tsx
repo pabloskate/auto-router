@@ -6,7 +6,6 @@ import { SaveActionBar, type SaveActionState } from "./SaveActionBar";
 interface RouterConfigFields {
   defaultModel: string | null;
   classifierModel: string | null;
-  routingInstructions: string | null;
   blocklist: string[] | null;
   routeTriggerKeywords: string[] | null;
   routingFrequency: string | null;
@@ -190,7 +189,6 @@ function RoutingLogicSection({
   gatewayModelOptions: string[];
   onChange: (c: RouterConfigFields) => void;
 }) {
-  const routingInstructionsRef = useRef<HTMLTextAreaElement | null>(null);
   const [agentOpen, setAgentOpen] = useState(false);
   const allModelOptions = Array.from(
     new Set(
@@ -201,14 +199,6 @@ function RoutingLogicSection({
       ].filter((id): id is string => id.trim().length > 0)
     )
   ).sort((a, b) => a.localeCompare(b));
-
-  useEffect(() => {
-    const textarea = routingInstructionsRef.current;
-    if (!textarea) return;
-
-    textarea.style.height = "auto";
-    textarea.style.height = `${textarea.scrollHeight}px`;
-  }, [config.routingInstructions]);
 
   return (
     <div>
@@ -289,26 +279,6 @@ function RoutingLogicSection({
             Cheap, fast model for routing decisions.
           </span>
         </div>
-      </div>
-
-      <div className="form-group" style={{ marginBottom: "var(--space-5)" }}>
-        <label className="form-label">Routing Instructions</label>
-        <textarea
-          ref={routingInstructionsRef}
-          className="textarea"
-          value={config.routingInstructions || ""}
-          onChange={(e) => {
-            onChange({ ...config, routingInstructions: e.target.value });
-            e.target.style.height = "auto";
-            e.target.style.height = `${e.target.scrollHeight}px`;
-          }}
-          placeholder="e.g., Use Claude for coding tasks, GPT-4o for creative writing, and Gemini for general chat..."
-          rows={4}
-          style={{ overflow: "hidden", resize: "none" }}
-        />
-        <span className="form-hint">
-          Plain-text instructions for the classifier. Be specific about when to use each model type.
-        </span>
       </div>
 
       <div className="form-group" style={{ marginBottom: "var(--space-5)" }}>

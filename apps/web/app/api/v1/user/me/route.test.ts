@@ -80,6 +80,7 @@ describe("/api/v1/user/me route", () => {
       createAuth({
         defaultModel: "model/default",
         classifierModel: "model/classifier",
+        profiles: [{ id: "auto", name: "Auto", routingInstructions: "Use model/default for coding." }] as any,
       })
     );
 
@@ -89,6 +90,9 @@ describe("/api/v1/user/me route", () => {
     const body = await response.json() as any;
     expect(body.user.defaultModel).toBe("model/default");
     expect(body.user.classifierModel).toBe("model/classifier");
+    expect(body.user.profiles).toEqual([
+      { id: "auto", name: "Auto", routingInstructions: "Use model/default for coding." },
+    ]);
     expect(body.user.configAgentEnabled).toBeUndefined();
   });
 
@@ -129,6 +133,45 @@ describe("/api/v1/user/me route", () => {
     expect(updateSql).not.toContain("config_agent_enabled");
     expect(updateSql).not.toContain("config_agent_orchestrator_model");
     expect(updateSql).not.toContain("config_agent_search_model");
+  });
+
+  it("PUT migrates legacy routing instructions into the auto profile", async () => {
+    const db = createDbMock();
+    runtimeMock.mockReturnValue({ ROUTER_DB: db as any, BYOK_ENCRYPTION_SECRET: "1234567890abcdef" });
+    sameOriginMock.mockReturnValue(true);
+    authMock.mockResolvedValue(createAuth({ userId: "user_1" }));
+    upstreamGetMock.mockResolvedValue({
+      user_id: "user_1",
+      upstream_base_url: null,
+      upstream_api_key_enc: null,
+      classifier_base_url: null,
+      classifier_api_key_enc: null,
+      updated_at: "2026-03-11T00:00:00.000Z",
+    });
+    upstreamUpsertMock.mockResolvedValue(undefined);
+
+    const response = await PUT(
+      new Request("http://localhost/api/v1/user/me", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          preferred_models: [],
+          blocklist: [],
+          default_model: null,
+          classifier_model: null,
+          routing_instructions: "Use the cheapest model for simple tasks.",
+          custom_catalog: null,
+          profiles: [{ id: "auto", name: "Auto" }],
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const bindArgs = db.__bindMock.mock.calls.at(-1) ?? [];
+    expect(bindArgs[4]).toBeNull();
+    expect(JSON.parse(String(bindArgs[6]))).toEqual([
+      { id: "auto", name: "Auto", routingInstructions: "Use the cheapest model for simple tasks." },
+    ]);
   });
 
   it("PUT rejects profiles that omit the required auto profile", async () => {

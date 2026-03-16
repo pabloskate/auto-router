@@ -473,7 +473,9 @@ function ProfileCard({
               placeholder="e.g., Always prefer the cheapest model. Prioritize DeepSeek and GLM for reasoning tasks..."
               rows={3}
             />
-            <span className="form-hint">Replaces global routing instructions for this profile. Be specific!</span>
+            <span className="form-hint">
+              {isRequired ? "Base routing instructions for requests sent to auto." : "Only applies to this profile. Leave blank to route from catalog hints alone."}
+            </span>
           </div>
         </>
       )}

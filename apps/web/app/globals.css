@@ -24,6 +24,7 @@
   
   /* Accent Colors */
   --accent: #67e8f9;
+  --accent-foreground: #0a0a0f;
   --accent-dim: rgba(103, 232, 249, 0.16);
   --accent-glow: rgba(103, 232, 249, 0.28);
   --success: #34d399;

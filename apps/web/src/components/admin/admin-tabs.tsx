@@ -148,14 +148,13 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
           <div className="card">
             <div className="card-header">
               <h3>Global Settings</h3>
-              <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>Apply to all routing profiles unless overridden</p>
+              <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>Shared defaults for models, blocking, and re-routing behavior</p>
             </div>
             <div className="card-body">
               <RouterConfigPanel
                 config={{
                   defaultModel: ctx.user.defaultModel ?? null,
                   classifierModel: ctx.user.classifierModel ?? null,
-                  routingInstructions: ctx.user.routingInstructions ?? null,
                   blocklist: ctx.user.blocklist ?? null,
                   routeTriggerKeywords: ctx.user.routeTriggerKeywords ?? null,
                   routingFrequency: ctx.user.routingFrequency ?? null,

@@ -251,7 +251,6 @@ export function AdminShell() {
       preferred_models: updatedUser.preferredModels,
       default_model: updatedUser.defaultModel,
       classifier_model: updatedUser.classifierModel,
-      routing_instructions: updatedUser.routingInstructions,
       blocklist: updatedUser.blocklist,
       custom_catalog: updatedUser.customCatalog,
       profiles: updatedUser.profiles,

@@ -22,6 +22,7 @@
 import type { D1Database } from "../infra/cloudflare-types";
 import { AUTH } from "../constants";
 import { ensureUserUpstreamCredentialsTable } from "./user-upstream-store";
+import { mergeLegacyRoutingInstructions } from "../routing/profile-config";
 
 // Alias constants so the rest of the file reads naturally
 const SESSION_COOKIE_NAME = AUTH.SESSION_COOKIE_NAME;
@@ -110,16 +111,21 @@ function parseStringArray(value: string | null): string[] | null {
 }
 
 function rowToAuthResult(row: AuthRow): AuthResult {
+    const profiles = mergeLegacyRoutingInstructions({
+        profiles: parseJsonArray(row.profiles),
+        routingInstructions: row.routing_instructions,
+    });
+
     return {
         userId: row.user_id,
         userName: row.name,
         preferredModels: parseStringArray(row.preferred_models),
         defaultModel: row.default_model,
         classifierModel: row.classifier_model,
-        routingInstructions: row.routing_instructions,
+        routingInstructions: null,
         blocklist: parseStringArray(row.blocklist),
         customCatalog: parseJsonArray(row.custom_catalog),
-        profiles: parseJsonArray(row.profiles),
+        profiles,
         routeTriggerKeywords: parseStringArray(row.route_trigger_keywords),
         routingFrequency: row.routing_frequency,
         upstreamBaseUrl: row.upstream_base_url,

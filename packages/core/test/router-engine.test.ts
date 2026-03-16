@@ -87,6 +87,61 @@ describe("RouterEngine (LLM Router)", () => {
         expect(decision.explanation.classificationConfidence).toBe(0.9);
     });
 
+    it("uses the auto profile instructions instead of the legacy global instructions when profiles exist", async () => {
+        const mockLlmRouter = vi.fn().mockResolvedValue({
+            selectedModel: "anthropic/claude-3-opus",
+            confidence: 0.92,
+            signals: ["profile:auto"],
+        });
+
+        const engine = new RouterEngine({ llmRouter: mockLlmRouter });
+        await engine.decide({
+            requestId: "req-auto-profile-instructions",
+            request: {
+                model: "auto",
+                messages: [{ role: "user", content: "Plan this migration." }]
+            },
+            config: defaultConfig,
+            catalog,
+            catalogVersion: "v1",
+            pinStore: new MockPinStore(),
+            profiles: [
+                { id: "auto", name: "Auto", routingInstructions: "Use Claude for planning tasks." },
+            ],
+        });
+
+        const args = mockLlmRouter.mock.calls[0]?.[0] as any;
+        expect(args.routingInstructions).toBe("Use Claude for planning tasks.");
+    });
+
+    it("does not inherit shared routing instructions for named profiles without their own instructions", async () => {
+        const mockLlmRouter = vi.fn().mockResolvedValue({
+            selectedModel: "anthropic/claude-3-opus",
+            confidence: 0.84,
+            signals: ["profile:named"],
+        });
+
+        const engine = new RouterEngine({ llmRouter: mockLlmRouter });
+        await engine.decide({
+            requestId: "req-named-profile-no-inherit",
+            request: {
+                model: "auto-cheap",
+                messages: [{ role: "user", content: "Pick a cheap model." }]
+            },
+            config: defaultConfig,
+            catalog,
+            catalogVersion: "v1",
+            pinStore: new MockPinStore(),
+            profiles: [
+                { id: "auto", name: "Auto", routingInstructions: "Use Claude for planning tasks." },
+                { id: "auto-cheap", name: "Cheap", overrideModels: true, classifierModel: "openai/gpt-4o-mini" },
+            ],
+        });
+
+        const args = mockLlmRouter.mock.calls[0]?.[0] as any;
+        expect(args.routingInstructions).toBeUndefined();
+    });
+
     it("should pass responses input text to llmRouter prompt", async () => {
         const mockLlmRouter = vi.fn().mockResolvedValue({
             selectedModel: "anthropic/claude-3-opus",

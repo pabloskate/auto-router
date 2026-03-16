@@ -52,7 +52,7 @@ export interface RouterProfile {
   overrideModels?: boolean;      // When true, use profile defaultModel/classifierModel; otherwise inherit global
   defaultModel?: string;         // Fallback model override for this profile (used when overrideModels=true)
   classifierModel?: string;      // Override classifier LLM (used when overrideModels=true)
-  routingInstructions?: string;  // Replaces global routing instructions
+  routingInstructions?: string;  // Classifier instructions scoped to this profile
   blocklist?: string[];          // Additive with globalBlocklist
   catalogFilter?: string[];      // Allowlist: only route to these model IDs
 }
@@ -64,7 +64,7 @@ export interface RouterConfig {
   defaultModel?: string;
   classifierModel?: string; // The LLM to use for making routing decisions
   globalBlocklist: string[];
-  routingInstructions?: string; // Markdown instructions for the LLM
+  routingInstructions?: string; // Legacy fallback when no profile-scoped instructions exist
   cooldownTurns?: number;
   phaseCompleteSignal?: string;
   routeTriggerKeywords?: string[];       // Custom keywords that trigger re-routing (additive with built-in $$route)

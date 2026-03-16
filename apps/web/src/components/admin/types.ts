@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode } from "react";
 import { type CatalogItem } from "./CatalogEditorPanel";
 import { type RouterProfile } from "./ProfilesPanel";
 import { type SaveActionState } from "./SaveActionBar";
+import { mergeLegacyRoutingInstructions } from "@/src/lib/routing/profile-config";
 
 export type AdminSection = "configure" | "use" | "account";
 
@@ -15,7 +16,7 @@ export type ServerUserInfo = {
   preferredModels: string[];
   defaultModel: string | null;
   classifierModel: string | null;
-  routingInstructions: string | null;
+  routingInstructions?: string | null;
   blocklist: string[] | null;
   customCatalog: CatalogItem[] | null;
   profiles: RouterProfile[] | null;
@@ -23,7 +24,7 @@ export type ServerUserInfo = {
   routingFrequency: string | null;
 };
 
-export type UserInfo = ServerUserInfo;
+export type UserInfo = Omit<ServerUserInfo, "routingInstructions">;
 export type RoutingDraftState = SaveActionState;
 
 export type GatewaySummary = {
@@ -63,5 +64,12 @@ export type AdminTabDefinition = {
 };
 
 export function hydrateUser(user: ServerUserInfo): UserInfo {
-  return user;
+  const { routingInstructions: legacyRoutingInstructions, ...rest } = user;
+  return {
+    ...rest,
+    profiles: mergeLegacyRoutingInstructions({
+      profiles: user.profiles,
+      routingInstructions: legacyRoutingInstructions,
+    }),
+  };
 }

@@ -7,6 +7,7 @@ import {
     upsertUserUpstreamCredentials,
 } from "@/src/lib/auth";
 import { json, getRuntimeBindings } from "@/src/lib/infra";
+import { AUTO_PROFILE_ID, AUTO_PROFILE_NAME, mergeLegacyRoutingInstructions } from "@/src/lib/routing/profile-config";
 import { routerProfileSchema } from "@/src/lib/schemas";
 import { normalizeAndValidateUpstreamBaseUrl } from "@/src/lib/upstream";
 import { z } from "zod";
@@ -15,7 +16,7 @@ function hasOwn(body: Record<string, unknown>, key: string): boolean {
     return Object.prototype.hasOwnProperty.call(body, key);
 }
 
-function sanitizeOptionalString(value: string | undefined): string | undefined {
+function sanitizeOptionalString(value: string | null | undefined): string | undefined {
     if (typeof value !== "string") {
         return undefined;
     }
@@ -48,6 +49,39 @@ function sanitizeRouterProfile(profile: z.infer<typeof routerProfileSchema>): z.
     };
 }
 
+function upsertAutoProfileRoutingInstructions(args: {
+    profiles: z.infer<typeof routerProfileSchema>[] | null;
+    routingInstructions: string | null;
+}): z.infer<typeof routerProfileSchema>[] | null {
+    const trimmedInstructions = sanitizeOptionalString(args.routingInstructions);
+    const profilesWithAuto = mergeLegacyRoutingInstructions({
+        profiles: args.profiles,
+        routingInstructions: trimmedInstructions,
+    });
+
+    if (!profilesWithAuto) {
+        return null;
+    }
+
+    if (!trimmedInstructions) {
+        return profilesWithAuto.map((profile) =>
+            profile.id === AUTO_PROFILE_ID
+                ? { ...profile, routingInstructions: undefined, name: sanitizeOptionalString(profile.name) ?? AUTO_PROFILE_NAME }
+                : profile
+        );
+    }
+
+    return profilesWithAuto.map((profile) =>
+        profile.id === AUTO_PROFILE_ID
+            ? {
+                ...profile,
+                name: sanitizeOptionalString(profile.name) ?? AUTO_PROFILE_NAME,
+                routingInstructions: trimmedInstructions,
+            }
+            : profile
+    );
+}
+
 export async function GET(request: Request): Promise<Response> {
     const bindings = getRuntimeBindings();
     if (!bindings.ROUTER_DB) {
@@ -66,7 +100,6 @@ export async function GET(request: Request): Promise<Response> {
             preferredModels: auth.preferredModels,
             defaultModel: auth.defaultModel,
             classifierModel: auth.classifierModel,
-            routingInstructions: auth.routingInstructions,
             blocklist: auth.blocklist,
             customCatalog: auth.customCatalog,
             profiles: auth.profiles,
@@ -118,6 +151,10 @@ export async function PUT(request: Request): Promise<Response> {
         ? z.array(routerProfileSchema).safeParse(body.profiles)
         : null;
     let profiles = profilesParsed?.success ? profilesParsed.data.map(sanitizeRouterProfile) : null;
+    profiles = upsertAutoProfileRoutingInstructions({
+        profiles,
+        routingInstructions,
+    });
 
     // Enforce required "auto" profile: must exist and cannot be removed
     if (profiles !== null) {
@@ -207,7 +244,7 @@ export async function PUT(request: Request): Promise<Response> {
             blocklist.length > 0 ? JSON.stringify(blocklist) : null,
             defaultModel,
             classifierModel,
-            routingInstructions,
+            null,
             customCatalog ? JSON.stringify(customCatalog) : null,
             profiles ? JSON.stringify(profiles) : null,
             routeTriggerKeywords && routeTriggerKeywords.length > 0 ? JSON.stringify(routeTriggerKeywords) : null,

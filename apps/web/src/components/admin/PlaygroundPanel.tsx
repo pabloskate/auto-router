@@ -338,7 +338,7 @@ function ModeToggle({ routerTestMode, onChange }: { routerTestMode: boolean; onC
           gap: "6px",
           fontWeight: routerTestMode ? 600 : 400,
           background: routerTestMode ? "var(--accent)" : "transparent",
-          color: routerTestMode ? "white" : "var(--text-secondary)",
+          color: routerTestMode ? "var(--accent-foreground)" : "var(--text-secondary)",
           transition: "background 0.15s, color 0.15s",
         }}
       >
@@ -357,7 +357,7 @@ function ModeToggle({ routerTestMode, onChange }: { routerTestMode: boolean; onC
           gap: "6px",
           fontWeight: !routerTestMode ? 600 : 400,
           background: !routerTestMode ? "var(--accent)" : "transparent",
-          color: !routerTestMode ? "white" : "var(--text-secondary)",
+          color: !routerTestMode ? "var(--accent-foreground)" : "var(--text-secondary)",
           transition: "background 0.15s, color 0.15s",
         }}
       >

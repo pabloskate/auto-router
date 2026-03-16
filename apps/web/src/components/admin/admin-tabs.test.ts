@@ -12,7 +12,6 @@ const TEST_USER: UserInfo = {
   preferredModels: [],
   defaultModel: null,
   classifierModel: null,
-  routingInstructions: null,
   blocklist: null,
   customCatalog: null,
   profiles: null,
@@ -44,6 +43,7 @@ describe("admin tab registry", () => {
       "gateways",
       "routing",
       "keys",
+      "quickstart",
       "playground",
       "account",
     ]);
@@ -56,6 +56,7 @@ describe("admin tab registry", () => {
       "gateways",
       "routing",
       "keys",
+      "quickstart",
       "playground",
       "invites",
       "account",
@@ -71,7 +72,7 @@ describe("admin tab registry", () => {
     const groups = groupAdminTabsBySection(tabs);
 
     expect(groups.configure.map((tab) => tab.id)).toEqual(["gateways", "routing"]);
-    expect(groups.use.map((tab) => tab.id)).toEqual(["keys", "playground"]);
+    expect(groups.use.map((tab) => tab.id)).toEqual(["keys", "quickstart", "playground"]);
     expect(groups.account.map((tab) => tab.id)).toEqual(["invites", "account"]);
     expect(getInitialAdminTabId(tabs, "gateways")).toBe("gateways");
   });

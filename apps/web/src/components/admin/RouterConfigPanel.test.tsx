@@ -11,7 +11,6 @@ describe("RouterConfigPanel", () => {
         config: {
           defaultModel: null,
           classifierModel: null,
-          routingInstructions: null,
           blocklist: null,
           routeTriggerKeywords: null,
           routingFrequency: null,
@@ -35,7 +34,6 @@ describe("RouterConfigPanel", () => {
         config: {
           defaultModel: null,
           classifierModel: null,
-          routingInstructions: null,
           blocklist: null,
           routeTriggerKeywords: null,
           routingFrequency: null,

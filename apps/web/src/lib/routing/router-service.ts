@@ -306,7 +306,9 @@ export async function routeAndProxy(args: {
   if (args.userConfig) {
     if (args.userConfig.defaultModel) runtimeConfig.defaultModel = args.userConfig.defaultModel;
     if (args.userConfig.classifierModel) runtimeConfig.classifierModel = args.userConfig.classifierModel;
-    if (args.userConfig.routingInstructions) runtimeConfig.routingInstructions = args.userConfig.routingInstructions;
+    if (args.userConfig.routingInstructions && !(args.userConfig.profiles && args.userConfig.profiles.length > 0)) {
+      runtimeConfig.routingInstructions = args.userConfig.routingInstructions;
+    }
     if (args.userConfig.blocklist) runtimeConfig.globalBlocklist = args.userConfig.blocklist;
     if (args.userConfig.routeTriggerKeywords) runtimeConfig.routeTriggerKeywords = args.userConfig.routeTriggerKeywords;
     if (args.userConfig.routingFrequency) runtimeConfig.routingFrequency = args.userConfig.routingFrequency as RouterConfig["routingFrequency"];

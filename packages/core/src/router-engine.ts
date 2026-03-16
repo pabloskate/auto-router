@@ -50,6 +50,7 @@ export class RouterEngine {
 
     // Check if request.model matches a named user profile
     const matchedProfile = args.profiles?.find(p => p.id === requestedModel);
+    const autoProfile = args.profiles?.find(p => p.id === "auto");
 
     // Passthrough if not "auto" and not a known profile
     if (!AUTO_MODELS.has(requestedModel) && !matchedProfile) {
@@ -95,6 +96,12 @@ export class RouterEngine {
 
     // Build effective config: profile overrides apply only when overrideModels is true (or undefined for backward compat)
     const useProfileModels = matchedProfile && matchedProfile.overrideModels !== false;
+    const hasProfiles = Boolean(args.profiles && args.profiles.length > 0);
+    const effectiveRoutingInstructions = matchedProfile
+      ? matchedProfile.routingInstructions
+      : requestedModel === "auto"
+        ? autoProfile?.routingInstructions
+        : undefined;
     const effectiveConfig: RouterConfig = matchedProfile ? {
       ...args.config,
       defaultModel: useProfileModels && matchedProfile.defaultModel
@@ -103,9 +110,12 @@ export class RouterEngine {
       classifierModel: useProfileModels && matchedProfile.classifierModel
         ? matchedProfile.classifierModel
         : args.config.classifierModel,
-      routingInstructions: matchedProfile.routingInstructions ?? args.config.routingInstructions,
+      routingInstructions: effectiveRoutingInstructions ?? (!hasProfiles ? args.config.routingInstructions : undefined),
       globalBlocklist: [...args.config.globalBlocklist, ...(matchedProfile.blocklist ?? [])],
-    } : args.config;
+    } : {
+      ...args.config,
+      routingInstructions: effectiveRoutingInstructions ?? (!hasProfiles ? args.config.routingInstructions : undefined),
+    };
 
     const threadKey = buildThreadFingerprint({
       messages,
