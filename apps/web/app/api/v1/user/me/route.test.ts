@@ -4,7 +4,6 @@ import type { AuthResult } from "@/src/lib/auth";
 import {
   authenticateSession,
   getUserUpstreamCredentials,
-  hasUsersSmartPinTurnsColumn,
   isSameOriginRequest,
   upsertUserUpstreamCredentials,
   withCsrf,
@@ -47,10 +46,10 @@ function createAuth(overrides: Partial<AuthResult> = {}): AuthResult {
     routingInstructions: null,
     blocklist: null,
     customCatalog: null,
-    profiles: null,
+    profiles: [{ id: "auto", name: "Auto", models: [] }],
     routeTriggerKeywords: null,
     routingFrequency: null,
-    smartPinTurns: null,
+    routingConfigRequiresReset: false,
     upstreamBaseUrl: null,
     upstreamApiKeyEnc: null,
     classifierBaseUrl: null,
@@ -73,7 +72,6 @@ function createDbMock() {
 describe("/api/v1/user/me route", () => {
   const runtimeMock = vi.mocked(getRuntimeBindings);
   const authMock = vi.mocked(authenticateSession);
-  const hasUsersSmartPinTurnsColumnMock = vi.mocked(hasUsersSmartPinTurnsColumn);
   const sameOriginMock = vi.mocked(isSameOriginRequest);
   const upstreamGetMock = vi.mocked(getUserUpstreamCredentials);
   const upstreamUpsertMock = vi.mocked(upsertUserUpstreamCredentials);
@@ -96,46 +94,43 @@ describe("/api/v1/user/me route", () => {
       }
       return handler();
     });
-    hasUsersSmartPinTurnsColumnMock.mockResolvedValue(true);
+    upstreamGetMock.mockResolvedValue({
+      user_id: "user_1",
+      upstream_base_url: null,
+      upstream_api_key_enc: null,
+      classifier_base_url: null,
+      classifier_api_key_enc: null,
+      updated_at: "2026-03-11T00:00:00.000Z",
+    });
+    upstreamUpsertMock.mockResolvedValue(undefined);
   });
 
-  it("GET includes routing fields", async () => {
+  it("GET omits removed legacy routing fields and surfaces reset metadata", async () => {
     runtimeMock.mockReturnValue({ ROUTER_DB: {} as any });
     authMock.mockResolvedValue(
       createAuth({
-        defaultModel: "model/default",
-        classifierModel: "model/classifier",
-        profiles: [{ id: "auto", name: "Auto", routingInstructions: "Use model/default for coding." }] as any,
-      })
+        profiles: null,
+        routingConfigRequiresReset: true,
+      }),
     );
 
     const response = await GET(new Request("http://localhost/api/v1/user/me"));
     expect(response.status).toBe(200);
 
     const body = await response.json() as any;
-    expect(body.user.defaultModel).toBe("model/default");
-    expect(body.user.classifierModel).toBe("model/classifier");
-    expect(body.user.profiles).toEqual([
-      { id: "auto", name: "Auto", routingInstructions: "Use model/default for coding." },
-    ]);
-    expect(body.user.smartPinTurns).toBeNull();
-    expect(body.user.configAgentEnabled).toBeUndefined();
+    expect(body.user.profiles).toBeNull();
+    expect(body.user.routingConfigRequiresReset).toBe(true);
+    expect(body.user.routingConfigResetMessage).toContain("Legacy routing settings");
+    expect(body.user.defaultModel).toBeUndefined();
+    expect(body.user.classifierModel).toBeUndefined();
+    expect(body.user.blocklist).toBeUndefined();
   });
 
-  it("PUT persists routing fields without config-agent columns", async () => {
+  it("PUT persists only the new profile-centric routing payload and clears legacy routing columns", async () => {
     const db = createDbMock();
     runtimeMock.mockReturnValue({ ROUTER_DB: db as any, BYOK_ENCRYPTION_SECRET: "1234567890abcdef" });
     sameOriginMock.mockReturnValue(true);
     authMock.mockResolvedValue(createAuth({ userId: "user_1" }));
-    upstreamGetMock.mockResolvedValue({
-      user_id: "user_1",
-      upstream_base_url: null,
-      upstream_api_key_enc: null,
-      classifier_base_url: null,
-      classifier_api_key_enc: null,
-      updated_at: "2026-03-11T00:00:00.000Z",
-    });
-    upstreamUpsertMock.mockResolvedValue(undefined);
 
     const response = await PUT(
       new Request("http://localhost/api/v1/user/me", {
@@ -143,237 +138,90 @@ describe("/api/v1/user/me route", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           preferred_models: [],
-          blocklist: [],
-          default_model: null,
-          classifier_model: null,
-          routing_instructions: null,
-          custom_catalog: null,
-          profiles: null,
-          smart_pin_turns: 5,
-        }),
-      })
-    );
-
-    expect(response.status).toBe(200);
-    const updateSql = db.prepare.mock.calls.find((entry: [string]) => entry[0].includes("UPDATE users"))?.[0] ?? "";
-    expect(updateSql).not.toContain("show_model_in_response");
-    expect(updateSql).not.toContain("config_agent_enabled");
-    expect(updateSql).not.toContain("config_agent_orchestrator_model");
-    expect(updateSql).not.toContain("config_agent_search_model");
-    const bindArgs = db.__bindMock.mock.calls.at(-1) ?? [];
-    expect(bindArgs[9]).toBe(5);
-  });
-
-  it("PUT omits smart_pin_turns when the users table has not been migrated", async () => {
-    const db = createDbMock();
-    runtimeMock.mockReturnValue({ ROUTER_DB: db as any, BYOK_ENCRYPTION_SECRET: "1234567890abcdef" });
-    sameOriginMock.mockReturnValue(true);
-    authMock.mockResolvedValue(createAuth({ userId: "user_1" }));
-    hasUsersSmartPinTurnsColumnMock.mockResolvedValue(false);
-    upstreamGetMock.mockResolvedValue({
-      user_id: "user_1",
-      upstream_base_url: null,
-      upstream_api_key_enc: null,
-      classifier_base_url: null,
-      classifier_api_key_enc: null,
-      updated_at: "2026-03-11T00:00:00.000Z",
-    });
-    upstreamUpsertMock.mockResolvedValue(undefined);
-
-    const response = await PUT(
-      new Request("http://localhost/api/v1/user/me", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          preferred_models: [],
-          blocklist: [],
-          default_model: null,
-          classifier_model: null,
-          routing_instructions: null,
-          custom_catalog: null,
-          profiles: null,
+          profiles: [
+            {
+              id: "auto",
+              name: "Auto",
+              models: [
+                {
+                  gatewayId: "gw_openrouter",
+                  modelId: "anthropic/claude-sonnet-4.6",
+                  name: "Claude Sonnet 4.6",
+                },
+              ],
+              defaultModel: "gw_openrouter::anthropic/claude-sonnet-4.6",
+              classifierModel: "gw_openrouter::anthropic/claude-sonnet-4.6",
+            },
+          ],
           route_trigger_keywords: ["reroute"],
           routing_frequency: "smart",
           smart_pin_turns: 5,
         }),
-      })
+      }),
     );
 
     expect(response.status).toBe(200);
     const updateSql = db.prepare.mock.calls.find((entry: [string]) => entry[0].includes("UPDATE users"))?.[0] ?? "";
-    expect(updateSql).not.toContain("smart_pin_turns");
+    expect(updateSql).toContain("default_model = NULL");
+    expect(updateSql).toContain("classifier_model = NULL");
+    expect(updateSql).toContain("routing_instructions = NULL");
+    expect(updateSql).toContain("blocklist = NULL");
     const bindArgs = db.__bindMock.mock.calls.at(-1) ?? [];
-    expect(bindArgs).toHaveLength(11);
-    expect(bindArgs[9]).toMatch(/T/);
-    expect(bindArgs[10]).toBe("user_1");
-  });
-
-  it("PUT migrates legacy routing instructions into the auto profile", async () => {
-    const db = createDbMock();
-    runtimeMock.mockReturnValue({ ROUTER_DB: db as any, BYOK_ENCRYPTION_SECRET: "1234567890abcdef" });
-    sameOriginMock.mockReturnValue(true);
-    authMock.mockResolvedValue(createAuth({ userId: "user_1" }));
-    upstreamGetMock.mockResolvedValue({
-      user_id: "user_1",
-      upstream_base_url: null,
-      upstream_api_key_enc: null,
-      classifier_base_url: null,
-      classifier_api_key_enc: null,
-      updated_at: "2026-03-11T00:00:00.000Z",
-    });
-    upstreamUpsertMock.mockResolvedValue(undefined);
-
-    const response = await PUT(
-      new Request("http://localhost/api/v1/user/me", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          preferred_models: [],
-          blocklist: [],
-          default_model: null,
-          classifier_model: null,
-          routing_instructions: "Use the cheapest model for simple tasks.",
-          custom_catalog: null,
-          profiles: [{ id: "auto", name: "Auto" }],
-          smart_pin_turns: 3,
-        }),
-      })
-    );
-
-    expect(response.status).toBe(200);
-    const bindArgs = db.__bindMock.mock.calls.at(-1) ?? [];
-    expect(bindArgs[4]).toBeNull();
-    expect(JSON.parse(String(bindArgs[6]))).toEqual([
-      { id: "auto", name: "Auto", routingInstructions: "Use the cheapest model for simple tasks." },
+    expect(JSON.parse(String(bindArgs[1]))).toEqual([
+      {
+        id: "auto",
+        name: "Auto",
+        models: [
+          {
+            gatewayId: "gw_openrouter",
+            modelId: "anthropic/claude-sonnet-4.6",
+            name: "Claude Sonnet 4.6",
+          },
+        ],
+        defaultModel: "gw_openrouter::anthropic/claude-sonnet-4.6",
+        classifierModel: "gw_openrouter::anthropic/claude-sonnet-4.6",
+      },
     ]);
   });
 
-  it("PUT rejects profiles that omit the required auto profile", async () => {
-    const db = createDbMock();
-    runtimeMock.mockReturnValue({ ROUTER_DB: db as any });
+  it("PUT rejects removed legacy routing fields", async () => {
+    runtimeMock.mockReturnValue({ ROUTER_DB: {} as any });
     sameOriginMock.mockReturnValue(true);
     authMock.mockResolvedValue(createAuth({ userId: "user_1" }));
-    upstreamGetMock.mockResolvedValue({
-      user_id: "user_1",
-      upstream_base_url: null,
-      upstream_api_key_enc: null,
-      classifier_base_url: null,
-      classifier_api_key_enc: null,
-      updated_at: "2026-03-11T00:00:00.000Z",
-    });
 
     const response = await PUT(
       new Request("http://localhost/api/v1/user/me", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          preferred_models: [],
-          blocklist: [],
-          default_model: null,
-          classifier_model: null,
-          routing_instructions: null,
-          custom_catalog: null,
-          profiles: [{ id: "auto-cheap", name: "Cheap Auto" }],
+          profiles: [{ id: "auto", name: "Auto", models: [] }],
+          default_model: "legacy/default",
         }),
-      })
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json() as { error: string };
+    expect(body.error).toContain("Legacy routing fields");
+  });
+
+  it("PUT rejects profiles that omit the required auto profile", async () => {
+    runtimeMock.mockReturnValue({ ROUTER_DB: {} as any });
+    sameOriginMock.mockReturnValue(true);
+    authMock.mockResolvedValue(createAuth({ userId: "user_1" }));
+
+    const response = await PUT(
+      new Request("http://localhost/api/v1/user/me", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          profiles: [{ id: "auto-cheap", name: "Cheap Auto", models: [] }],
+        }),
+      }),
     );
 
     expect(response.status).toBe(400);
     const body = await response.json() as { error: string };
     expect(body.error).toContain("auto");
-    expect(body.error).toContain("required");
-  });
-
-  it("PUT accepts profiles that include the auto profile", async () => {
-    const db = createDbMock();
-    runtimeMock.mockReturnValue({ ROUTER_DB: db as any });
-    sameOriginMock.mockReturnValue(true);
-    authMock.mockResolvedValue(createAuth({ userId: "user_1" }));
-    upstreamGetMock.mockResolvedValue({
-      user_id: "user_1",
-      upstream_base_url: null,
-      upstream_api_key_enc: null,
-      classifier_base_url: null,
-      classifier_api_key_enc: null,
-      updated_at: "2026-03-11T00:00:00.000Z",
-    });
-
-    const response = await PUT(
-      new Request("http://localhost/api/v1/user/me", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          preferred_models: [],
-          blocklist: [],
-          default_model: null,
-          classifier_model: null,
-          routing_instructions: null,
-          custom_catalog: null,
-          profiles: [
-            { id: "auto", name: "Auto" },
-            { id: "auto-cheap", name: "Cheap Auto", overrideModels: true, defaultModel: "model/cheap" },
-          ],
-        }),
-      })
-    );
-
-    expect(response.status).toBe(200);
-    expect(db.__bindMock).toHaveBeenCalled();
-  });
-
-  it("PUT normalizes blank profile model override fields before persisting", async () => {
-    const db = createDbMock();
-    runtimeMock.mockReturnValue({ ROUTER_DB: db as any });
-    sameOriginMock.mockReturnValue(true);
-    authMock.mockResolvedValue(createAuth({ userId: "user_1" }));
-    upstreamGetMock.mockResolvedValue({
-      user_id: "user_1",
-      upstream_base_url: null,
-      upstream_api_key_enc: null,
-      classifier_base_url: null,
-      classifier_api_key_enc: null,
-      updated_at: "2026-03-11T00:00:00.000Z",
-    });
-
-    const response = await PUT(
-      new Request("http://localhost/api/v1/user/me", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          preferred_models: [],
-          blocklist: [],
-          default_model: "global/fallback",
-          classifier_model: "global/classifier",
-          routing_instructions: null,
-          custom_catalog: null,
-          profiles: [
-            { id: "auto", name: "Auto", defaultModel: "", classifierModel: "   " },
-            {
-              id: "auto-cheap",
-              name: "Cheap Auto",
-              overrideModels: true,
-              defaultModel: "",
-              classifierModel: "   ",
-              blocklist: ["", " model/blocked ", "   "],
-              catalogFilter: ["", " model/allowed ", "   "],
-            },
-          ],
-        }),
-      })
-    );
-
-    expect(response.status).toBe(200);
-    const bindArgs = db.__bindMock.mock.calls.at(-1) ?? [];
-    const persistedProfiles = JSON.parse(String(bindArgs[6])) as Array<Record<string, unknown>>;
-    expect(persistedProfiles).toEqual([
-      { id: "auto", name: "Auto" },
-      {
-        id: "auto-cheap",
-        name: "Cheap Auto",
-        overrideModels: true,
-        blocklist: ["model/blocked"],
-        catalogFilter: ["model/allowed"],
-      },
-    ]);
   });
 });

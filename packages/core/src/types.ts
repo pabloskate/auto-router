@@ -45,16 +45,25 @@ export interface ProfileWeights {
   reliability: number;
 }
 
+export interface RouterProfileModel {
+  gatewayId?: string;           // Selected gateway owner. Missing means the draft is unresolved.
+  modelId: string;              // Upstream model ID, e.g. "anthropic/claude-sonnet-4.6"
+  name?: string;                // Optional profile-local label override
+  modality?: string;
+  thinking?: ReasoningPreset;
+  reasoningPreset?: ReasoningPreset;
+  whenToUse?: string;
+  description?: string;
+}
+
 export interface RouterProfile {
   id: string;                    // Client-facing model name, e.g. "auto-cheap"
   name: string;                  // Display name for UI
   description?: string;          // Shown in /v1/models and admin UI
-  overrideModels?: boolean;      // When true, use profile defaultModel/classifierModel; otherwise inherit global
-  defaultModel?: string;         // Fallback model override for this profile (used when overrideModels=true)
-  classifierModel?: string;      // Override classifier LLM (used when overrideModels=true)
+  defaultModel?: string;         // Gateway-bound fallback selection key for this profile
+  classifierModel?: string;      // Gateway-bound classifier selection key for this profile
   routingInstructions?: string;  // Classifier instructions scoped to this profile
-  blocklist?: string[];          // Additive with globalBlocklist
-  catalogFilter?: string[];      // Allowlist: only route to these model IDs
+  models?: RouterProfileModel[]; // Authoritative routed pool for this profile
 }
 
 export type RoutingFrequency = "every_message" | "smart" | "new_thread_only";
@@ -76,6 +85,7 @@ export interface LlmRoutingResult {
   selectedModel: string;
   confidence: number;
   signals: string[];
+  rerouteAfterTurns?: number;
 }
 
 export interface ChatMessage {
@@ -118,6 +128,8 @@ export interface ThreadPin {
   pinnedAt: string;
   expiresAt: string;
   turnCount: number;
+  rerouteAfterTurns?: number;
+  budgetSource?: "classifier" | "default";
 }
 
 export interface PinStore {
@@ -151,6 +163,10 @@ export interface RoutingExplanation {
   classifierBaseUrl?: string;
   classifierGatewayId?: string;
   pinBypassReason?: string;
+  pinRerouteAfterTurns?: number;
+  pinBudgetSource?: "classifier" | "default";
+  pinConsumedUserTurns?: number;
+  isAgentLoop?: boolean;
 }
 
 export interface RouteDecision {
@@ -166,6 +182,8 @@ export interface RouteDecision {
   fallbackModels: string[];
   shouldPin: boolean;
   pinTurnCount?: number;
+  pinRerouteAfterTurns?: number;
+  pinBudgetSource?: "classifier" | "default";
   routingError?: string;
 }
 

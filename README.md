@@ -73,10 +73,12 @@ npm run dev -w @custom-router/web
 2. Set `BYOK_ENCRYPTION_SECRET` and add a gateway in the admin console.
 3. Open `http://localhost:3000/admin`.
 4. Create an account, add a gateway, generate an API key, and call `/api/v1` with `model: "auto"`.
+5. For endpoint-level usage, request payloads, and admin routes, see [Usage Guide](docs/usage.md).
 
 ## Self-Host Docs
 
 - [Quickstart](docs/quickstart.md)
+- [Usage Guide](docs/usage.md)
 - [Local dev troubleshooting](docs/local-dev-troubleshooting.md)
 - [Cloudflare deployment](docs/deployment-cloudflare.md)
 - [Open-core boundary](docs/open-core.md)

@@ -19,16 +19,12 @@ export async function buildUserRouterConfig(args: {
   return {
     preferredModels: args.auth.preferredModels,
     customCatalog: args.auth.customCatalog,
-    defaultModel: args.auth.defaultModel,
-    classifierModel: args.auth.classifierModel,
-    routingInstructions: args.auth.routingInstructions,
-    blocklist: args.auth.blocklist,
     profiles: args.auth.profiles,
     gatewayRows,
     classifierBaseUrl: args.auth.classifierBaseUrl,
     classifierApiKeyEnc: args.auth.classifierApiKeyEnc,
     routeTriggerKeywords: args.auth.routeTriggerKeywords,
     routingFrequency: args.auth.routingFrequency,
-    smartPinTurns: args.auth.smartPinTurns,
+    routingConfigRequiresReset: args.auth.routingConfigRequiresReset,
   };
 }

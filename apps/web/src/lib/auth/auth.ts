@@ -22,7 +22,7 @@
 import type { D1Database } from "../infra/cloudflare-types";
 import { AUTH } from "../constants";
 import { ensureUserUpstreamCredentialsTable } from "./user-upstream-store";
-import { mergeLegacyRoutingInstructions } from "../routing/profile-config";
+import { ensureAutoProfile, hasLegacyRoutingConfig } from "../routing/profile-config";
 
 // Alias constants so the rest of the file reads naturally
 const SESSION_COOKIE_NAME = AUTH.SESSION_COOKIE_NAME;
@@ -63,7 +63,7 @@ export interface AuthResult {
     profiles: any[] | null;  // RouterProfile[] — named routing configurations
     routeTriggerKeywords: string[] | null;
     routingFrequency: string | null;
-    smartPinTurns: number | null;
+    routingConfigRequiresReset: boolean;
     upstreamBaseUrl: string | null;
     upstreamApiKeyEnc: string | null;
     classifierBaseUrl: string | null;
@@ -119,10 +119,16 @@ function parseStringArray(value: string | null): string[] | null {
 }
 
 function rowToAuthResult(row: AuthRow): AuthResult {
-    const profiles = mergeLegacyRoutingInstructions({
-        profiles: parseJsonArray(row.profiles),
+    const rawProfiles = parseJsonArray(row.profiles);
+    const blocklist = parseStringArray(row.blocklist);
+    const routingConfigRequiresReset = hasLegacyRoutingConfig({
+        defaultModel: row.default_model,
+        classifierModel: row.classifier_model,
         routingInstructions: row.routing_instructions,
+        blocklist,
+        profiles: rawProfiles,
     });
+    const profiles = routingConfigRequiresReset ? null : ensureAutoProfile(rawProfiles as any);
 
     return {
         userId: row.user_id,
@@ -131,12 +137,12 @@ function rowToAuthResult(row: AuthRow): AuthResult {
         defaultModel: row.default_model,
         classifierModel: row.classifier_model,
         routingInstructions: null,
-        blocklist: parseStringArray(row.blocklist),
+        blocklist,
         customCatalog: parseJsonArray(row.custom_catalog),
         profiles,
         routeTriggerKeywords: parseStringArray(row.route_trigger_keywords),
         routingFrequency: row.routing_frequency,
-        smartPinTurns: typeof row.smart_pin_turns === "number" ? row.smart_pin_turns : null,
+        routingConfigRequiresReset,
         upstreamBaseUrl: row.upstream_base_url,
         upstreamApiKeyEnc: row.upstream_api_key_enc,
         classifierBaseUrl: row.classifier_base_url,

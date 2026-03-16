@@ -165,14 +165,17 @@ export function AdminShell() {
     setStatus,
     error,
     setError,
-    gatewayModelOptions,
-    routingDraftState,
-    markRoutingDirty,
+    gateways,
+    reroutingDraftState,
+    profilesDraftState,
+    markReroutingDirty,
+    markProfilesDirty,
     registrationMode,
     loadData,
     handleLogout,
     saveUserData,
-    saveRoutingData,
+    saveReroutingData,
+    saveProfilesData,
   } = useAdminData();
   const [activeTab, setActiveTab] = useState("gateways");
 
@@ -180,14 +183,17 @@ export function AdminShell() {
     ? getBaseAdminTabs({
         setUser,
         keys,
-        gatewayModelOptions,
+        gateways,
         reloadData: loadData,
         setStatus,
         setError,
         saveUserData,
-        routingDraftState,
-        markRoutingDirty,
-        saveRoutingData,
+        reroutingDraftState,
+        profilesDraftState,
+        markReroutingDirty,
+        markProfilesDirty,
+        saveReroutingData,
+        saveProfilesData,
         registrationMode,
       })
     : [];
@@ -229,9 +235,12 @@ export function AdminShell() {
               setStatus,
               setError,
               saveUserData,
-              routingDraftState,
-              markRoutingDirty,
-              saveRoutingData,
+              reroutingDraftState,
+              profilesDraftState,
+              markReroutingDirty,
+              markProfilesDirty,
+              saveReroutingData,
+              saveProfilesData,
             })}
           </>
         )}

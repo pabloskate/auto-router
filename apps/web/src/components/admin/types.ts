@@ -2,10 +2,10 @@ import type { ComponentType, ReactNode } from "react";
 
 import { type SaveActionState } from "./SaveActionBar";
 import type { UserInfo } from "@/src/features/account-settings/contracts";
-import type { GatewaySummary } from "@/src/features/gateways/contracts";
+import type { GatewayInfo } from "@/src/features/gateways/contracts";
 
 export type { ServerUserInfo, UserInfo, hydrateUser } from "@/src/features/account-settings/contracts";
-export type { GatewaySummary } from "@/src/features/gateways/contracts";
+export type { GatewayInfo } from "@/src/features/gateways/contracts";
 
 export type AdminSection = "configure" | "use" | "account";
 
@@ -26,9 +26,12 @@ export type AdminExtensionContext = {
   setStatus: (message: string) => void;
   setError: (message?: string) => void;
   saveUserData: (updates: Partial<UserInfo>) => Promise<boolean>;
-  routingDraftState: RoutingDraftState;
-  markRoutingDirty: () => void;
-  saveRoutingData: (updates: Partial<UserInfo>) => Promise<boolean>;
+  reroutingDraftState: RoutingDraftState;
+  profilesDraftState: RoutingDraftState;
+  markReroutingDirty: () => void;
+  markProfilesDirty: () => void;
+  saveReroutingData: (updates: Partial<UserInfo>) => Promise<boolean>;
+  saveProfilesData: (updates: Partial<UserInfo>) => Promise<boolean>;
 };
 
 export type AdminTabDefinition = {

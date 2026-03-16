@@ -134,7 +134,7 @@ describe("RouterEngine (LLM Router)", () => {
             pinStore: new MockPinStore(),
             profiles: [
                 { id: "auto", name: "Auto", routingInstructions: "Use Claude for planning tasks." },
-                { id: "auto-cheap", name: "Cheap", overrideModels: true, classifierModel: "openai/gpt-4o-mini" },
+                { id: "auto-cheap", name: "Cheap", classifierModel: "openai/gpt-4o-mini" },
             ],
         });
 
@@ -320,7 +320,7 @@ describe("RouterEngine (LLM Router)", () => {
         expect(decision.explanation.decisionReason).toBe("thread_pin");
     });
 
-    it("keeps the pin in tool-enabled continuation threads", async () => {
+    it("re-evaluates on user continuations even when tools are available", async () => {
         const mockLlmRouter = vi.fn().mockResolvedValue({
             selectedModel: "openai/gpt-4o",
             confidence: 0.95,
@@ -359,14 +359,13 @@ describe("RouterEngine (LLM Router)", () => {
             pinStore
         });
 
-        expect(mockLlmRouter).not.toHaveBeenCalled();
-        expect(decision.pinUsed).toBe(true);
-        expect(decision.selectedModel).toBe("anthropic/claude-3-opus");
-        expect(decision.explanation.decisionReason).toBe("thread_pin");
-        expect(decision.explanation.notes).toContain("Reused pinned model from thread: anthropic/claude-3-opus. Turn count: 2 -> 3");
+        expect(mockLlmRouter).toHaveBeenCalledOnce();
+        expect(decision.pinUsed).toBe(false);
+        expect(decision.selectedModel).toBe("openai/gpt-4o");
+        expect(decision.explanation.pinBypassReason).toBe("smart_pin_turn_limit");
     });
 
-    it("keeps the pin for non-tool continuation requests", async () => {
+    it("re-evaluates once the next user continuation would exhaust the smart budget", async () => {
         const mockLlmRouter = vi.fn().mockResolvedValue({
             selectedModel: "openai/gpt-4o",
             confidence: 0.95,
@@ -405,27 +404,26 @@ describe("RouterEngine (LLM Router)", () => {
             pinStore
         });
 
-        expect(mockLlmRouter).not.toHaveBeenCalled();
-        expect(decision.pinUsed).toBe(true);
-        expect(decision.selectedModel).toBe("anthropic/claude-3-opus");
-        expect(decision.explanation.decisionReason).toBe("thread_pin");
-        expect(decision.explanation.notes).toContain("Reused pinned model from thread: anthropic/claude-3-opus. Turn count: 2 -> 3");
+        expect(mockLlmRouter).toHaveBeenCalledOnce();
+        expect(decision.pinUsed).toBe(false);
+        expect(decision.selectedModel).toBe("openai/gpt-4o");
+        expect(decision.explanation.pinBypassReason).toBe("smart_pin_turn_limit");
     });
 
-    it("should use profile defaultModel when overrideModels is true and matched profile has defaultModel", async () => {
-        const mockLlmRouter = vi.fn().mockResolvedValue({ selectedModel: "anthropic/claude-3-opus", confidence: 0.9, signals: [] });
+    it("uses the supplied config fallback for named profiles when the classifier does not return a model", async () => {
+        const mockLlmRouter = vi.fn().mockResolvedValue(null);
         const engine = new RouterEngine({ llmRouter: mockLlmRouter });
 
         const decision = await engine.decide({
             requestId: "req-profile-override",
             request: { model: "auto-cheap", messages: [] },
-            config: defaultConfig,
+            config: { ...defaultConfig, defaultModel: "anthropic/claude-3-opus" },
             catalog,
             catalogVersion: "v1",
             pinStore: new MockPinStore(),
             profiles: [
                 { id: "auto", name: "Auto" },
-                { id: "auto-cheap", name: "Cheap", overrideModels: true, defaultModel: "anthropic/claude-3-opus" },
+                { id: "auto-cheap", name: "Cheap", defaultModel: "anthropic/claude-3-opus" },
             ],
         });
 
@@ -433,7 +431,7 @@ describe("RouterEngine (LLM Router)", () => {
         expect(decision.explanation.profileId).toBe("auto-cheap");
     });
 
-    it("should use global defaultModel when profile has overrideModels false even if profile has defaultModel", async () => {
+    it("ignores profile-local defaultModel metadata inside RouterEngine and uses the resolved config fallback", async () => {
         const mockLlmRouter = vi.fn().mockResolvedValue(null);
         const engine = new RouterEngine({ llmRouter: mockLlmRouter });
 
@@ -446,7 +444,7 @@ describe("RouterEngine (LLM Router)", () => {
             pinStore: new MockPinStore(),
             profiles: [
                 { id: "auto", name: "Auto" },
-                { id: "auto-cheap", name: "Cheap", overrideModels: false, defaultModel: "anthropic/claude-3-opus" },
+                { id: "auto-cheap", name: "Cheap", defaultModel: "anthropic/claude-3-opus" },
             ],
         });
 
@@ -491,6 +489,71 @@ describe("RouterEngine (LLM Router)", () => {
         expect(mockLlmRouter).toHaveBeenCalledOnce();
         expect(decision.pinUsed).toBe(false);
         expect(decision.selectedModel).toBe("openai/gpt-4o");
+        expect(decision.explanation.pinBypassReason).toBe("smart_pin_turn_limit");
+    });
+
+    it("stores the classifier-selected reroute budget for new smart pins", async () => {
+        const mockLlmRouter = vi.fn().mockResolvedValue({
+            selectedModel: "openai/gpt-4o",
+            confidence: 0.82,
+            signals: ["planning"],
+            rerouteAfterTurns: 2,
+        });
+
+        const engine = new RouterEngine({ llmRouter: mockLlmRouter });
+        const decision = await engine.decide({
+            requestId: "req-smart-budget",
+            request: { model: "auto", messages: [{ role: "user", content: "Plan this migration." }] },
+            config: defaultConfig,
+            catalog,
+            catalogVersion: "v1",
+            pinStore: new MockPinStore(),
+        });
+
+        expect(decision.pinRerouteAfterTurns).toBe(2);
+        expect(decision.pinBudgetSource).toBe("classifier");
+        expect(decision.pinTurnCount).toBeUndefined();
+        expect(decision.explanation.pinConsumedUserTurns).toBe(0);
+    });
+
+    it("reroutes on the next user continuation when the smart pin budget is one", async () => {
+        const mockLlmRouter = vi.fn().mockResolvedValue({
+            selectedModel: "openai/gpt-4o",
+            confidence: 0.86,
+            signals: ["budget:1"],
+        });
+
+        const engine = new RouterEngine({ llmRouter: mockLlmRouter });
+        const pinStore = new MockPinStore();
+        const messages: RouterRequestLike["messages"] = [
+            { role: "user", content: "Plan this task" },
+            { role: "assistant", content: "Here is the plan." },
+            { role: "user", content: "Now implement it." },
+        ];
+        const threadKey = buildThreadFingerprint({ messages });
+
+        await pinStore.set({
+            threadKey,
+            modelId: "anthropic/claude-3-opus",
+            requestId: "old-req",
+            pinnedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 10000).toISOString(),
+            turnCount: 0,
+            rerouteAfterTurns: 1,
+            budgetSource: "classifier",
+        });
+
+        const decision = await engine.decide({
+            requestId: "req-smart-budget-one",
+            request: { model: "auto", messages },
+            config: defaultConfig,
+            catalog,
+            catalogVersion: "v1",
+            pinStore,
+        });
+
+        expect(mockLlmRouter).toHaveBeenCalledOnce();
+        expect(decision.pinUsed).toBe(false);
         expect(decision.explanation.pinBypassReason).toBe("smart_pin_turn_limit");
     });
 
@@ -577,11 +640,11 @@ describe("RouterEngine (LLM Router)", () => {
         expect(decision.explanation.pinBypassReason).toBe("routing_frequency_every_message");
     });
 
-    it("new_thread_only mode suppresses force-route and keeps pin", async () => {
+    it("new_thread_only mode honors force-route and re-evaluates", async () => {
         const mockLlmRouter = vi.fn().mockResolvedValue({
             selectedModel: "openai/gpt-4o",
             confidence: 0.9,
-            signals: ["should_not_run"],
+            signals: ["forced_in_new_thread_only"],
         });
 
         const engine = new RouterEngine({ llmRouter: mockLlmRouter });
@@ -612,12 +675,10 @@ describe("RouterEngine (LLM Router)", () => {
             pinStore,
         });
 
-        expect(mockLlmRouter).not.toHaveBeenCalled();
-        expect(decision.pinUsed).toBe(true);
-        expect(decision.selectedModel).toBe("anthropic/claude-3-opus");
-        expect(decision.explanation.notes).toEqual(
-            expect.arrayContaining([expect.stringContaining("ignored")])
-        );
+        expect(mockLlmRouter).toHaveBeenCalledOnce();
+        expect(decision.pinUsed).toBe(false);
+        expect(decision.selectedModel).toBe("openai/gpt-4o");
+        expect(decision.explanation.pinBypassReason).toBe("force_route");
     });
 
     it("new_thread_only mode routes normally on a new thread", async () => {
@@ -715,10 +776,10 @@ describe("RouterEngine (LLM Router)", () => {
             pinStore
         });
 
-        // The agent loop logic should bypass llm router entirely, keep the pin, increment turnCount
+        // Agent loops should keep the pin without consuming the user-turn budget.
         expect(decision.pinUsed).toBe(true);
         expect(decision.selectedModel).toBe("anthropic/claude-3-opus");
         expect(decision.explanation.decisionReason).toBe("thread_pin");
-        expect(decision.pinTurnCount).toBe(11); // 10 + 1
+        expect(decision.pinTurnCount).toBe(10);
     });
 });

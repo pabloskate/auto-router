@@ -16,6 +16,8 @@ export async function pinSelectedModel(args: {
   requestId: string;
   selectedModel: string;
   pinTurnCount?: number;
+  pinRerouteAfterTurns?: number;
+  pinBudgetSource?: "classifier" | "default";
 }) {
   if (!args.shouldPin) {
     return;
@@ -25,7 +27,9 @@ export async function pinSelectedModel(args: {
     threadKey: args.threadKey,
     modelId: args.selectedModel,
     requestId: args.requestId,
-    turnCount: args.pinTurnCount ?? 1,
+    turnCount: args.pinTurnCount ?? 0,
+    rerouteAfterTurns: args.pinRerouteAfterTurns,
+    budgetSource: args.pinBudgetSource,
   });
   await args.repository.getPinStore().set(pin);
 }

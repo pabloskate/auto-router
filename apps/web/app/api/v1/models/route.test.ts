@@ -27,7 +27,7 @@ function createAuth(overrides: Partial<AuthResult> = {}): AuthResult {
     profiles: null,
     routeTriggerKeywords: null,
     routingFrequency: null,
-    smartPinTurns: null,
+    routingConfigRequiresReset: false,
     upstreamBaseUrl: null,
     upstreamApiKeyEnc: null,
     classifierBaseUrl: null,

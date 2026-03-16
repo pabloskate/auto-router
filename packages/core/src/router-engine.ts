@@ -18,6 +18,7 @@ import {
 } from "./types";
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
+const DEFAULT_SMART_PIN_TURNS = 3;
 
 export interface RouterEngineOptions {
   pinTtlMs?: number;
@@ -48,9 +49,9 @@ export class RouterEngine {
     const messages = args.request.messages ?? [];
     const tools = args.request.tools ?? [];
 
-    // Check if request.model matches a named user profile
-    const matchedProfile = args.profiles?.find(p => p.id === requestedModel);
-    const autoProfile = args.profiles?.find(p => p.id === "auto");
+    const matchedProfile = AUTO_MODELS.has(requestedModel)
+      ? args.profiles?.find((profile) => profile.id === "auto")
+      : args.profiles?.find((profile) => profile.id === requestedModel);
 
     // Passthrough if not "auto" and not a known profile
     if (!AUTO_MODELS.has(requestedModel) && !matchedProfile) {
@@ -94,27 +95,10 @@ export class RouterEngine {
       };
     }
 
-    // Build effective config: profile overrides apply only when overrideModels is true (or undefined for backward compat)
-    const useProfileModels = matchedProfile && matchedProfile.overrideModels !== false;
-    const hasProfiles = Boolean(args.profiles && args.profiles.length > 0);
-    const effectiveRoutingInstructions = matchedProfile
-      ? matchedProfile.routingInstructions
-      : requestedModel === "auto"
-        ? autoProfile?.routingInstructions
-        : undefined;
-    const effectiveConfig: RouterConfig = matchedProfile ? {
+    const hasProfiles = Boolean(args.profiles?.length);
+    const effectiveConfig: RouterConfig = {
       ...args.config,
-      defaultModel: useProfileModels && matchedProfile.defaultModel
-        ? matchedProfile.defaultModel
-        : args.config.defaultModel,
-      classifierModel: useProfileModels && matchedProfile.classifierModel
-        ? matchedProfile.classifierModel
-        : args.config.classifierModel,
-      routingInstructions: effectiveRoutingInstructions ?? (!hasProfiles ? args.config.routingInstructions : undefined),
-      globalBlocklist: [...args.config.globalBlocklist, ...(matchedProfile.blocklist ?? [])],
-    } : {
-      ...args.config,
-      routingInstructions: effectiveRoutingInstructions ?? (!hasProfiles ? args.config.routingInstructions : undefined),
+      routingInstructions: matchedProfile?.routingInstructions ?? (!hasProfiles ? args.config.routingInstructions : undefined),
     };
 
     const threadKey = buildThreadFingerprint({
@@ -130,12 +114,13 @@ export class RouterEngine {
       previousResponseId: args.request.previous_response_id
     });
     const routingFrequency = effectiveConfig.routingFrequency ?? "smart";
-    const smartPinTurns = effectiveConfig.smartPinTurns ?? effectiveConfig.cooldownTurns ?? 3;
+    const defaultSmartPinTurns = effectiveConfig.smartPinTurns ?? effectiveConfig.cooldownTurns ?? DEFAULT_SMART_PIN_TURNS;
     const forceRoute = hasForceRouteRequest({
       messages,
       input: args.request.input,
       triggerKeywords: effectiveConfig.routeTriggerKeywords,
     });
+    const isLoop = isAgentLoop(messages);
 
     const threadHasImage = hasImagePayload(messages);
     let allowedCatalog = args.catalog;
@@ -148,24 +133,6 @@ export class RouterEngine {
       }
     }
 
-    // Apply profile catalogFilter (allowlist of model IDs)
-    if (matchedProfile?.catalogFilter && matchedProfile.catalogFilter.length > 0) {
-      const filterSet = new Set(matchedProfile.catalogFilter);
-      const filtered = allowedCatalog.filter(m => filterSet.has(m.id));
-      if (filtered.length > 0) {
-        allowedCatalog = filtered;
-      }
-    }
-
-    // Apply globalBlocklist (including any profile-specific blocklist entries)
-    if (effectiveConfig.globalBlocklist.length > 0) {
-      const blockSet = new Set(effectiveConfig.globalBlocklist);
-      const unblocked = allowedCatalog.filter(m => !blockSet.has(m.id));
-      if (unblocked.length > 0) {
-        allowedCatalog = unblocked;
-      }
-    }
-
     let selectedModel = effectiveConfig.defaultModel ?? "";
     let pinUsed = false;
     let decisionReason: RouteDecision["explanation"]["decisionReason"] = "initial_route";
@@ -175,9 +142,12 @@ export class RouterEngine {
     let pinBypassReason: string | undefined;
     let routingError: string | undefined;
     let shouldPin = true;
+    let pinRerouteAfterTurns: number | undefined;
+    let pinBudgetSource: "classifier" | "default" | undefined;
+    let pinConsumedUserTurns = 0;
 
     if (matchedProfile) {
-      notes.push(`Routed via named profile: ${matchedProfile.id}`);
+      notes.push(`Routed via profile: ${matchedProfile.id}`);
     }
 
     let activePin: ThreadPin | null = null;
@@ -191,22 +161,22 @@ export class RouterEngine {
         notes.push("Force route directive detected but routing frequency is 'every message' — classifier runs every turn regardless.");
       }
     } else if (routingFrequency === "new_thread_only") {
-      // Only route on new threads — always use pin on continuations, suppress force-route
+      // Only route on new threads by default, but still honor explicit force-route triggers.
       if (forceRoute) {
-        notes.push("Force route directive detected but ignored — routing frequency is set to 'new thread only'.");
-      }
-      if (isContinuation) {
+        notes.push("Force route directive detected in latest user message. Bypassing thread pin even though routing frequency is 'new thread only'.");
+        pinBypassReason = "force_route";
+      } else if (isContinuation) {
         activePin = await args.pinStore.get(threadKey);
         if (activePin) {
-          const isLoop = isAgentLoop(messages);
           const exists = allowedCatalog.some(m => m.id === activePin!.modelId);
           if (exists) {
             selectedModel = activePin.modelId;
             pinUsed = true;
             decisionReason = "thread_pin";
-            pinTurnCount = activePin.turnCount + 1;
+            pinTurnCount = isLoop ? activePin.turnCount : activePin.turnCount + 1;
+            pinConsumedUserTurns = pinTurnCount;
             notes.push(
-              `Reused pinned model from thread: ${activePin.modelId}. Turn count: ${activePin.turnCount} -> ${pinTurnCount}${isLoop ? " (Agent Loop detected)" : ""
+              `Reused pinned model from thread: ${activePin.modelId}. User-turn count: ${activePin.turnCount} -> ${pinTurnCount}${isLoop ? " (Agent Loop detected; count unchanged)" : ""
               }`
             );
           } else {
@@ -236,20 +206,23 @@ export class RouterEngine {
         activePin = await args.pinStore.get(threadKey);
 
         if (activePin) {
-          const isLoop = isAgentLoop(messages);
           const exists = allowedCatalog.some(m => m.id === activePin!.modelId);
           if (exists) {
-            if (isLoop || activePin.turnCount < smartPinTurns) {
+            const activeBudget = activePin.rerouteAfterTurns ?? defaultSmartPinTurns;
+            pinRerouteAfterTurns = activeBudget;
+            pinBudgetSource = activePin.budgetSource ?? "default";
+            if (isLoop || activePin.turnCount + 1 < activeBudget) {
               selectedModel = activePin.modelId;
               pinUsed = true;
               decisionReason = "thread_pin";
-              pinTurnCount = activePin.turnCount + 1;
+              pinTurnCount = isLoop ? activePin.turnCount : activePin.turnCount + 1;
+              pinConsumedUserTurns = pinTurnCount;
               notes.push(
-                `Reused pinned model from thread: ${activePin.modelId}. Turn count: ${activePin.turnCount} -> ${pinTurnCount}${isLoop ? " (Agent Loop detected)" : ""
+                `Reused pinned model from thread: ${activePin.modelId}. User-turn count: ${activePin.turnCount} -> ${pinTurnCount}${isLoop ? " (Agent Loop detected; count unchanged)" : ""
                 }`
               );
             } else {
-              notes.push(`Smart pin limit reached (${activePin.turnCount} >= ${smartPinTurns}). Re-evaluating router.`);
+              notes.push(`Smart pin limit reached (${activePin.turnCount + 1} would reach ${activeBudget}). Re-evaluating router.`);
               pinBypassReason = "smart_pin_turn_limit";
             }
           } else {
@@ -281,7 +254,8 @@ export class RouterEngine {
             prompt,
             catalog: allowedCatalog,
             routingInstructions: effectiveConfig.routingInstructions,
-            classifierModel: effectiveConfig.classifierModel
+            classifierModel: effectiveConfig.classifierModel,
+            currentModel: activePin?.modelId,
           });
 
           if (result && result.selectedModel) {
@@ -291,11 +265,17 @@ export class RouterEngine {
               selectedModel = result.selectedModel;
               confidence = result.confidence;
               signals = result.signals;
+              pinRerouteAfterTurns = result.rerouteAfterTurns ?? defaultSmartPinTurns;
+              pinBudgetSource = result.rerouteAfterTurns ? "classifier" : "default";
+              pinConsumedUserTurns = 0;
               notes.push(`LLM router selected: ${result.selectedModel}`);
             } else {
               notes.push(`LLM router returned invalid model: ${result.selectedModel}`);
               if (effectiveConfig.defaultModel) {
                 selectedModel = effectiveConfig.defaultModel;
+                pinRerouteAfterTurns = defaultSmartPinTurns;
+                pinBudgetSource = "default";
+                pinConsumedUserTurns = 0;
               } else {
                 routingError = "classifier_returned_invalid_model_without_fallback";
                 selectedModel = "";
@@ -303,6 +283,9 @@ export class RouterEngine {
             }
           } else {
             if (effectiveConfig.defaultModel) {
+              pinRerouteAfterTurns = defaultSmartPinTurns;
+              pinBudgetSource = "default";
+              pinConsumedUserTurns = 0;
               notes.push(`LLM router failed or returned no result. Using configured fallback.`);
             } else {
               notes.push("LLM router failed or returned no result and no fallback model is configured.");
@@ -311,6 +294,9 @@ export class RouterEngine {
           }
         } catch (error) {
           if (effectiveConfig.defaultModel) {
+            pinRerouteAfterTurns = defaultSmartPinTurns;
+            pinBudgetSource = "default";
+            pinConsumedUserTurns = 0;
             notes.push(`LLM router exploded: ${(error as Error).message}. Using configured fallback.`);
           } else {
             notes.push(`LLM router exploded: ${(error as Error).message}. No fallback model is configured.`);
@@ -319,6 +305,9 @@ export class RouterEngine {
         }
       } else {
         if (effectiveConfig.defaultModel) {
+          pinRerouteAfterTurns = defaultSmartPinTurns;
+          pinBudgetSource = "default";
+          pinConsumedUserTurns = 0;
           notes.push("No LLM router configured. Using configured fallback model.");
         } else {
           notes.push("No LLM router configured and no fallback model is configured.");
@@ -354,6 +343,8 @@ export class RouterEngine {
       fallbackModels,
       shouldPin,
       pinTurnCount,
+      pinRerouteAfterTurns: routingFrequency === "smart" ? pinRerouteAfterTurns ?? defaultSmartPinTurns : undefined,
+      pinBudgetSource: routingFrequency === "smart" ? pinBudgetSource ?? "default" : undefined,
       explanation: {
         requestId: args.requestId,
         createdAt: now.toISOString(),
@@ -363,12 +354,16 @@ export class RouterEngine {
         threadKey,
         isContinuation,
         pinUsed,
+        isAgentLoop: isLoop,
         selectedModel,
         decisionReason,
         fallbackChain: fallbackModels,
         notes,
         profileId: matchedProfile?.id,
         pinBypassReason,
+        pinRerouteAfterTurns: routingFrequency === "smart" ? pinRerouteAfterTurns ?? defaultSmartPinTurns : undefined,
+        pinBudgetSource: routingFrequency === "smart" ? pinBudgetSource ?? "default" : undefined,
+        pinConsumedUserTurns: routingFrequency === "smart" ? pinConsumedUserTurns : undefined,
       },
       routingError,
     };
@@ -379,6 +374,8 @@ export class RouterEngine {
     modelId: string;
     requestId: string;
     turnCount?: number;
+    rerouteAfterTurns?: number;
+    budgetSource?: "classifier" | "default";
     now?: Date;
   }): ThreadPin {
     const now = args.now ?? new Date();
@@ -390,7 +387,9 @@ export class RouterEngine {
       requestId: args.requestId,
       pinnedAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
-      turnCount: args.turnCount ?? 1
+      turnCount: args.turnCount ?? 0,
+      rerouteAfterTurns: args.rerouteAfterTurns,
+      budgetSource: args.budgetSource,
     };
   }
 }

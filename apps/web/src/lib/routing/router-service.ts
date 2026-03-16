@@ -27,6 +27,7 @@ import {
 } from "@/src/features/routing/server/router-attempts";
 import { resolveClassifierContext } from "@/src/features/routing/server/router-classifier-context";
 import {
+  buildRoutingExplanation,
   buildClassifierFailureMessage,
   createRouterEngine,
 } from "@/src/features/routing/server/router-decision";
@@ -116,6 +117,26 @@ export async function routeAndProxy(args: {
   });
   const pinStore = repository.getPinStore();
 
+  if (routedRequest && catalog.length === 0) {
+    const message = args.userConfig?.routingConfigRequiresReset
+      ? "Legacy routing settings were detected. Rebuild your routing profiles in the admin console."
+      : `Routing profile "${matchedProfile?.id ?? "auto"}" has no resolved models configured.`;
+    const explanation = buildRoutingExplanation({
+      requestId,
+      catalogVersion: "1.0",
+      requestedModel,
+      message,
+      profileId: matchedProfile?.id,
+    });
+    persistExplanation(repository, explanation);
+    return {
+      requestId,
+      response: json({ error: message, request_id: requestId }, 400, {
+        "x-router-request-id": requestId,
+      }),
+    };
+  }
+
   const classifierResolution = await resolveClassifierContext({
     requestId,
     requestedModel,
@@ -202,6 +223,10 @@ export async function routeAndProxy(args: {
       isContinuation: decision.explanation.isContinuation,
       pinUsed: decision.explanation.pinUsed,
       latencyMs: decideLatencyMs,
+      pinRerouteAfterTurns: decision.explanation.pinRerouteAfterTurns,
+      pinBudgetSource: decision.explanation.pinBudgetSource,
+      pinConsumedUserTurns: decision.explanation.pinConsumedUserTurns,
+      isAgentLoop: decision.explanation.isAgentLoop,
     };
     return {
       requestId,
@@ -265,6 +290,8 @@ export async function routeAndProxy(args: {
       requestId,
       selectedModel: attempt.modelId,
       pinTurnCount: decision.pinTurnCount,
+      pinRerouteAfterTurns: decision.pinRerouteAfterTurns,
+      pinBudgetSource: decision.pinBudgetSource,
     });
     persistExplanation(repository, explanation);
 

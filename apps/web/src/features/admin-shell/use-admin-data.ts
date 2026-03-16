@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import type { RegistrationMode } from "@/src/lib/constants";
 import { hydrateUser, type ServerUserInfo, type UserInfo } from "@/src/features/account-settings/contracts";
-import type { GatewaySummary } from "@/src/features/gateways/contracts";
+import type { GatewayInfo } from "@/src/features/gateways/contracts";
 import type { ApiKeyInfo, RoutingDraftState } from "@/src/components/admin/types";
 
 export function useAdminData() {
@@ -13,8 +13,9 @@ export function useAdminData() {
   const [keys, setKeys] = useState<ApiKeyInfo[]>([]);
   const [status, setStatus] = useState("Loading...");
   const [error, setError] = useState<string | undefined>();
-  const [gatewayModelOptions, setGatewayModelOptions] = useState<string[]>([]);
-  const [routingDraftState, setRoutingDraftState] = useState<RoutingDraftState>("pristine");
+  const [gateways, setGateways] = useState<GatewayInfo[]>([]);
+  const [reroutingDraftState, setReroutingDraftState] = useState<RoutingDraftState>("pristine");
+  const [profilesDraftState, setProfilesDraftState] = useState<RoutingDraftState>("pristine");
   const [registrationMode, setRegistrationMode] = useState<RegistrationMode>("closed");
 
   async function loadData() {
@@ -32,6 +33,7 @@ export function useAdminData() {
       setIsAuthenticated(false);
       setUser(null);
       setKeys([]);
+      setGateways([]);
       setStatus("Please log in");
       return;
     }
@@ -46,17 +48,10 @@ export function useAdminData() {
     const keysData = await keysRes.json() as { keys: ApiKeyInfo[] };
 
     if (gatewaysRes.ok) {
-      const gatewaysData = await gatewaysRes.json() as { gateways?: GatewaySummary[] };
-      const modelIds = Array.from(
-        new Set(
-          (gatewaysData.gateways ?? [])
-            .flatMap((gateway) => gateway.models.map((model) => model.id))
-            .filter(Boolean),
-        ),
-      ).sort((left, right) => left.localeCompare(right));
-      setGatewayModelOptions(modelIds);
+      const gatewaysData = await gatewaysRes.json() as { gateways?: GatewayInfo[] };
+      setGateways(gatewaysData.gateways ?? []);
     } else {
-      setGatewayModelOptions([]);
+      setGateways([]);
     }
 
     if (registrationRes.ok) {
@@ -69,7 +64,8 @@ export function useAdminData() {
     setUser(hydrateUser(userData.user));
     setKeys(keysData.keys);
     setIsAuthenticated(true);
-    setRoutingDraftState("pristine");
+    setReroutingDraftState("pristine");
+    setProfilesDraftState("pristine");
     setStatus("Ready");
   }
 
@@ -82,12 +78,18 @@ export function useAdminData() {
     setIsAuthenticated(false);
     setUser(null);
     setKeys([]);
-    setRoutingDraftState("pristine");
+    setGateways([]);
+    setReroutingDraftState("pristine");
+    setProfilesDraftState("pristine");
     setStatus("Logged out");
   }
 
-  function markRoutingDirty() {
-    setRoutingDraftState((current) => (current === "dirty" ? current : "dirty"));
+  function markReroutingDirty() {
+    setReroutingDraftState((current) => (current === "dirty" ? current : "dirty"));
+  }
+
+  function markProfilesDirty() {
+    setProfilesDraftState((current) => (current === "dirty" ? current : "dirty"));
   }
 
   async function saveUserData(updates: Partial<UserInfo>) {
@@ -101,14 +103,10 @@ export function useAdminData() {
     const updatedUser = { ...user, ...updates };
     const payload: Record<string, unknown> = {
       preferred_models: updatedUser.preferredModels,
-      default_model: updatedUser.defaultModel,
-      classifier_model: updatedUser.classifierModel,
-      blocklist: updatedUser.blocklist,
       custom_catalog: updatedUser.customCatalog,
       profiles: updatedUser.profiles,
       route_trigger_keywords: updatedUser.routeTriggerKeywords,
       routing_frequency: updatedUser.routingFrequency,
-      smart_pin_turns: updatedUser.smartPinTurns,
     };
 
     const response = await fetch("/api/v1/user/me", {
@@ -123,15 +121,23 @@ export function useAdminData() {
       return true;
     }
 
-    setError("Failed to save changes");
+    const responsePayload = await response.json().catch(() => ({ error: "Failed to save changes" })) as { error?: string };
+    setError(responsePayload.error ?? "Failed to save changes");
     setStatus("Error");
     return false;
   }
 
-  async function saveRoutingData(updates: Partial<UserInfo>) {
-    setRoutingDraftState("saving");
+  async function saveReroutingData(updates: Partial<UserInfo>) {
+    setReroutingDraftState("saving");
     const saved = await saveUserData(updates);
-    setRoutingDraftState(saved ? "saved" : "dirty");
+    setReroutingDraftState(saved ? "saved" : "dirty");
+    return saved;
+  }
+
+  async function saveProfilesData(updates: Partial<UserInfo>) {
+    setProfilesDraftState("saving");
+    const saved = await saveUserData(updates);
+    setProfilesDraftState(saved ? "saved" : "dirty");
     return saved;
   }
 
@@ -144,13 +150,16 @@ export function useAdminData() {
     setStatus,
     error,
     setError,
-    gatewayModelOptions,
-    routingDraftState,
-    markRoutingDirty,
+    gateways,
+    reroutingDraftState,
+    profilesDraftState,
+    markReroutingDirty,
+    markProfilesDirty,
     registrationMode,
     loadData,
     handleLogout,
     saveUserData,
-    saveRoutingData,
+    saveReroutingData,
+    saveProfilesData,
   };
 }

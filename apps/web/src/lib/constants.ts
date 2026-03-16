@@ -107,6 +107,12 @@ export const CLASSIFIER = {
   MAX_TOKENS: 600,
 } as const;
 
+export const SMART_PIN = {
+  MIN_USER_TURNS: 1,
+  MAX_USER_TURNS: 6,
+  DEFAULT_USER_TURNS: 3,
+} as const;
+
 // ── Router Data Cache ────────────────────────────────────────────────────────
 //
 // In-worker cache TTLs for repository reads. These reduce D1/KV round-trips

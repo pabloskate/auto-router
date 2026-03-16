@@ -6,6 +6,7 @@ import { ProfilesPanel, type RouterProfile } from "./ProfilesPanel";
 import { RouterConfigPanel } from "./RouterConfigPanel";
 import { type AdminExtensionContext, type AdminTabDefinition, type ApiKeyInfo, type RoutingDraftState, type UserInfo } from "./types";
 import { GatewayPanel } from "@/src/features/gateways/components/GatewayPanel";
+import type { GatewayInfo, GatewayModel } from "@/src/features/gateways/contracts";
 import { PlaygroundPanel } from "@/src/features/playground/PlaygroundPanel";
 import { QuickstartPanel } from "@/src/features/routing-quickstart/QuickstartPanel";
 import { type RegistrationMode } from "@/src/lib/constants";
@@ -13,14 +14,17 @@ import { type RegistrationMode } from "@/src/lib/constants";
 type BaseAdminTabsArgs = {
   setUser: Dispatch<SetStateAction<UserInfo | null>>;
   keys: ApiKeyInfo[];
-  gatewayModelOptions: string[];
+  gateways: GatewayInfo[];
   reloadData: () => Promise<void>;
   setStatus: (message: string) => void;
   setError: (message?: string) => void;
   saveUserData: (updates: Partial<UserInfo>) => Promise<boolean>;
-  routingDraftState: RoutingDraftState;
-  markRoutingDirty: () => void;
-  saveRoutingData: (updates: Partial<UserInfo>) => Promise<boolean>;
+  reroutingDraftState: RoutingDraftState;
+  profilesDraftState: RoutingDraftState;
+  markReroutingDirty: () => void;
+  markProfilesDirty: () => void;
+  saveReroutingData: (updates: Partial<UserInfo>) => Promise<boolean>;
+  saveProfilesData: (updates: Partial<UserInfo>) => Promise<boolean>;
   registrationMode: RegistrationMode;
 };
 
@@ -104,7 +108,7 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
       label: "Gateways",
       section: "configure",
       title: "Gateways",
-      subtitle: "Register upstream API providers and assign models to each gateway",
+      subtitle: "Register upstream API providers and keep their inventories in sync",
       order: 100,
       icon: IconGateway,
       render: (ctx: AdminExtensionContext) => (
@@ -115,22 +119,6 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
               void args.reloadData();
             }}
             onError={(message) => args.setError(message)}
-            existingProfileIds={(ctx.user.profiles ?? []).map((p) => p.id)}
-            onApplyRoutingPreset={async (preset) => {
-              const newProfile: RouterProfile = {
-                id: preset.id,
-                name: preset.name,
-                description: preset.description,
-                overrideModels: true,
-                defaultModel: preset.defaultModel,
-                classifierModel: preset.classifierModel,
-                routingInstructions: preset.routingInstructions,
-                catalogFilter: preset.models.map((m) => m.id),
-              };
-              const updatedProfiles = [...(ctx.user.profiles ?? []), newProfile];
-              args.setUser((current) => current ? { ...current, profiles: updatedProfiles } : current);
-              return args.saveRoutingData({ profiles: updatedProfiles });
-            }}
           />
         </div>
       ),
@@ -153,20 +141,15 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
             <div className="card-body">
               <RouterConfigPanel
                 config={{
-                  defaultModel: ctx.user.defaultModel ?? null,
-                  classifierModel: ctx.user.classifierModel ?? null,
-                  blocklist: ctx.user.blocklist ?? null,
                   routeTriggerKeywords: ctx.user.routeTriggerKeywords ?? null,
                   routingFrequency: ctx.user.routingFrequency ?? null,
-                  smartPinTurns: ctx.user.smartPinTurns ?? null,
                 }}
-                gatewayModelOptions={args.gatewayModelOptions}
                 onChange={(updated) => {
                   args.setUser((current) => (current ? { ...current, ...updated } : current));
-                  args.markRoutingDirty();
+                  args.markReroutingDirty();
                 }}
-                saveState={ctx.routingDraftState}
-                onSave={ctx.saveRoutingData}
+                saveState={ctx.reroutingDraftState}
+                onSave={ctx.saveReroutingData}
               />
             </div>
           </div>
@@ -178,13 +161,58 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
             <div className="card-body">
               <ProfilesPanel
                 profiles={ctx.user.profiles ?? null}
-                gatewayModelOptions={args.gatewayModelOptions}
+                gateways={args.gateways}
                 onChange={(profiles) => {
                   args.setUser((current) => (current ? { ...current, profiles } : current));
-                  args.markRoutingDirty();
+                  args.markProfilesDirty();
                 }}
-                saveState={ctx.routingDraftState}
-                onSave={() => ctx.saveRoutingData({})}
+                saveState={ctx.profilesDraftState}
+                onSave={() => ctx.saveProfilesData({})}
+                routingConfigRequiresReset={ctx.user.routingConfigRequiresReset}
+                routingConfigResetMessage={ctx.user.routingConfigResetMessage}
+                onResetLegacyConfig={async () => {
+                  const resetProfiles: RouterProfile[] = [{ id: "auto", name: "Auto", models: [] }];
+                  args.setUser((current) => current ? {
+                    ...current,
+                    profiles: resetProfiles,
+                    routingConfigRequiresReset: false,
+                    routingConfigResetMessage: null,
+                  } : current);
+                  args.markProfilesDirty();
+                  await ctx.saveProfilesData({
+                    profiles: resetProfiles,
+                    routingConfigRequiresReset: false,
+                    routingConfigResetMessage: null,
+                  });
+                }}
+                onCreateGatewayModel={async (gatewayId, model) => {
+                  const gateway = args.gateways.find((entry) => entry.id === gatewayId);
+                  if (!gateway) {
+                    args.setError("Gateway not found.");
+                    return null;
+                  }
+
+                  if (gateway.models.some((entry) => entry.id === model.id)) {
+                    args.setError(`Model "${model.id}" already exists in this gateway.`);
+                    return null;
+                  }
+
+                  const models: GatewayModel[] = [...gateway.models, model].sort((left, right) => left.id.localeCompare(right.id));
+                  const response = await fetch(`/api/v1/user/gateways/${gatewayId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ models }),
+                  });
+                  const payload = await response.json().catch(() => ({ error: "Failed to save gateway model." })) as { error?: string };
+                  if (!response.ok) {
+                    args.setError(payload.error ?? "Failed to save gateway model.");
+                    return null;
+                  }
+
+                  await args.reloadData();
+                  args.setStatus(`Added ${model.id} to ${gateway.name}.`);
+                  return model;
+                }}
               />
             </div>
           </div>

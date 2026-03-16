@@ -2,16 +2,47 @@ import { z } from "zod";
 
 const reasoningPresetSchema = z.enum(["none", "minimal", "low", "medium", "high", "xhigh"]);
 
+export const routerProfileModelSchema = z.object({
+  gatewayId: z.string().optional(),
+  modelId: z.string().min(1),
+  name: z.string().max(200).optional(),
+  modality: z.string().optional(),
+  thinking: reasoningPresetSchema.optional(),
+  reasoningPreset: reasoningPresetSchema.optional(),
+  whenToUse: z.string().optional(),
+  description: z.string().optional(),
+});
+
 export const routerProfileSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
-  overrideModels: z.boolean().optional(),
   defaultModel: z.string().optional(),
   classifierModel: z.string().optional(),
   routingInstructions: z.string().optional(),
-  blocklist: z.array(z.string()).optional(),
-  catalogFilter: z.array(z.string()).optional(),
+  models: z.array(routerProfileModelSchema).optional(),
+}).superRefine((profile, ctx) => {
+  const seenModelIds = new Set<string>();
+  for (const [index, model] of (profile.models ?? []).entries()) {
+    const normalizedId = model.modelId.trim();
+    if (!normalizedId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Model ID is required.",
+        path: ["models", index, "modelId"],
+      });
+      continue;
+    }
+
+    if (seenModelIds.has(normalizedId)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Duplicate profile model "${normalizedId}" is not allowed.`,
+        path: ["models", index, "modelId"],
+      });
+    }
+    seenModelIds.add(normalizedId);
+  }
 });
 
 const categoryWeightsSchema = z.object({

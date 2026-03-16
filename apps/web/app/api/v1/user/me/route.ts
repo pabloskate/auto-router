@@ -1,286 +1,249 @@
 import {
-    encryptByokSecret,
-    getUserUpstreamCredentials,
-    hasUsersSmartPinTurnsColumn,
-    resolveByokEncryptionSecret,
-    upsertUserUpstreamCredentials,
-    withCsrf,
-    withSessionAuth,
+  encryptByokSecret,
+  getUserUpstreamCredentials,
+  resolveByokEncryptionSecret,
+  upsertUserUpstreamCredentials,
+  withCsrf,
+  withSessionAuth,
 } from "@/src/lib/auth";
 import { json } from "@/src/lib/infra";
-import { AUTO_PROFILE_ID, AUTO_PROFILE_NAME, mergeLegacyRoutingInstructions } from "@/src/lib/routing/profile-config";
+import {
+  AUTO_PROFILE_ID,
+  AUTO_PROFILE_NAME,
+  ensureAutoProfile,
+  normalizeProfile,
+  normalizeProfileModel,
+} from "@/src/lib/routing/profile-config";
 import { routerProfileSchema } from "@/src/lib/schemas";
 import { normalizeAndValidateUpstreamBaseUrl } from "@/src/lib/upstream";
 import { z } from "zod";
 
+const LEGACY_ROUTING_RESET_MESSAGE =
+  "Legacy routing settings were detected. Rebuild your routing profiles from scratch to continue.";
+
 function hasOwn(body: Record<string, unknown>, key: string): boolean {
-    return Object.prototype.hasOwnProperty.call(body, key);
+  return Object.prototype.hasOwnProperty.call(body, key);
 }
 
 function sanitizeOptionalString(value: string | null | undefined): string | undefined {
-    if (typeof value !== "string") {
-        return undefined;
-    }
+  if (typeof value !== "string") {
+    return undefined;
+  }
 
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-}
-
-function sanitizeOptionalStringArray(values: string[] | undefined): string[] | undefined {
-    if (!Array.isArray(values)) {
-        return undefined;
-    }
-
-    const sanitized = values
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0);
-
-    return sanitized.length > 0 ? sanitized : undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }
 
 function sanitizeRouterProfile(profile: z.infer<typeof routerProfileSchema>): z.infer<typeof routerProfileSchema> {
-    return {
-        ...profile,
-        description: sanitizeOptionalString(profile.description),
-        defaultModel: sanitizeOptionalString(profile.defaultModel),
-        classifierModel: sanitizeOptionalString(profile.classifierModel),
-        routingInstructions: sanitizeOptionalString(profile.routingInstructions),
-        blocklist: sanitizeOptionalStringArray(profile.blocklist),
-        catalogFilter: sanitizeOptionalStringArray(profile.catalogFilter),
-    };
+  const normalized = normalizeProfile(profile);
+
+  return {
+    ...normalized,
+    name: normalized.id === AUTO_PROFILE_ID
+      ? sanitizeOptionalString(normalized.name) ?? AUTO_PROFILE_NAME
+      : normalized.name,
+    models: (normalized.models ?? []).map((model) => ({
+      ...normalizeProfileModel(model),
+      modelId: sanitizeOptionalString(model.modelId) ?? "",
+      gatewayId: sanitizeOptionalString(model.gatewayId),
+      name: sanitizeOptionalString(model.name),
+      modality: sanitizeOptionalString(model.modality),
+      whenToUse: sanitizeOptionalString(model.whenToUse),
+      description: sanitizeOptionalString(model.description),
+    })),
+  };
 }
 
-function upsertAutoProfileRoutingInstructions(args: {
-    profiles: z.infer<typeof routerProfileSchema>[] | null;
-    routingInstructions: string | null;
-}): z.infer<typeof routerProfileSchema>[] | null {
-    const trimmedInstructions = sanitizeOptionalString(args.routingInstructions);
-    const profilesWithAuto = mergeLegacyRoutingInstructions({
-        profiles: args.profiles,
-        routingInstructions: trimmedInstructions,
-    });
+function hasMeaningfulLegacyRoutingField(body: Record<string, unknown>): boolean {
+  if (typeof body.default_model === "string" && body.default_model.trim().length > 0) {
+    return true;
+  }
 
-    if (!profilesWithAuto) {
-        return null;
-    }
+  if (typeof body.classifier_model === "string" && body.classifier_model.trim().length > 0) {
+    return true;
+  }
 
-    if (!trimmedInstructions) {
-        return profilesWithAuto.map((profile) =>
-            profile.id === AUTO_PROFILE_ID
-                ? { ...profile, routingInstructions: undefined, name: sanitizeOptionalString(profile.name) ?? AUTO_PROFILE_NAME }
-                : profile
-        );
-    }
+  if (typeof body.routing_instructions === "string" && body.routing_instructions.trim().length > 0) {
+    return true;
+  }
 
-    return profilesWithAuto.map((profile) =>
-        profile.id === AUTO_PROFILE_ID
-            ? {
-                ...profile,
-                name: sanitizeOptionalString(profile.name) ?? AUTO_PROFILE_NAME,
-                routingInstructions: trimmedInstructions,
-            }
-            : profile
-    );
+  if (Array.isArray(body.blocklist)) {
+    return body.blocklist.some((value) => typeof value === "string" && value.trim().length > 0);
+  }
+
+  return false;
 }
 
 export async function GET(request: Request): Promise<Response> {
-    return withSessionAuth(request, async (auth) => {
-        return json({
-            user: {
-                id: auth.userId,
-                name: auth.userName,
-                preferredModels: auth.preferredModels,
-                defaultModel: auth.defaultModel,
-                classifierModel: auth.classifierModel,
-                blocklist: auth.blocklist,
-                customCatalog: auth.customCatalog,
-                profiles: auth.profiles,
-                routeTriggerKeywords: auth.routeTriggerKeywords,
-                routingFrequency: auth.routingFrequency,
-                smartPinTurns: auth.smartPinTurns,
-            }
-        });
+  return withSessionAuth(request, async (auth) => {
+    return json({
+      user: {
+        id: auth.userId,
+        name: auth.userName,
+        preferredModels: auth.preferredModels,
+        customCatalog: auth.customCatalog,
+        profiles: auth.profiles,
+        routeTriggerKeywords: auth.routeTriggerKeywords,
+        routingFrequency: auth.routingFrequency,
+        routingConfigRequiresReset: auth.routingConfigRequiresReset,
+        routingConfigResetMessage: auth.routingConfigRequiresReset ? LEGACY_ROUTING_RESET_MESSAGE : null,
+      },
     });
+  });
 }
 
 export async function PUT(request: Request): Promise<Response> {
-    return withSessionAuth(request, async (auth, bindings) => {
-        return withCsrf(request, async () => {
-            let body: Record<string, unknown>;
-            try {
-                body = (await request.json()) as Record<string, unknown>;
-            } catch {
-                return json({ error: "Invalid JSON body." }, 400);
-            }
+  return withSessionAuth(request, async (auth, bindings) => {
+    return withCsrf(request, async () => {
+      let body: Record<string, unknown>;
+      try {
+        body = (await request.json()) as Record<string, unknown>;
+      } catch {
+        return json({ error: "Invalid JSON body." }, 400);
+      }
 
-            const preferredModels = Array.isArray(body.preferred_models) ? body.preferred_models : [];
-            const blocklist = Array.isArray(body.blocklist) ? body.blocklist : [];
-            const defaultModel = typeof body.default_model === "string" ? body.default_model : null;
-            const classifierModel = typeof body.classifier_model === "string" ? body.classifier_model : null;
-            const routingInstructions = typeof body.routing_instructions === "string" ? body.routing_instructions : null;
-            const customCatalog = Array.isArray(body.custom_catalog) ? body.custom_catalog : null;
-            const routeTriggerKeywords = Array.isArray(body.route_trigger_keywords)
-                ? (body.route_trigger_keywords as unknown[]).filter((v): v is string => typeof v === "string" && v.trim().length > 0)
-                : null;
-            const validFrequencies = ["every_message", "smart", "new_thread_only"];
-            const routingFrequency = typeof body.routing_frequency === "string" && validFrequencies.includes(body.routing_frequency)
-                ? body.routing_frequency
-                : null;
-            const smartPinTurns = typeof body.smart_pin_turns === "number" && Number.isInteger(body.smart_pin_turns) && body.smart_pin_turns >= 1 && body.smart_pin_turns <= 100
-                ? body.smart_pin_turns
-                : null;
-            const clearClassifierApiKey = body.clear_classifier_api_key === true;
+      if (hasMeaningfulLegacyRoutingField(body)) {
+        return json(
+          { error: "Legacy routing fields are no longer supported. Rebuild routing profiles from the Routing tab." },
+          400,
+        );
+      }
 
-            const profilesParsed = Array.isArray(body.profiles)
-                ? z.array(routerProfileSchema).safeParse(body.profiles)
-                : null;
-            let profiles = profilesParsed?.success ? profilesParsed.data.map(sanitizeRouterProfile) : null;
-            profiles = upsertAutoProfileRoutingInstructions({
-                profiles,
-                routingInstructions,
+      const preferredModels = Array.isArray(body.preferred_models) ? body.preferred_models : [];
+      const routeTriggerKeywords = Array.isArray(body.route_trigger_keywords)
+        ? (body.route_trigger_keywords as unknown[]).filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        : null;
+      const validFrequencies = ["every_message", "smart", "new_thread_only"];
+      const routingFrequency = typeof body.routing_frequency === "string" && validFrequencies.includes(body.routing_frequency)
+        ? body.routing_frequency
+        : null;
+      const clearClassifierApiKey = body.clear_classifier_api_key === true;
+
+      const profilesParsed = Array.isArray(body.profiles)
+        ? z.array(routerProfileSchema).safeParse(body.profiles)
+        : null;
+
+      if (!profilesParsed?.success) {
+        return json({ error: "Invalid profiles payload.", issues: profilesParsed?.error.issues ?? [] }, 400);
+      }
+
+      if (!profilesParsed.data.some((profile) => profile.id === AUTO_PROFILE_ID)) {
+        return json(
+          { error: "Profiles must include the required 'auto' profile. It cannot be removed or renamed." },
+          400,
+        );
+      }
+      const profiles = ensureAutoProfile(profilesParsed.data.map(sanitizeRouterProfile));
+
+      for (const profile of profiles) {
+        const defaultModel = sanitizeOptionalString(profile.defaultModel);
+        const classifierModel = sanitizeOptionalString(profile.classifierModel);
+        const resolvedKeys = new Set(
+          (profile.models ?? [])
+            .filter((model) => sanitizeOptionalString(model.gatewayId) && sanitizeOptionalString(model.modelId))
+            .map((model) => `${model.gatewayId}::${model.modelId}`),
+        );
+
+        if (defaultModel && !resolvedKeys.has(defaultModel)) {
+          return json({ error: `Profile "${profile.id}" has an invalid fallback model selection.` }, 400);
+        }
+
+        if (classifierModel && !resolvedKeys.has(classifierModel)) {
+          return json({ error: `Profile "${profile.id}" has an invalid router model selection.` }, 400);
+        }
+      }
+
+      const byokSecret = resolveByokEncryptionSecret({
+        byokSecret: bindings.BYOK_ENCRYPTION_SECRET ?? null,
+      });
+      const classifierApiKeyRaw =
+        hasOwn(body, "classifier_api_key") && typeof body.classifier_api_key === "string"
+          ? body.classifier_api_key.trim()
+          : null;
+      if (classifierApiKeyRaw && classifierApiKeyRaw.length > 0 && !byokSecret) {
+        return json({ error: "Server misconfigured: missing BYOK encryption secret." }, 500);
+      }
+      const encryptionSecret = byokSecret ?? "";
+
+      const existingCredentials = await getUserUpstreamCredentials(bindings.ROUTER_DB, auth.userId);
+
+      let classifierBaseUrl = existingCredentials?.classifier_base_url ?? null;
+      if (hasOwn(body, "classifier_base_url")) {
+        if (body.classifier_base_url !== null && typeof body.classifier_base_url !== "string") {
+          return json({ error: "Invalid classifier_base_url." }, 400);
+        }
+
+        const candidate = typeof body.classifier_base_url === "string" ? body.classifier_base_url.trim() : "";
+        if (candidate.length === 0) {
+          classifierBaseUrl = null;
+        } else {
+          const normalized = normalizeAndValidateUpstreamBaseUrl(candidate);
+          if (!normalized) {
+            return json(
+              { error: "Invalid classifier_base_url. Use an https URL without query/hash/embedded credentials." },
+              400,
+            );
+          }
+          classifierBaseUrl = normalized;
+        }
+      }
+
+      let classifierApiKeyEnc = existingCredentials?.classifier_api_key_enc ?? null;
+      if (clearClassifierApiKey) {
+        classifierApiKeyEnc = null;
+      }
+      if (hasOwn(body, "classifier_api_key")) {
+        if (body.classifier_api_key !== null && typeof body.classifier_api_key !== "string") {
+          return json({ error: "Invalid classifier_api_key." }, 400);
+        }
+        if (typeof body.classifier_api_key === "string") {
+          const candidate = body.classifier_api_key.trim();
+          if (candidate.length > 0) {
+            classifierApiKeyEnc = await encryptByokSecret({
+              plaintext: candidate,
+              secret: encryptionSecret,
             });
+          }
+        } else if (body.classifier_api_key === null) {
+          classifierApiKeyEnc = null;
+        }
+      }
 
-            if (profiles !== null) {
-                const hasAuto = profiles.some((p: { id: string }) => p.id === "auto");
-                if (!hasAuto) {
-                    return json(
-                        { error: "Profiles must include the required 'auto' profile. It cannot be removed or renamed." },
-                        400
-                    );
-                }
-            }
+      const now = new Date().toISOString();
+      const updateSql = `UPDATE users
+             SET preferred_models = ?1,
+                 blocklist = NULL,
+                 default_model = NULL,
+                 classifier_model = NULL,
+                 routing_instructions = NULL,
+                 profiles = ?2,
+                 route_trigger_keywords = ?3,
+                 routing_frequency = ?4,
+                 updated_at = ?5
+             WHERE id = ?6`;
+      const updateStatement = bindings.ROUTER_DB.prepare(updateSql);
 
-            const byokSecret = resolveByokEncryptionSecret({
-                byokSecret: bindings.BYOK_ENCRYPTION_SECRET ?? null,
-            });
-            const classifierApiKeyRaw =
-                hasOwn(body, "classifier_api_key") && typeof body.classifier_api_key === "string"
-                    ? body.classifier_api_key.trim()
-                    : null;
-            if (classifierApiKeyRaw && classifierApiKeyRaw.length > 0 && !byokSecret) {
-                return json({ error: "Server misconfigured: missing BYOK encryption secret." }, 500);
-            }
-            const encryptionSecret = byokSecret ?? "";
+      await updateStatement
+        .bind(
+          preferredModels.length > 0 ? JSON.stringify(preferredModels) : null,
+          JSON.stringify(profiles),
+          routeTriggerKeywords && routeTriggerKeywords.length > 0 ? JSON.stringify(routeTriggerKeywords) : null,
+          routingFrequency,
+          now,
+          auth.userId,
+        )
+        .run();
 
-            const existingCredentials = await getUserUpstreamCredentials(bindings.ROUTER_DB, auth.userId);
+      await upsertUserUpstreamCredentials({
+        db: bindings.ROUTER_DB,
+        userId: auth.userId,
+        upstreamBaseUrl: existingCredentials?.upstream_base_url ?? null,
+        upstreamApiKeyEnc: existingCredentials?.upstream_api_key_enc ?? null,
+        classifierBaseUrl,
+        classifierApiKeyEnc,
+      });
 
-            let classifierBaseUrl = existingCredentials?.classifier_base_url ?? null;
-            if (hasOwn(body, "classifier_base_url")) {
-                if (body.classifier_base_url !== null && typeof body.classifier_base_url !== "string") {
-                    return json({ error: "Invalid classifier_base_url." }, 400);
-                }
-
-                const candidate = typeof body.classifier_base_url === "string" ? body.classifier_base_url.trim() : "";
-                if (candidate.length === 0) {
-                    classifierBaseUrl = null;
-                } else {
-                    const normalized = normalizeAndValidateUpstreamBaseUrl(candidate);
-                    if (!normalized) {
-                        return json(
-                            { error: "Invalid classifier_base_url. Use an https URL without query/hash/embedded credentials." },
-                            400
-                        );
-                    }
-                    classifierBaseUrl = normalized;
-                }
-            }
-
-            let classifierApiKeyEnc = existingCredentials?.classifier_api_key_enc ?? null;
-            if (clearClassifierApiKey) {
-                classifierApiKeyEnc = null;
-            }
-            if (hasOwn(body, "classifier_api_key")) {
-                if (body.classifier_api_key !== null && typeof body.classifier_api_key !== "string") {
-                    return json({ error: "Invalid classifier_api_key." }, 400);
-                }
-                if (typeof body.classifier_api_key === "string") {
-                    const candidate = body.classifier_api_key.trim();
-                    if (candidate.length > 0) {
-                        classifierApiKeyEnc = await encryptByokSecret({
-                            plaintext: candidate,
-                            secret: encryptionSecret,
-                        });
-                    }
-                } else if (body.classifier_api_key === null) {
-                    classifierApiKeyEnc = null;
-                }
-            }
-
-            const now = new Date().toISOString();
-            const includeSmartPinTurns = await hasUsersSmartPinTurnsColumn(bindings.ROUTER_DB);
-            const updateSql = includeSmartPinTurns
-                ? `UPDATE users
-                     SET preferred_models = ?1,
-                         blocklist = ?2,
-                         default_model = ?3,
-                         classifier_model = ?4,
-                         routing_instructions = ?5,
-                         custom_catalog = ?6,
-                         profiles = ?7,
-                         route_trigger_keywords = ?8,
-                         routing_frequency = ?9,
-                         smart_pin_turns = ?10,
-                         updated_at = ?11
-                     WHERE id = ?12`
-                : `UPDATE users
-                     SET preferred_models = ?1,
-                         blocklist = ?2,
-                         default_model = ?3,
-                         classifier_model = ?4,
-                         routing_instructions = ?5,
-                         custom_catalog = ?6,
-                         profiles = ?7,
-                         route_trigger_keywords = ?8,
-                         routing_frequency = ?9,
-                         updated_at = ?10
-                     WHERE id = ?11`;
-            const updateStatement = bindings.ROUTER_DB.prepare(updateSql);
-
-            if (includeSmartPinTurns) {
-                await updateStatement
-                    .bind(
-                        preferredModels.length > 0 ? JSON.stringify(preferredModels) : null,
-                        blocklist.length > 0 ? JSON.stringify(blocklist) : null,
-                        defaultModel,
-                        classifierModel,
-                        null,
-                        customCatalog ? JSON.stringify(customCatalog) : null,
-                        profiles ? JSON.stringify(profiles) : null,
-                        routeTriggerKeywords && routeTriggerKeywords.length > 0 ? JSON.stringify(routeTriggerKeywords) : null,
-                        routingFrequency,
-                        smartPinTurns,
-                        now,
-                        auth.userId
-                    )
-                    .run();
-            } else {
-                await updateStatement
-                    .bind(
-                        preferredModels.length > 0 ? JSON.stringify(preferredModels) : null,
-                        blocklist.length > 0 ? JSON.stringify(blocklist) : null,
-                        defaultModel,
-                        classifierModel,
-                        null,
-                        customCatalog ? JSON.stringify(customCatalog) : null,
-                        profiles ? JSON.stringify(profiles) : null,
-                        routeTriggerKeywords && routeTriggerKeywords.length > 0 ? JSON.stringify(routeTriggerKeywords) : null,
-                        routingFrequency,
-                        now,
-                        auth.userId
-                    )
-                    .run();
-            }
-
-            await upsertUserUpstreamCredentials({
-                db: bindings.ROUTER_DB,
-                userId: auth.userId,
-                upstreamBaseUrl: existingCredentials?.upstream_base_url ?? null,
-                upstreamApiKeyEnc: existingCredentials?.upstream_api_key_enc ?? null,
-                classifierBaseUrl,
-                classifierApiKeyEnc,
-            });
-
-            return json({ ok: true }, 200);
-        });
+      return json({ ok: true }, 200);
     });
+  });
 }

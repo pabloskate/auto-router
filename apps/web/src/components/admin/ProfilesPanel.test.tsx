@@ -2,81 +2,54 @@ import React, { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import {
-  type RouterProfile,
-  normalizeProfile,
-  ProfilesPanel,
-} from "./ProfilesPanel";
+import { ProfilesPanel } from "./ProfilesPanel";
+
+const GATEWAYS = [
+  {
+    id: "gw_openrouter",
+    name: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    models: [
+      { id: "model/a", name: "Model A" },
+      { id: "model/b", name: "Model B" },
+    ],
+    createdAt: "2026-03-16T00:00:00.000Z",
+    updatedAt: "2026-03-16T00:00:00.000Z",
+  },
+];
 
 describe("ProfilesPanel", () => {
-  it("renders Override global models toggle when profile is not auto", () => {
+  it("renders quick setup and the required auto profile", () => {
     const markup = renderToStaticMarkup(
       createElement(ProfilesPanel, {
-        profiles: [
-          { id: "auto", name: "Auto" },
-          { id: "", name: "" },
-        ],
-        gatewayModelOptions: ["model/a", "model/b"],
+        profiles: [{ id: "auto", name: "Auto", models: [] }],
+        gateways: GATEWAYS,
         onChange: () => undefined,
         saveState: "dirty",
         onSave: async () => true,
-      })
+      }),
     );
 
-    expect(markup).toContain("Override global models");
+    expect(markup).toContain("Quick Setup");
     expect(markup).toContain("Required");
-    expect(markup).toContain("Unsaved changes");
     expect(markup).toContain("Save profiles");
+    expect(markup).toContain("Add profile");
   });
 
-  it("shows auto profile as required and non-deletable", () => {
+  it("renders the reset notice when legacy routing config is detected", () => {
     const markup = renderToStaticMarkup(
       createElement(ProfilesPanel, {
-        profiles: [{ id: "auto", name: "Auto" }],
-        gatewayModelOptions: [],
-        onChange: () => undefined,
-        saveState: "saved",
-        onSave: async () => true,
-      })
-    );
-
-    expect(markup).toContain("auto");
-    expect(markup).toContain("Required");
-    expect(markup).toContain("All changes saved");
-  });
-
-  it("always shows at least auto profile when profiles is empty", () => {
-    const markup = renderToStaticMarkup(
-      createElement(ProfilesPanel, {
-        profiles: [],
-        gatewayModelOptions: [],
+        profiles: null,
+        gateways: GATEWAYS,
         onChange: () => undefined,
         saveState: "pristine",
         onSave: async () => true,
-      })
+        routingConfigRequiresReset: true,
+        routingConfigResetMessage: "Legacy routing settings were detected.",
+      }),
     );
 
-    expect(markup).toContain("auto");
-    expect(markup).not.toContain("No Routing Profiles");
-  });
-});
-
-describe("normalizeProfile", () => {
-  it("leaves overrideModels unchanged when already set", () => {
-    const p: RouterProfile = {
-      id: "auto-cheap",
-      name: "Cheap",
-      overrideModels: true,
-    };
-    expect(normalizeProfile(p).overrideModels).toBe(true);
-  });
-
-  it("derives overrideModels=true when defaultModel or classifierModel is set", () => {
-    expect(normalizeProfile({ id: "p", name: "P", defaultModel: "m1" }).overrideModels).toBe(true);
-    expect(normalizeProfile({ id: "p", name: "P", classifierModel: "m2" }).overrideModels).toBe(true);
-  });
-
-  it("derives overrideModels=false when neither model is set", () => {
-    expect(normalizeProfile({ id: "p", name: "P" }).overrideModels).toBe(false);
+    expect(markup).toContain("Routing profiles need to be rebuilt");
+    expect(markup).toContain("Reset routing profiles");
   });
 });

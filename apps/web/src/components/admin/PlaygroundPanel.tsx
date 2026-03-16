@@ -113,8 +113,8 @@ function IconArrowRight({ style }: { style?: React.CSSProperties }) {
 
 function DECISION_REASON_LABEL(reason: string): string {
   const labels: Record<string, string> = {
-    classifier_selected: "Classifier",
-    thread_pinned: "Pinned thread",
+    initial_route: "Classifier",
+    thread_pin: "Pinned thread",
     fallback_default: "Default fallback",
     fallback_after_failure: "Fallback (failure)",
     passthrough: "Passthrough",
@@ -126,6 +126,20 @@ function DECISION_REASON_LABEL(reason: string): string {
 function RouteCard({ result, latencyMs }: { result: RouteResult; latencyMs?: number }) {
   const ms = result.latencyMs ?? latencyMs;
   const isPinned = result.isContinuation || result.pinUsed;
+  const pinBudgetLabel =
+    typeof result.pinRerouteAfterTurns === "number"
+      ? `${result.pinRerouteAfterTurns} future user turn${result.pinRerouteAfterTurns === 1 ? "" : "s"}`
+      : null;
+  const pinConsumedLabel =
+    typeof result.pinConsumedUserTurns === "number"
+      ? `${result.pinConsumedUserTurns} consumed`
+      : null;
+  const pinBudgetSourceLabel =
+    result.pinBudgetSource === "classifier"
+      ? "Classifier"
+      : result.pinBudgetSource === "default"
+        ? "Default"
+        : null;
 
   return (
     <div
@@ -175,7 +189,7 @@ function RouteCard({ result, latencyMs }: { result: RouteResult; latencyMs?: num
         <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Decision</span>
         <span>
           <span
-            className={`badge ${result.decisionReason === "classifier_selected" ? "badge--info" : result.decisionReason === "thread_pinned" ? "badge--warning" : "badge--default"}`}
+            className={`badge ${result.decisionReason === "initial_route" ? "badge--info" : result.decisionReason === "thread_pin" ? "badge--warning" : "badge--default"}`}
             style={{ fontSize: "0.6875rem" }}
           >
             {DECISION_REASON_LABEL(result.decisionReason)}
@@ -196,6 +210,42 @@ function RouteCard({ result, latencyMs }: { result: RouteResult; latencyMs?: num
             <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Thread</span>
             <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
               {result.isContinuation ? "Continuation" : "Newly pinned"}
+            </span>
+          </>
+        )}
+
+        {pinBudgetLabel && (
+          <>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Smart budget</span>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+              {pinBudgetLabel}
+            </span>
+          </>
+        )}
+
+        {pinConsumedLabel && (
+          <>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>User turns</span>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+              {pinConsumedLabel}
+            </span>
+          </>
+        )}
+
+        {pinBudgetSourceLabel && (
+          <>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Budget source</span>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+              {pinBudgetSourceLabel}
+            </span>
+          </>
+        )}
+
+        {result.isAgentLoop && (
+          <>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Loop handling</span>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+              Agent/tool loop ignored for Smart budget
             </span>
           </>
         )}

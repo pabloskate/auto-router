@@ -33,6 +33,10 @@ export function createRouterEngine(args: {
 }
 
 export function findMatchedProfile(requestedModel: string, profiles?: RouterProfile[] | null): RouterProfile | undefined {
+  if (AUTO_MODELS.has(requestedModel)) {
+    return profiles?.find((profile) => profile.id === "auto");
+  }
+
   return profiles?.find((profile) => profile.id === requestedModel);
 }
 
@@ -45,16 +49,6 @@ export function resolveEffectiveClassifierModel(args: {
   config: RouterConfig;
   profiles?: RouterProfile[] | null;
 }): string | null {
-  const matchedProfile = findMatchedProfile(args.requestedModel, args.profiles);
-  if (!matchedProfile) {
-    return args.config.classifierModel ?? null;
-  }
-
-  const useProfileModels = matchedProfile.overrideModels !== false;
-  if (useProfileModels && matchedProfile.classifierModel) {
-    return matchedProfile.classifierModel;
-  }
-
   return args.config.classifierModel ?? null;
 }
 

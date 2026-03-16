@@ -60,6 +60,10 @@ function createRepository() {
   };
 }
 
+function key(gatewayId: string, modelId: string): string {
+  return `${gatewayId}::${modelId}`;
+}
+
 describe("routeAndProxy", () => {
   const runtimeMock = vi.mocked(getRuntimeBindings);
   const repositoryMock = vi.mocked(getRouterRepository);
@@ -105,6 +109,17 @@ describe("routeAndProxy", () => {
         messages: [{ role: "user", content: "route this" }],
       },
       userConfig: {
+        profiles: [
+          {
+            id: "auto",
+            name: "Auto",
+            models: [
+              { gatewayId: "gw_default", modelId: "model/alpha", name: "Alpha" },
+            ],
+            defaultModel: key("gw_default", "model/alpha"),
+            classifierModel: key("gw_default", "model/alpha"),
+          },
+        ],
         gatewayRows: [
           {
             id: "gw_default",
@@ -163,6 +178,18 @@ describe("routeAndProxy", () => {
         messages: [{ role: "user", content: "route this" }],
       },
       userConfig: {
+        profiles: [
+          {
+            id: "auto",
+            name: "Auto",
+            models: [
+              { gatewayId: "gw_default", modelId: "model/classifier", name: "Classifier" },
+              { gatewayId: "gw_default", modelId: "model/alpha", name: "Alpha" },
+            ],
+            defaultModel: key("gw_default", "model/alpha"),
+            classifierModel: key("gw_default", "model/classifier"),
+          },
+        ],
         gatewayRows: [
           {
             id: "gw_default",
@@ -209,6 +236,16 @@ describe("routeAndProxy", () => {
         messages: [{ role: "user", content: "route this" }],
       },
       userConfig: {
+        profiles: [
+          {
+            id: "auto",
+            name: "Auto",
+            models: [
+              { gatewayId: "gw_default", modelId: "model/alpha", name: "Alpha" },
+            ],
+            defaultModel: key("gw_default", "model/alpha"),
+          },
+        ],
         gatewayRows: [
           {
             id: "gw_default",
@@ -257,6 +294,18 @@ describe("routeAndProxy", () => {
         messages: [{ role: "user", content: "route this" }],
       },
       userConfig: {
+        profiles: [
+          {
+            id: "auto",
+            name: "Auto",
+            models: [
+              { gatewayId: "gw_alpha", modelId: "model/alpha", name: "Alpha" },
+              { gatewayId: "gw_classifier", modelId: "model/classifier", name: "Classifier" },
+            ],
+            defaultModel: key("gw_alpha", "model/alpha"),
+            classifierModel: key("gw_classifier", "model/classifier"),
+          },
+        ],
         gatewayRows: [
           {
             id: "gw_alpha",
@@ -339,6 +388,18 @@ describe("routeAndProxy", () => {
         input: "route this",
       },
       userConfig: {
+        profiles: [
+          {
+            id: "auto",
+            name: "Auto",
+            models: [
+              { gatewayId: "gw_default", modelId: "model/classifier", name: "Classifier" },
+              { gatewayId: "gw_default", modelId: "model/alpha", name: "Alpha" },
+            ],
+            defaultModel: key("gw_default", "model/alpha"),
+            classifierModel: key("gw_default", "model/classifier"),
+          },
+        ],
         gatewayRows: [
           {
             id: "gw_default",
@@ -359,6 +420,71 @@ describe("routeAndProxy", () => {
     };
     expect(body.output[0]?.content[0]?.text).toBe("ok");
     expect(result.response.headers.get("x-router-model-selected")).toBeNull();
+  });
+
+  it("returns smart pin inspect fields during dry-run routing", async () => {
+    const secret = "1234567890abcdef";
+    const defaultApiKeyEnc = await encryptByokSecret({
+      plaintext: "gateway-default-key",
+      secret,
+    });
+    const repository = createRepository();
+
+    runtimeMock.mockReturnValue({
+      BYOK_ENCRYPTION_SECRET: secret,
+    });
+    repositoryMock.mockReturnValue(repository as any);
+    classifierMock.mockResolvedValue({
+      selectedModel: "model/alpha",
+      confidence: 0.91,
+      signals: ["frontier_classification"],
+      rerouteAfterTurns: 2,
+    });
+
+    const result = await routeAndProxy({
+      apiPath: "/chat/completions",
+      dryRun: true,
+      body: {
+        model: "auto",
+        messages: [{ role: "user", content: "Plan this task" }],
+      },
+      userConfig: {
+        profiles: [
+          {
+            id: "auto",
+            name: "Auto",
+            models: [
+              { gatewayId: "gw_default", modelId: "model/classifier", name: "Classifier" },
+              { gatewayId: "gw_default", modelId: "model/alpha", name: "Alpha" },
+            ],
+            defaultModel: key("gw_default", "model/alpha"),
+            classifierModel: key("gw_default", "model/classifier"),
+          },
+        ],
+        gatewayRows: [
+          {
+            id: "gw_default",
+            baseUrl: "https://gateway.example/v1",
+            apiKeyEnc: defaultApiKeyEnc,
+            models: [
+              { id: "model/classifier", name: "Classifier" },
+              { id: "model/alpha", name: "Alpha" },
+            ],
+          },
+        ],
+      },
+    });
+
+    const body = await result.response.json() as {
+      pinRerouteAfterTurns?: number;
+      pinBudgetSource?: string;
+      pinConsumedUserTurns?: number;
+      isAgentLoop?: boolean;
+    };
+    expect(body.pinRerouteAfterTurns).toBe(2);
+    expect(body.pinBudgetSource).toBe("classifier");
+    expect(body.pinConsumedUserTurns).toBe(0);
+    expect(body.isAgentLoop).toBe(false);
   });
 
   it("passes the selected model through unchanged for OpenRouter gateways", async () => {
@@ -395,6 +521,18 @@ describe("routeAndProxy", () => {
         messages: [{ role: "user", content: "Plan a migration." }],
       },
       userConfig: {
+        profiles: [
+          {
+            id: "auto",
+            name: "Auto",
+            models: [
+              { gatewayId: "gw_default", modelId: "model/classifier", name: "Classifier" },
+              { gatewayId: "gw_default", modelId: "openai/gpt-5.2:high", name: "GPT-5.2 High" },
+            ],
+            defaultModel: key("gw_default", "openai/gpt-5.2:high"),
+            classifierModel: key("gw_default", "model/classifier"),
+          },
+        ],
         gatewayRows: [
           {
             id: "gw_default",
@@ -461,6 +599,18 @@ describe("routeAndProxy", () => {
         messages: [{ role: "user", content: "Plan a migration." }],
       },
       userConfig: {
+        profiles: [
+          {
+            id: "auto",
+            name: "Auto",
+            models: [
+              { gatewayId: "gw_default", modelId: "model/classifier", name: "Classifier" },
+              { gatewayId: "gw_default", modelId: "openai/gpt-5.2:high", name: "GPT-5.2 High" },
+            ],
+            defaultModel: key("gw_default", "openai/gpt-5.2:high"),
+            classifierModel: key("gw_default", "model/classifier"),
+          },
+        ],
         gatewayRows: [
           {
             id: "gw_default",

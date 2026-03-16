@@ -132,7 +132,7 @@ class D1PinStore implements PinStore {
   async get(threadKey: string) {
     const row = await this.db
       .prepare(
-        "SELECT model_id, request_id, pinned_at, expires_at, turn_count FROM thread_pins WHERE thread_key = ?1 LIMIT 1"
+        "SELECT model_id, request_id, pinned_at, expires_at, turn_count, reroute_after_turns, budget_source FROM thread_pins WHERE thread_key = ?1 LIMIT 1"
       )
       .bind(threadKey)
       .first<{
@@ -141,6 +141,8 @@ class D1PinStore implements PinStore {
         pinned_at: string;
         expires_at: string;
         turn_count: number;
+        reroute_after_turns?: number | null;
+        budget_source?: "classifier" | "default" | null;
       }>();
 
     if (!row) {
@@ -158,21 +160,25 @@ class D1PinStore implements PinStore {
       requestId: row.request_id,
       pinnedAt: row.pinned_at,
       expiresAt: row.expires_at,
-      turnCount: row.turn_count
+      turnCount: row.turn_count,
+      rerouteAfterTurns: typeof row.reroute_after_turns === "number" ? row.reroute_after_turns : undefined,
+      budgetSource: row.budget_source ?? undefined,
     };
   }
 
   async set(pin: ThreadPin): Promise<void> {
     await this.db
       .prepare(
-        `INSERT INTO thread_pins (thread_key, model_id, request_id, pinned_at, expires_at, turn_count)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+        `INSERT INTO thread_pins (thread_key, model_id, request_id, pinned_at, expires_at, turn_count, reroute_after_turns, budget_source)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
          ON CONFLICT(thread_key) DO UPDATE SET
          model_id = excluded.model_id,
          request_id = excluded.request_id,
          pinned_at = excluded.pinned_at,
          expires_at = excluded.expires_at,
-         turn_count = excluded.turn_count`
+         turn_count = excluded.turn_count,
+         reroute_after_turns = excluded.reroute_after_turns,
+         budget_source = excluded.budget_source`
       )
       .bind(
         pin.threadKey,
@@ -180,7 +186,9 @@ class D1PinStore implements PinStore {
         pin.requestId,
         pin.pinnedAt,
         pin.expiresAt,
-        pin.turnCount
+        pin.turnCount,
+        pin.rerouteAfterTurns ?? null,
+        pin.budgetSource ?? null,
       )
       .run();
   }

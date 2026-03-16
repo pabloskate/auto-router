@@ -1,5 +1,6 @@
 import type { CatalogItem, RouterConfig, RouterProfile } from "@custom-router/core";
 
+import { parseProfileModelKey, profileModelToCatalogItem } from "@/src/lib/routing/profile-config";
 import { getRouterRepository, type RouterRepository } from "@/src/lib/storage/repository";
 
 import { findMatchedProfile, isRoutedRequestModel } from "./router-decision";
@@ -26,34 +27,57 @@ export async function resolveUserRoutingContext(args: {
 
   const runtimeConfig: RouterConfig = { ...systemConfig };
   if (args.userConfig) {
-    if (args.userConfig.defaultModel) runtimeConfig.defaultModel = args.userConfig.defaultModel;
-    if (args.userConfig.classifierModel) runtimeConfig.classifierModel = args.userConfig.classifierModel;
-    if (args.userConfig.routingInstructions && !(args.userConfig.profiles && args.userConfig.profiles.length > 0)) {
-      runtimeConfig.routingInstructions = args.userConfig.routingInstructions;
-    }
-    if (args.userConfig.blocklist) runtimeConfig.globalBlocklist = args.userConfig.blocklist;
     if (args.userConfig.routeTriggerKeywords) runtimeConfig.routeTriggerKeywords = args.userConfig.routeTriggerKeywords;
     if (args.userConfig.routingFrequency) {
       runtimeConfig.routingFrequency = args.userConfig.routingFrequency as RouterConfig["routingFrequency"];
-    }
-    if (typeof args.userConfig.smartPinTurns === "number") {
-      runtimeConfig.smartPinTurns = args.userConfig.smartPinTurns;
     }
   }
 
   const gatewayCatalogItems: CatalogItem[] = (args.userConfig?.gatewayRows ?? []).flatMap((gateway) =>
     gateway.models.map((model) => ({ ...model, gatewayId: gateway.id }))
   );
-  const catalog =
-    gatewayCatalogItems.length > 0
-      ? gatewayCatalogItems
-      : args.userConfig?.customCatalog && args.userConfig.customCatalog.length > 0
-        ? args.userConfig.customCatalog
-        : fullCatalog;
 
   const requestedModel = typeof args.body.model === "string" ? args.body.model : "";
   const matchedProfile = findMatchedProfile(requestedModel, args.userConfig?.profiles);
   const routedRequest = isRoutedRequestModel(requestedModel, args.userConfig?.profiles);
+  const activeProfile = routedRequest ? matchedProfile : undefined;
+
+  const profileCatalog = (activeProfile?.models ?? [])
+    .map(profileModelToCatalogItem)
+    .filter((item): item is CatalogItem => Boolean(item));
+  const catalog =
+    routedRequest
+      ? profileCatalog
+      : gatewayCatalogItems.length > 0
+        ? gatewayCatalogItems
+        : args.userConfig?.customCatalog && args.userConfig.customCatalog.length > 0
+          ? args.userConfig.customCatalog
+          : fullCatalog;
+
+  if (activeProfile) {
+    const selectedProfileModels = new Map(
+      (activeProfile.models ?? [])
+        .filter((model) => model.gatewayId && model.modelId)
+        .map((model) => [`${model.gatewayId}::${model.modelId}`, model] as const),
+    );
+
+    const defaultBinding = parseProfileModelKey(activeProfile.defaultModel);
+    const classifierBinding = parseProfileModelKey(activeProfile.classifierModel);
+    const defaultProfileModel = defaultBinding
+      ? selectedProfileModels.get(`${defaultBinding.gatewayId}::${defaultBinding.modelId}`)
+      : undefined;
+    const classifierProfileModel = classifierBinding
+      ? selectedProfileModels.get(`${classifierBinding.gatewayId}::${classifierBinding.modelId}`)
+      : undefined;
+
+    runtimeConfig.defaultModel = defaultProfileModel?.modelId;
+    runtimeConfig.classifierModel = classifierProfileModel?.modelId;
+    runtimeConfig.routingInstructions = activeProfile.routingInstructions;
+  } else if (routedRequest) {
+    runtimeConfig.defaultModel = undefined;
+    runtimeConfig.classifierModel = undefined;
+    runtimeConfig.routingInstructions = undefined;
+  }
 
   return {
     repository,

@@ -196,7 +196,9 @@ CREATE TABLE IF NOT EXISTS thread_pins (
   request_id TEXT NOT NULL,
   pinned_at TEXT NOT NULL,
   expires_at TEXT NOT NULL,
-  turn_count INTEGER NOT NULL DEFAULT 1
+  turn_count INTEGER NOT NULL DEFAULT 0,
+  reroute_after_turns INTEGER,
+  budget_source TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_thread_pins_expires ON thread_pins(expires_at);

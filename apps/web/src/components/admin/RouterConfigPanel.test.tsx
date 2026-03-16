@@ -5,46 +5,36 @@ import { describe, expect, it } from "vitest";
 import { RouterConfigPanel } from "./RouterConfigPanel";
 
 describe("RouterConfigPanel", () => {
-  it("renders fallback/classifier labels and hints", () => {
+  it("renders rerouting controls and hints", () => {
     const markup = renderToStaticMarkup(
       createElement(RouterConfigPanel, {
         config: {
-          defaultModel: null,
-          classifierModel: null,
-          blocklist: null,
           routeTriggerKeywords: null,
           routingFrequency: null,
-          smartPinTurns: null,
         },
-        gatewayModelOptions: ["model/a", "model/b"],
         onChange: () => undefined,
         saveState: "pristine",
         onSave: async () => true,
-      })
+      }),
     );
 
-    expect(markup).toContain("Fallback Model");
-    expect(markup).toContain("Router Model");
-    expect(markup).toContain("Used when the classifier fails to decide");
-    expect(markup).toContain("Cheap, fast model for routing decisions");
+    expect(markup).toContain("Re-routing Behavior");
+    expect(markup).toContain("When to route");
+    expect(markup).toContain("Trigger keywords");
+    expect(markup).toContain("How Smart Pinning Works");
   });
 
   it("renders save state text", () => {
     const markup = renderToStaticMarkup(
       createElement(RouterConfigPanel, {
         config: {
-          defaultModel: null,
-          classifierModel: null,
-          blocklist: null,
-          routeTriggerKeywords: null,
-          routingFrequency: null,
-          smartPinTurns: null,
+          routeTriggerKeywords: [],
+          routingFrequency: "smart",
         },
-        gatewayModelOptions: [],
         onChange: () => undefined,
         saveState: "saving",
         onSave: async () => true,
-      })
+      }),
     );
 
     expect(markup).toContain("Saving changes...");

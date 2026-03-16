@@ -10,28 +10,29 @@ const TEST_USER: UserInfo = {
   name: "Test User",
   email: "test@example.com",
   preferredModels: [],
-  defaultModel: null,
-  classifierModel: null,
-  blocklist: null,
   customCatalog: null,
   profiles: null,
   routeTriggerKeywords: null,
   routingFrequency: null,
-  smartPinTurns: null,
+  routingConfigRequiresReset: false,
+  routingConfigResetMessage: null,
 };
 
 function createBaseTabs(registrationMode: "open" | "closed" | "invite" = "closed") {
   return getBaseAdminTabs({
     setUser: () => undefined,
     keys: [],
-    gatewayModelOptions: [],
+    gateways: [],
     reloadData: async () => undefined,
     setStatus: () => undefined,
     setError: () => undefined,
     saveUserData: async () => true,
-    routingDraftState: "pristine",
-    markRoutingDirty: () => undefined,
-    saveRoutingData: async () => true,
+    reroutingDraftState: "pristine",
+    profilesDraftState: "pristine",
+    markReroutingDirty: () => undefined,
+    markProfilesDirty: () => undefined,
+    saveReroutingData: async () => true,
+    saveProfilesData: async () => true,
     registrationMode,
   });
 }

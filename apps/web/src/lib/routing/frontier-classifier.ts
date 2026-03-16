@@ -17,7 +17,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { LlmRoutingResult } from "@custom-router/core";
-import { CLASSIFIER } from "../constants";
+import { CLASSIFIER, SMART_PIN } from "../constants";
 import { joinUpstreamUrl } from "../upstream/upstream";
 
 type CatalogEntry = {
@@ -91,6 +91,13 @@ Return JSON with:
 
 Example: {"selectedModel":"anthropic/claude-3-opus","confidence":0.87,"signals":["task_type:coding","complexity:high","matched:claude-3-opus"]}
 
+Also estimate how stable this routing decision is across the next few future user turns.
+- rerouteAfterTurns MUST be an integer from ${SMART_PIN.MIN_USER_TURNS} to ${SMART_PIN.MAX_USER_TURNS}
+- ${SMART_PIN.MIN_USER_TURNS} means the next future user turn should re-run routing
+- Use shorter horizons for plan-then-implement or rapidly changing tasks
+- Use longer horizons for stable advisory or discussion threads
+- Internal assistant tool loops do not count toward this budget
+
 ## User Request
 ${args.input}`;
 }
@@ -142,6 +149,11 @@ export async function routeWithFrontierModel(args: {
               signals: {
                 type: "array",
                 items: { type: "string" },
+              },
+              rerouteAfterTurns: {
+                type: "integer",
+                minimum: SMART_PIN.MIN_USER_TURNS,
+                maximum: SMART_PIN.MAX_USER_TURNS,
               },
             },
             required: ["selectedModel"],
@@ -195,6 +207,7 @@ export async function routeWithFrontierModel(args: {
       selectedModel?: string;
       confidence?: number;
       signals?: string[];
+      rerouteAfterTurns?: number;
     };
 
     if (!parsed.selectedModel || typeof parsed.selectedModel !== "string") {
@@ -214,6 +227,10 @@ export async function routeWithFrontierModel(args: {
       signals: Array.isArray(parsed.signals)
         ? parsed.signals.filter((s): s is string => typeof s === "string")
         : ["frontier_classification"],
+      rerouteAfterTurns:
+        typeof parsed.rerouteAfterTurns === "number" && Number.isInteger(parsed.rerouteAfterTurns)
+          ? Math.max(SMART_PIN.MIN_USER_TURNS, Math.min(SMART_PIN.MAX_USER_TURNS, parsed.rerouteAfterTurns))
+          : SMART_PIN.DEFAULT_USER_TURNS,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_parse_error";

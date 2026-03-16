@@ -17,22 +17,22 @@ export interface RouteInspectResult {
   isContinuation: boolean;
   pinUsed: boolean;
   latencyMs: number;
+  pinRerouteAfterTurns?: number;
+  pinBudgetSource?: "classifier" | "default";
+  pinConsumedUserTurns?: number;
+  isAgentLoop?: boolean;
 }
 
 export interface UserRouterConfig {
   preferredModels?: string[] | null;
   customCatalog?: CatalogItem[] | null;
-  defaultModel?: string | null;
-  classifierModel?: string | null;
-  routingInstructions?: string | null;
-  blocklist?: string[] | null;
   profiles?: RouterProfile[] | null;
   gatewayRows?: GatewayRowPublic[];
   classifierBaseUrl?: string | null;
   classifierApiKeyEnc?: string | null;
   routeTriggerKeywords?: string[] | null;
   routingFrequency?: string | null;
-  smartPinTurns?: number | null;
+  routingConfigRequiresReset?: boolean;
 }
 
 export type RoutedApiPath = "/chat/completions" | "/responses" | "/completions";
