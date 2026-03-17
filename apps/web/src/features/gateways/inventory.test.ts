@@ -47,8 +47,8 @@ describe("gateway inventory helpers", () => {
       id: "custom/model-a",
       name: "custom/model-a",
       modality: "text->text",
-      reasoningPreset: "none",
-      thinking: "none",
+      reasoningPreset: "provider_default",
+      thinking: "provider_default",
       whenToUse: "general chat",
       description: undefined,
     });

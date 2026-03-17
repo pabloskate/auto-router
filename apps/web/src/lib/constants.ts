@@ -65,10 +65,23 @@ export const AUTH = {
   // is the current recommended minimum for password hashing.
   PBKDF2_ITERATIONS: 100_000,
 
+  // Shared password policy for signup and reset flows.
+  PASSWORD_MIN_LENGTH: 8,
+
   // Session cookie lifetime
   SESSION_TTL_MS: 1000 * 60 * 60 * 24 * 30,      // 30 days
   SESSION_MAX_AGE_SECONDS: 60 * 60 * 24 * 30,     // 30 days
   SESSION_COOKIE_NAME: "auto_router_session",
+
+  // Password reset token settings.
+  PASSWORD_RESET_TOKEN_BYTES: 32,
+  PASSWORD_RESET_TTL_MS: 15 * 60 * 1000,
+  PASSWORD_RESET_REQUEST_IP_MAX: 8,
+  PASSWORD_RESET_REQUEST_WINDOW_SECONDS: 15 * 60,
+  PASSWORD_RESET_EMAIL_IP_MAX: 5,
+  PASSWORD_RESET_EMAIL_IP_WINDOW_SECONDS: 60 * 60,
+  PASSWORD_RESET_CONFIRM_IP_MAX: 12,
+  PASSWORD_RESET_CONFIRM_WINDOW_SECONDS: 15 * 60,
 
   // Minimum length required for BYOK encryption secret material.
   BYOK_ENCRYPTION_SECRET_MIN_LENGTH: 16,

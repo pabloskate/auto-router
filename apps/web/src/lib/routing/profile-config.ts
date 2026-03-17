@@ -1,4 +1,4 @@
-import type { CatalogItem, RouterProfile, RouterProfileModel } from "@custom-router/core";
+import type { CatalogItem, ReasoningPolicy, RouterProfile, RouterProfileModel } from "@custom-router/core";
 
 const PROFILE_MODEL_KEY_SEPARATOR = "::";
 const PROFILE_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -10,6 +10,30 @@ function sanitizeOptionalString(value: string | null | undefined): string | unde
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function sanitizeOptionalNumber(value: number | null | undefined): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeReasoningPolicy(policy: ReasoningPolicy | null | undefined): ReasoningPolicy | undefined {
+  if (!policy || typeof policy !== "object") {
+    return undefined;
+  }
+
+  const normalized: ReasoningPolicy = {
+    mode: sanitizeOptionalString(policy.mode) as ReasoningPolicy["mode"],
+    latencySensitivity: sanitizeOptionalString(policy.latencySensitivity) as ReasoningPolicy["latencySensitivity"],
+    toolStepBias: sanitizeOptionalString(policy.toolStepBias) as ReasoningPolicy["toolStepBias"],
+    shortOutputThreshold: sanitizeOptionalNumber(policy.shortOutputThreshold),
+    longOutputThreshold: sanitizeOptionalNumber(policy.longOutputThreshold),
+    allowDowngradeAfterPlan: typeof policy.allowDowngradeAfterPlan === "boolean" ? policy.allowDowngradeAfterPlan : undefined,
+    preferSameFamily: typeof policy.preferSameFamily === "boolean" ? policy.preferSameFamily : undefined,
+    crossFamilySwitchMode: sanitizeOptionalString(policy.crossFamilySwitchMode) as ReasoningPolicy["crossFamilySwitchMode"],
+    inFamilyShiftHysteresis: sanitizeOptionalString(policy.inFamilyShiftHysteresis) as ReasoningPolicy["inFamilyShiftHysteresis"],
+  };
+
+  return Object.values(normalized).some((value) => value !== undefined) ? normalized : undefined;
 }
 
 export function normalizeProfileIdInput(value: string): string {
@@ -63,6 +87,7 @@ export function normalizeProfileModel(model: RouterProfileModel): RouterProfileM
   return {
     gatewayId: sanitizeOptionalString(model.gatewayId),
     modelId: sanitizeOptionalString(model.modelId) ?? "",
+    upstreamModelId: sanitizeOptionalString(model.upstreamModelId),
     name: sanitizeOptionalString(model.name),
     modality: sanitizeOptionalString(model.modality),
     reasoningPreset,
@@ -90,6 +115,7 @@ export function profileModelToCatalogItem(model: RouterProfileModel | null | und
     modality: normalized.modality,
     reasoningPreset,
     thinking: reasoningPreset ?? normalized.thinking,
+    upstreamModelId: normalized.upstreamModelId,
     whenToUse: normalized.whenToUse,
     description: normalized.description,
     gatewayId: normalized.gatewayId,
@@ -104,6 +130,7 @@ export function normalizeProfile(profile: RouterProfile): RouterProfile {
     defaultModel: sanitizeOptionalString(profile.defaultModel),
     classifierModel: sanitizeOptionalString(profile.classifierModel),
     routingInstructions: sanitizeOptionalString(profile.routingInstructions),
+    reasoningPolicy: normalizeReasoningPolicy(profile.reasoningPolicy),
     models: Array.isArray(profile.models) ? profile.models.map(normalizeProfileModel) : [],
   };
 }

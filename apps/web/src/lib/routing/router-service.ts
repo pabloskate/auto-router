@@ -216,6 +216,14 @@ export async function routeAndProxy(args: {
     const inspectResult: RouteInspectResult = {
       requestId,
       selectedModel: decision.selectedModel,
+      selectedFamily: decision.selectedFamily,
+      previousFamily: decision.previousFamily,
+      selectedEffort: decision.selectedEffort,
+      stepClassification: decision.stepClassification,
+      switchMode: decision.switchMode,
+      switchReason: decision.switchReason,
+      familyStickinessApplied: decision.familyStickinessApplied,
+      crossFamilySwitchBlocked: decision.crossFamilySwitchBlocked,
       fallbackModels: decision.fallbackModels ?? [],
       decisionReason: decision.explanation.decisionReason,
       classifierInvoked,
@@ -248,6 +256,9 @@ export async function routeAndProxy(args: {
     const payload = buildAttemptPayload({
       body: args.body,
       selectedModelId: attempt.modelId,
+      selectedEffort: decision.selectedEffort,
+      catalog,
+      baseUrl: attemptUpstream.baseUrl,
       apiPath: args.apiPath,
     });
 
@@ -289,6 +300,9 @@ export async function routeAndProxy(args: {
       threadKey: decision.threadKey,
       requestId,
       selectedModel: attempt.modelId,
+      selectedFamily: decision.selectedFamily,
+      selectedEffort: decision.selectedEffort,
+      stepClassification: decision.stepClassification,
       pinTurnCount: decision.pinTurnCount,
       pinRerouteAfterTurns: decision.pinRerouteAfterTurns,
       pinBudgetSource: decision.pinBudgetSource,

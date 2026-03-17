@@ -1,4 +1,11 @@
-import type { CatalogItem, RouterProfile, RouterRequestLike } from "@custom-router/core";
+import type {
+  CatalogItem,
+  ReasoningEffort,
+  RouterProfile,
+  RouterRequestLike,
+  RoutingStepClassification,
+  RoutingSwitchMode,
+} from "@custom-router/core";
 
 import type { GatewayRowPublic } from "@/src/lib/storage/gateway-store";
 
@@ -10,6 +17,14 @@ export interface RouteAndProxyResult {
 export interface RouteInspectResult {
   requestId: string;
   selectedModel: string;
+  selectedFamily?: string;
+  previousFamily?: string;
+  selectedEffort?: ReasoningEffort;
+  stepClassification?: RoutingStepClassification;
+  switchMode?: RoutingSwitchMode;
+  switchReason?: string;
+  familyStickinessApplied?: boolean;
+  crossFamilySwitchBlocked?: boolean;
   fallbackModels: string[];
   decisionReason: string;
   classifierInvoked: boolean;

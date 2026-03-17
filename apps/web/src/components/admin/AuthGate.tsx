@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useState } from "react";
+import { AUTH } from "@/src/lib/constants";
 
 interface Props {
   onAuthenticated: () => void;
@@ -20,6 +21,13 @@ interface RegistrationStatus {
   signupAllowed: boolean;
   firstUser: boolean;
   requiresInviteCode: boolean;
+}
+
+interface ForgotPasswordResponse {
+  error?: string;
+  message?: string;
+  reset_url?: string;
+  reset_token?: string;
 }
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
@@ -82,12 +90,45 @@ function IconTicket({ className, style }: { className?: string; style?: React.CS
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export function AuthGate({ onAuthenticated }: Props) {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup" | "forgot" | "reset">("login");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [inviteCode, setInviteCode] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [resetForm, setResetForm] = useState({ token: "", password: "", confirmPassword: "" });
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [resetPreviewUrl, setResetPreviewUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [regStatus, setRegStatus] = useState<RegistrationStatus | null>(null);
+
+  function clearResetTokenFromUrl() {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("reset_token")) {
+      return;
+    }
+
+    url.searchParams.delete("reset_token");
+    window.history.replaceState({}, "", url.toString());
+  }
+
+  function switchMode(nextMode: "login" | "signup" | "forgot" | "reset") {
+    if (nextMode !== "reset") {
+      clearResetTokenFromUrl();
+    }
+
+    setMode(nextMode);
+    setError("");
+    setMessage("");
+    setResetPreviewUrl("");
+
+    if (nextMode === "signup") {
+      setInviteCode("");
+    }
+  }
 
   useEffect(() => {
     fetch("/api/v1/auth/registration-status")
@@ -99,17 +140,38 @@ export function AuthGate({ onAuthenticated }: Props) {
       });
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const resetToken = new URLSearchParams(window.location.search).get("reset_token");
+    if (!resetToken) {
+      return;
+    }
+
+    setMode("reset");
+    setMessage("Choose a new password to finish resetting your account.");
+    setResetForm((current) => ({ ...current, token: resetToken }));
+  }, []);
+
   // Default to signup when this is the first user (better UX; no tab click needed)
   useEffect(() => {
     if (regStatus?.firstUser && mode === "login") {
       setMode("signup");
     }
-  }, [regStatus?.firstUser]);
+  }, [regStatus?.firstUser, mode]);
 
   const signupAvailable = regStatus?.signupAllowed ?? true;
+  const isLogin = mode === "login";
+  const isSignup = mode === "signup";
+  const isForgot = mode === "forgot";
+  const isReset = mode === "reset";
+  const isSignInMode = isLogin || isForgot || isReset;
 
-  async function handleSubmit() {
+  async function handleAuthSubmit() {
     setError("");
+    setMessage("");
     setLoading(true);
 
     const endpoint = mode === "login" ? "/api/v1/auth/login" : "/api/v1/auth/signup";
@@ -138,14 +200,106 @@ export function AuthGate({ onAuthenticated }: Props) {
     }
   }
 
-  function toggleMode() {
-    setMode(mode === "login" ? "signup" : "login");
+  async function handleForgotPassword() {
     setError("");
-    setForm({ name: "", email: "", password: "" });
-    setInviteCode("");
+    setMessage("");
+    setResetPreviewUrl("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/v1/auth/forgot-password", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+
+      const data = await res.json() as ForgotPasswordResponse;
+
+      if (!res.ok) {
+        setError(data.error || "Unable to start password reset. Please try again.");
+        return;
+      }
+
+      setMessage(
+        data.message || "If an account with that email exists, password reset instructions have been sent."
+      );
+
+      if (data.reset_token) {
+        setResetPreviewUrl(data.reset_url || "");
+        setResetForm({ token: data.reset_token, password: "", confirmPassword: "" });
+        setMode("reset");
+      }
+    } catch {
+      setError("Network error. Please check your connection.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  const isLogin = mode === "login";
+  async function handleResetPassword() {
+    setError("");
+    setMessage("");
+
+    if (!resetForm.token) {
+      setError("Enter the reset token from your email or preview link.");
+      return;
+    }
+
+    if (resetForm.password.length < AUTH.PASSWORD_MIN_LENGTH) {
+      setError(`Password must be at least ${AUTH.PASSWORD_MIN_LENGTH} characters long.`);
+      return;
+    }
+
+    if (resetForm.password !== resetForm.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/v1/auth/reset-password", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          token: resetForm.token,
+          password: resetForm.password,
+        }),
+      });
+
+      const data = await res.json() as { error?: string };
+
+      if (!res.ok) {
+        setError(data.error || "Unable to reset your password. Request a new link and try again.");
+        return;
+      }
+
+      clearResetTokenFromUrl();
+      onAuthenticated();
+    } catch {
+      setError("Network error. Please check your connection.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const heading = isLogin
+    ? "Welcome Back"
+    : isSignup
+      ? (regStatus?.firstUser ? "Set Up Your Instance" : "Create Account")
+      : isForgot
+        ? "Reset Your Password"
+        : "Choose a New Password";
+
+  const subheading = isLogin
+    ? "Sign in to access your CustomRouter dashboard"
+    : isSignup
+      ? (regStatus?.firstUser
+          ? "Create the first account to get started"
+          : "Sign up to start routing your LLM requests")
+      : isForgot
+        ? "Enter your email and we will send reset instructions if the account exists"
+        : "Paste your reset token or open the reset link to finish signing in";
 
   return (
     <div
@@ -194,7 +348,7 @@ export function AuthGate({ onAuthenticated }: Props) {
               textAlign: "center",
             }}
           >
-            {isLogin ? "Welcome Back" : regStatus?.firstUser ? "Set Up Your Instance" : "Create Account"}
+            {heading}
           </h1>
           <p
             style={{
@@ -203,11 +357,7 @@ export function AuthGate({ onAuthenticated }: Props) {
               textAlign: "center",
             }}
           >
-            {isLogin
-              ? "Sign in to access your CustomRouter dashboard"
-              : regStatus?.firstUser
-                ? "Create the first account to get started"
-                : "Sign up to start routing your LLM requests"}
+            {subheading}
           </p>
         </div>
 
@@ -228,16 +378,24 @@ export function AuthGate({ onAuthenticated }: Props) {
             }}
           >
             <button
-              className={`tab ${isLogin ? "tab--active" : ""}`}
-              onClick={() => !isLogin && toggleMode()}
+              className={`tab ${isSignInMode ? "tab--active" : ""}`}
+              onClick={() => {
+                if (!isLogin) {
+                  switchMode("login");
+                }
+              }}
               style={{ flex: 1, justifyContent: "center" }}
             >
               Sign In
             </button>
             {signupAvailable && (
               <button
-                className={`tab ${!isLogin ? "tab--active" : ""}`}
-                onClick={() => isLogin && toggleMode()}
+                className={`tab ${isSignup ? "tab--active" : ""}`}
+                onClick={() => {
+                  if (!isSignup) {
+                    switchMode("signup");
+                  }
+                }}
                 style={{ flex: 1, justifyContent: "center" }}
               >
                 Sign Up
@@ -259,7 +417,7 @@ export function AuthGate({ onAuthenticated }: Props) {
 
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
               {/* Name Field - Signup Only */}
-              {!isLogin && (
+              {isSignup && (
                 <div className="form-group">
                   <label className="form-label">
                     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
@@ -280,7 +438,7 @@ export function AuthGate({ onAuthenticated }: Props) {
               )}
 
               {/* Invite Code Field - Signup + invite mode only */}
-              {!isLogin && regStatus?.requiresInviteCode && (
+              {isSignup && regStatus?.requiresInviteCode && (
                 <div className="form-group">
                   <label className="form-label">
                     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
@@ -300,55 +458,192 @@ export function AuthGate({ onAuthenticated }: Props) {
               )}
 
               {/* Email Field */}
-              <div className="form-group">
-                <label className="form-label">
-                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                    <IconMail style={{ width: 14, height: 14 } as any} />
-                    Email Address
-                  </div>
-                </label>
-                <input
-                  className="input"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                  disabled={loading}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
+              {!isReset && (
+                <div className="form-group">
+                  <label className="form-label">
+                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                      <IconMail style={{ width: 14, height: 14 } as any} />
+                      Email Address
+                    </div>
+                  </label>
+                  <input
+                    className="input"
+                    type="email"
+                    value={isForgot ? forgotEmail : form.email}
+                    onChange={(e) => {
+                      const nextEmail = e.target.value;
+                      if (isForgot) {
+                        setForgotEmail(nextEmail);
+                      } else {
+                        setForm({ ...form, email: nextEmail });
+                      }
+                    }}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    disabled={loading}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") {
+                        return;
+                      }
+
+                      if (isForgot) {
+                        void handleForgotPassword();
+                        return;
+                      }
+
                       const passwordInput = document.getElementById("password-input") as HTMLInputElement;
                       passwordInput?.focus();
-                    }
-                  }}
-                />
-              </div>
+                    }}
+                  />
+                </div>
+              )}
 
-              {/* Password Field */}
-              <div className="form-group">
-                <label className="form-label">
-                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                    <IconKey style={{ width: 14, height: 14 } as any} />
-                    Password
-                  </div>
-                </label>
-                <input
-                  id="password-input"
-                  className="input"
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder="••••••••"
-                  autoComplete={isLogin ? "current-password" : "new-password"}
-                  disabled={loading}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      void handleSubmit();
-                    }
+              {(isLogin || isSignup) && (
+                <div className="form-group">
+                  <label className="form-label">
+                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                      <IconKey style={{ width: 14, height: 14 } as any} />
+                      Password
+                    </div>
+                  </label>
+                  <input
+                    id="password-input"
+                    className="input"
+                    type="password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    placeholder="••••••••"
+                    autoComplete={isLogin ? "current-password" : "new-password"}
+                    disabled={loading}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        void handleAuthSubmit();
+                      }
+                    }}
+                  />
+                </div>
+              )}
+
+              {isLogin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotEmail(form.email);
+                    switchMode("forgot");
                   }}
-                />
-              </div>
+                  disabled={loading}
+                  style={{
+                    alignSelf: "flex-start",
+                    background: "none",
+                    border: "none",
+                    color: "var(--accent)",
+                    padding: 0,
+                    fontSize: "0.875rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  Forgot your password?
+                </button>
+              )}
+
+              {isReset && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">
+                      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                        <IconKey style={{ width: 14, height: 14 } as any} />
+                        Reset Token
+                      </div>
+                    </label>
+                    <input
+                      className="input"
+                      type="text"
+                      value={resetForm.token}
+                      onChange={(e) => setResetForm({ ...resetForm, token: e.target.value })}
+                      placeholder="Paste the token from your reset link"
+                      autoComplete="one-time-code"
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">
+                      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                        <IconKey style={{ width: 14, height: 14 } as any} />
+                        New Password
+                      </div>
+                    </label>
+                    <input
+                      className="input"
+                      type="password"
+                      value={resetForm.password}
+                      onChange={(e) => setResetForm({ ...resetForm, password: e.target.value })}
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">
+                      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                        <IconKey style={{ width: 14, height: 14 } as any} />
+                        Confirm Password
+                      </div>
+                    </label>
+                    <input
+                      className="input"
+                      type="password"
+                      value={resetForm.confirmPassword}
+                      onChange={(e) => setResetForm({ ...resetForm, confirmPassword: e.target.value })}
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                      disabled={loading}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          void handleResetPassword();
+                        }
+                      }}
+                    />
+                  </div>
+                </>
+              )}
             </div>
+
+            {message && (
+              <div
+                style={{
+                  marginTop: "var(--space-5)",
+                  padding: "var(--space-4)",
+                  borderRadius: "var(--radius-lg)",
+                  background: "var(--accent-dim)",
+                  border: "1px solid var(--border-subtle)",
+                  color: "var(--text-primary)",
+                  fontSize: "0.875rem",
+                }}
+              >
+                {message}
+              </div>
+            )}
+
+            {resetPreviewUrl && (
+              <div
+                style={{
+                  marginTop: "var(--space-4)",
+                  padding: "var(--space-4)",
+                  borderRadius: "var(--radius-lg)",
+                  background: "var(--bg-subtle)",
+                  border: "1px solid var(--border-subtle)",
+                  color: "var(--text-muted)",
+                  fontSize: "0.8125rem",
+                }}
+              >
+                Local preview link:{" "}
+                <a href={resetPreviewUrl} style={{ color: "var(--accent)", textDecoration: "none" }}>
+                  Open reset link
+                </a>
+              </div>
+            )}
 
             {/* Error Alert */}
             {error && (
@@ -371,13 +666,25 @@ export function AuthGate({ onAuthenticated }: Props) {
                 marginTop: "var(--space-6)",
                 justifyContent: "center",
               }}
-              onClick={() => void handleSubmit()}
+              onClick={() => {
+                if (isForgot) {
+                  void handleForgotPassword();
+                  return;
+                }
+
+                if (isReset) {
+                  void handleResetPassword();
+                  return;
+                }
+
+                void handleAuthSubmit();
+              }}
               disabled={
                 loading ||
-                !form.email ||
-                !form.password ||
-                (!isLogin && !form.name) ||
-                (!isLogin && regStatus?.requiresInviteCode && !inviteCode)
+                (isLogin && (!form.email || !form.password)) ||
+                (isSignup && (!form.email || !form.password || !form.name || (regStatus?.requiresInviteCode && !inviteCode))) ||
+                (isForgot && !forgotEmail) ||
+                (isReset && (!resetForm.token || !resetForm.password || !resetForm.confirmPassword))
               }
             >
               {loading ? (
@@ -393,15 +700,65 @@ export function AuthGate({ onAuthenticated }: Props) {
                   >
                     <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                   </svg>
-                  {isLogin ? "Signing in..." : "Creating account..."}
+                  {isLogin
+                    ? "Signing in..."
+                    : isSignup
+                      ? "Creating account..."
+                      : isForgot
+                        ? "Sending reset link..."
+                        : "Resetting password..."}
                 </>
               ) : (
                 <>
-                  {isLogin ? <IconArrowRight /> : <IconUserPlus />}
-                  {isLogin ? "Sign In" : "Create Account"}
+                  {(isLogin || isReset) ? <IconArrowRight /> : <IconUserPlus />}
+                  {isLogin
+                    ? "Sign In"
+                    : isSignup
+                      ? "Create Account"
+                      : isForgot
+                        ? "Send Reset Link"
+                        : "Reset Password"}
                 </>
               )}
             </button>
+
+            {(isForgot || isReset) && (
+              <button
+                type="button"
+                className="btn btn--ghost"
+                style={{
+                  width: "100%",
+                  marginTop: "var(--space-3)",
+                  justifyContent: "center",
+                }}
+                onClick={() => {
+                  switchMode("login");
+                  setResetForm({ token: "", password: "", confirmPassword: "" });
+                }}
+                disabled={loading}
+              >
+                Back to Sign In
+              </button>
+            )}
+
+            {isForgot && (
+              <button
+                type="button"
+                className="btn btn--ghost"
+                style={{
+                  width: "100%",
+                  marginTop: "var(--space-3)",
+                  justifyContent: "center",
+                }}
+                onClick={() => {
+                  setResetForm((current) => ({ ...current, token: "" }));
+                  switchMode("reset");
+                }}
+                disabled={loading}
+              >
+                I already have a reset token
+              </button>
+            )}
           </div>
         </div>
 

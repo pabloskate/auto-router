@@ -324,6 +324,7 @@ function ManualGatewayModelForm({
               reasoningPreset: event.target.value as GatewayModel["reasoningPreset"],
             }))}
           >
+            <option value="provider_default">Provider default</option>
             <option value="none">None</option>
             <option value="minimal">Minimal</option>
             <option value="low">Low</option>

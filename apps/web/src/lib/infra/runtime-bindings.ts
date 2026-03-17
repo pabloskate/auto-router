@@ -23,6 +23,8 @@ export interface RouterRuntimeBindings {
   ADMIN_SECRET?: string;
   SESSION_COOKIE_SECURE?: string;
   REGISTRATION_MODE?: string;
+  RESEND_API_KEY?: string;
+  PASSWORD_RESET_FROM_EMAIL?: string;
 }
 
 declare global {
@@ -65,5 +67,9 @@ export function getRuntimeBindings(): RouterRuntimeBindings {
       fromGlobal?.SESSION_COOKIE_SECURE ?? process.env.SESSION_COOKIE_SECURE,
     REGISTRATION_MODE:
       fromGlobal?.REGISTRATION_MODE ?? process.env.REGISTRATION_MODE,
+    RESEND_API_KEY:
+      fromGlobal?.RESEND_API_KEY ?? process.env.RESEND_API_KEY,
+    PASSWORD_RESET_FROM_EMAIL:
+      fromGlobal?.PASSWORD_RESET_FROM_EMAIL ?? process.env.PASSWORD_RESET_FROM_EMAIL,
   };
 }

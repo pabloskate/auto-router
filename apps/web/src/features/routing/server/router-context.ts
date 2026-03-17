@@ -4,6 +4,7 @@ import { parseProfileModelKey, profileModelToCatalogItem } from "@/src/lib/routi
 import { getRouterRepository, type RouterRepository } from "@/src/lib/storage/repository";
 
 import { findMatchedProfile, isRoutedRequestModel } from "./router-decision";
+import { resolveGatewayCapabilityForBaseUrl } from "./gateway-capabilities";
 import type { RoutedRequestBody, UserRouterConfig } from "./router-service-types";
 
 export interface ResolvedRoutingContext {
@@ -33,9 +34,20 @@ export async function resolveUserRoutingContext(args: {
     }
   }
 
-  const gatewayCatalogItems: CatalogItem[] = (args.userConfig?.gatewayRows ?? []).flatMap((gateway) =>
-    gateway.models.map((model) => ({ ...model, gatewayId: gateway.id }))
+  const gatewayCapabilityById = new Map(
+    (args.userConfig?.gatewayRows ?? []).map((gateway) => [
+      gateway.id,
+      resolveGatewayCapabilityForBaseUrl(gateway.baseUrl),
+    ] as const),
   );
+  const gatewayCatalogItems: CatalogItem[] = (args.userConfig?.gatewayRows ?? []).flatMap((gateway) => {
+    const capability = gatewayCapabilityById.get(gateway.id);
+    return gateway.models.map((model) => ({
+      ...model,
+      upstreamModelId: capability?.supportsFamilyIdentity ? model.upstreamModelId : undefined,
+      gatewayId: gateway.id,
+    }));
+  });
 
   const requestedModel = typeof args.body.model === "string" ? args.body.model : "";
   const matchedProfile = findMatchedProfile(requestedModel, args.userConfig?.profiles);
@@ -44,7 +56,14 @@ export async function resolveUserRoutingContext(args: {
 
   const profileCatalog = (activeProfile?.models ?? [])
     .map(profileModelToCatalogItem)
-    .filter((item): item is CatalogItem => Boolean(item));
+    .filter((item): item is CatalogItem => Boolean(item))
+    .map((item) => {
+      const capability = item.gatewayId ? gatewayCapabilityById.get(item.gatewayId) : undefined;
+      return {
+        ...item,
+        upstreamModelId: capability?.supportsFamilyIdentity ? item.upstreamModelId : undefined,
+      };
+    });
   const catalog =
     routedRequest
       ? profileCatalog

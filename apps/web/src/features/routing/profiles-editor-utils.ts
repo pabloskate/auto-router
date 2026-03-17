@@ -122,6 +122,7 @@ export function syncProfileModelFromGateway(gateways: GatewayInfo[], model: Rout
 
   return {
     ...normalized,
+    upstreamModelId: normalized.upstreamModelId ?? gatewayModel?.upstreamModelId,
     name: normalized.name ?? gatewayModel?.name ?? normalized.modelId,
     modality: normalized.modality ?? gatewayModel?.modality,
     reasoningPreset,
@@ -264,7 +265,7 @@ export function createCustomModelDraft(gateways: GatewayInfo[]): CustomModelDraf
     modelId: "",
     name: "",
     modality: "text->text",
-    reasoningPreset: "none",
+    reasoningPreset: "provider_default",
     whenToUse: "",
     description: "",
   };

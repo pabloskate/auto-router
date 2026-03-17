@@ -1,23 +1,45 @@
-import { buildPromptWindow, type LlmRouterFunction } from "./llm-router";
 import {
   buildThreadFingerprint,
-  isContinuationRequest,
-  isAgentLoop,
+  hasForceRouteRequest,
   hasImagePayload,
-  hasForceRouteRequest
+  isAgentLoop,
+  isContinuationRequest,
 } from "./threading";
-import {
-  type PinStore,
-  type RouteDecision,
-  type RouterConfig,
-  type RouterProfile,
-  type RouterRequestLike,
-  type ThreadPin,
-  type CatalogItem
+import type {
+  CatalogItem,
+  PinStore,
+  ReasoningEffort,
+  RouteDecision,
+  RouterConfig,
+  RouterProfile,
+  RouterRequestLike,
+  RoutingStepClassification,
+  ThreadPin,
 } from "./types";
+import { resolveClassifierSelection } from "./router-engine/classifier-resolution";
+import {
+  applyVisionCapabilityOverride,
+  buildRouteDecision,
+  createPassthroughDecision,
+} from "./router-engine/fallback-and-explanation";
+import { resolvePinPolicy } from "./router-engine/pin-policy";
+import {
+  DEFAULT_SMART_PIN_TURNS,
+  getEffectiveReasoningPolicy,
+  type ResolutionTelemetry,
+} from "./router-engine/shared";
+import type { LlmRouterFunction } from "./llm-router";
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
-const DEFAULT_SMART_PIN_TURNS = 3;
+
+function getAllowedCatalog(catalog: CatalogItem[], threadHasImage: boolean): CatalogItem[] {
+  if (!threadHasImage) {
+    return catalog;
+  }
+
+  const visionModels = catalog.filter((model) => model.modality?.includes("image"));
+  return visionModels.length > 0 ? visionModels : catalog;
+}
 
 export interface RouterEngineOptions {
   pinTtlMs?: number;
@@ -47,68 +69,46 @@ export class RouterEngine {
     const requestedModel = args.request.model;
     const messages = args.request.messages ?? [];
     const tools = args.request.tools ?? [];
-
     const matchedProfile = args.profiles?.find((profile) => profile.id === requestedModel);
 
-    // Passthrough when the requested model does not match a named routing profile.
     if (!matchedProfile) {
       const threadKey = buildThreadFingerprint({
         messages,
         tools,
-        previousResponseId: args.request.previous_response_id
+        previousResponseId: args.request.previous_response_id,
       });
-
       const isContinuation = isContinuationRequest({
         messages,
         tools,
-        previousResponseId: args.request.previous_response_id
+        previousResponseId: args.request.previous_response_id,
       });
 
-      return {
-        mode: "passthrough",
+      return createPassthroughDecision({
+        requestId: args.requestId,
         requestedModel,
-        selectedModel: requestedModel,
         catalogVersion: args.catalogVersion,
         threadKey,
         isContinuation,
-        pinUsed: false,
-        degraded: false,
-        fallbackModels: [],
-        shouldPin: false,
-        explanation: {
-          requestId: args.requestId,
-          createdAt: now.toISOString(),
-          catalogVersion: args.catalogVersion,
-          classificationConfidence: 1,
-          classificationSignals: ["passthrough:explicit_model"],
-          threadKey,
-          isContinuation,
-          pinUsed: false,
-          selectedModel: requestedModel,
-          decisionReason: "passthrough",
-          fallbackChain: [],
-          notes: ["Router bypassed because request specified an explicit model."]
-        }
-      };
+        now,
+      });
     }
 
     const hasProfiles = Boolean(args.profiles?.length);
     const effectiveConfig: RouterConfig = {
       ...args.config,
-      routingInstructions: matchedProfile?.routingInstructions ?? (!hasProfiles ? args.config.routingInstructions : undefined),
+      routingInstructions: matchedProfile.routingInstructions ?? (!hasProfiles ? args.config.routingInstructions : undefined),
     };
-
+    const reasoningPolicy = getEffectiveReasoningPolicy(matchedProfile);
     const threadKey = buildThreadFingerprint({
       messages,
       tools,
       previousResponseId: args.request.previous_response_id,
-      profileId: matchedProfile?.id,
+      profileId: matchedProfile.id,
     });
-
     const isContinuation = isContinuationRequest({
       messages,
       tools,
-      previousResponseId: args.request.previous_response_id
+      previousResponseId: args.request.previous_response_id,
     });
     const routingFrequency = effectiveConfig.routingFrequency ?? "smart";
     const defaultSmartPinTurns = effectiveConfig.smartPinTurns ?? effectiveConfig.cooldownTurns ?? DEFAULT_SMART_PIN_TURNS;
@@ -118,252 +118,86 @@ export class RouterEngine {
       triggerKeywords: effectiveConfig.routeTriggerKeywords,
     });
     const isLoop = isAgentLoop(messages);
-
     const threadHasImage = hasImagePayload(messages);
-    let allowedCatalog = args.catalog;
+    const allowedCatalog = getAllowedCatalog(args.catalog, threadHasImage);
 
-    // Filter to vision-capable models if the thread contains an image
-    if (threadHasImage) {
-      const visionModels = args.catalog.filter(m => m.modality?.includes("image"));
-      if (visionModels.length > 0) {
-        allowedCatalog = visionModels;
-      }
+    const notes = [`Routed via profile: ${matchedProfile.id}`];
+    const pinState = await resolvePinPolicy({
+      routingFrequency,
+      pinStore: args.pinStore,
+      threadKey,
+      isContinuation,
+      forceRoute,
+      isLoop,
+      defaultSmartPinTurns,
+      allowedCatalog,
+      fullCatalog: args.catalog,
+      threadHasImage,
+    });
+    notes.push(...pinState.notes);
+
+    let selection = pinState.selection;
+    let telemetry: ResolutionTelemetry = {
+      confidence: 0.5,
+      signals: [],
+      pinRerouteAfterTurns: pinState.pinRerouteAfterTurns,
+      pinBudgetSource: pinState.pinBudgetSource,
+      pinConsumedUserTurns: pinState.pinConsumedUserTurns,
+      notes,
+    };
+
+    if (!selection) {
+      const classifierResolution = await resolveClassifierSelection({
+        llmRouter: this.llmRouter,
+        request: args.request,
+        allowedCatalog,
+        routingInstructions: effectiveConfig.routingInstructions,
+        classifierModel: effectiveConfig.classifierModel,
+        defaultModel: effectiveConfig.defaultModel,
+        policy: reasoningPolicy,
+        activePin: pinState.activePin,
+        activePinValid: pinState.activePinValid,
+        previousFamily: pinState.previousFamily,
+        isContinuation,
+        forceRoute,
+        defaultSmartPinTurns,
+      });
+      selection = classifierResolution.selection;
+      notes.push(...classifierResolution.telemetry.notes);
+      telemetry = {
+        ...classifierResolution.telemetry,
+        notes,
+      };
     }
 
-    let selectedModel = effectiveConfig.defaultModel ?? "";
-    let pinUsed = false;
-    let decisionReason: RouteDecision["explanation"]["decisionReason"] = "initial_route";
-    const notes: string[] = [];
-    let signals: string[] = [];
-    let confidence = 0.5;
-    let pinBypassReason: string | undefined;
-    let routingError: string | undefined;
-    let shouldPin = true;
-    let pinRerouteAfterTurns: number | undefined;
-    let pinBudgetSource: "classifier" | "default" | undefined;
-    let pinConsumedUserTurns = 0;
+    const visionAdjusted = applyVisionCapabilityOverride({
+      selection,
+      allowedCatalog,
+      threadHasImage,
+    });
+    selection = visionAdjusted.selection;
+    notes.push(...visionAdjusted.notes);
+    telemetry = {
+      ...telemetry,
+      notes,
+    };
 
-    if (matchedProfile) {
-      notes.push(`Routed via profile: ${matchedProfile.id}`);
-    }
-
-    let activePin: ThreadPin | null = null;
-    let pinTurnCount: number | undefined;
-
-    if (routingFrequency === "every_message") {
-      // Re-evaluate on every turn — skip pin entirely, never write pins
-      shouldPin = false;
-      pinBypassReason = "routing_frequency_every_message";
-      if (forceRoute) {
-        notes.push("Force route directive detected but routing frequency is 'every message' — classifier runs every turn regardless.");
-      }
-    } else if (routingFrequency === "new_thread_only") {
-      // Only route on new threads by default, but still honor explicit force-route triggers.
-      if (forceRoute) {
-        notes.push("Force route directive detected in latest user message. Bypassing thread pin even though routing frequency is 'new thread only'.");
-        pinBypassReason = "force_route";
-      } else if (isContinuation) {
-        activePin = await args.pinStore.get(threadKey);
-        if (activePin) {
-          const exists = allowedCatalog.some(m => m.id === activePin!.modelId);
-          if (exists) {
-            selectedModel = activePin.modelId;
-            pinUsed = true;
-            decisionReason = "thread_pin";
-            pinTurnCount = isLoop ? activePin.turnCount : activePin.turnCount + 1;
-            pinConsumedUserTurns = pinTurnCount;
-            notes.push(
-              `Reused pinned model from thread: ${activePin.modelId}. User-turn count: ${activePin.turnCount} -> ${pinTurnCount}${isLoop ? " (Agent Loop detected; count unchanged)" : ""
-              }`
-            );
-          } else {
-            decisionReason = "pin_invalid";
-            if (threadHasImage && !allowedCatalog.some(m => m.id === activePin!.modelId) && args.catalog.some(m => m.id === activePin!.modelId)) {
-              notes.push(`Image detected but pinned model (${activePin!.modelId}) does not support vision. Breaking cache lock.`);
-              pinBypassReason = "pin_invalid_image";
-            } else {
-              notes.push(`Pinned model invalid (not in catalog): ${activePin!.modelId}`);
-              pinBypassReason = "pin_invalid";
-            }
-          }
-        } else {
-          pinBypassReason = "pin_missing_or_expired";
-        }
-      } else {
-        pinBypassReason = "new_thread";
-      }
-    } else {
-      // "smart" mode — default current behavior
-      if (forceRoute) {
-        notes.push("Force route directive detected in latest user message. Bypassing thread pin for this turn.");
-        pinBypassReason = "force_route";
-      }
-
-      if (isContinuation && !forceRoute) {
-        activePin = await args.pinStore.get(threadKey);
-
-        if (activePin) {
-          const exists = allowedCatalog.some(m => m.id === activePin!.modelId);
-          if (exists) {
-            const activeBudget = activePin.rerouteAfterTurns ?? defaultSmartPinTurns;
-            pinRerouteAfterTurns = activeBudget;
-            pinBudgetSource = activePin.budgetSource ?? "default";
-            if (isLoop || activePin.turnCount + 1 < activeBudget) {
-              selectedModel = activePin.modelId;
-              pinUsed = true;
-              decisionReason = "thread_pin";
-              pinTurnCount = isLoop ? activePin.turnCount : activePin.turnCount + 1;
-              pinConsumedUserTurns = pinTurnCount;
-              notes.push(
-                `Reused pinned model from thread: ${activePin.modelId}. User-turn count: ${activePin.turnCount} -> ${pinTurnCount}${isLoop ? " (Agent Loop detected; count unchanged)" : ""
-                }`
-              );
-            } else {
-              notes.push(`Smart pin limit reached (${activePin.turnCount + 1} would reach ${activeBudget}). Re-evaluating router.`);
-              pinBypassReason = "smart_pin_turn_limit";
-            }
-          } else {
-            decisionReason = "pin_invalid";
-            if (threadHasImage && !allowedCatalog.some(m => m.id === activePin!.modelId) && args.catalog.some(m => m.id === activePin!.modelId)) {
-              notes.push(`Image detected but pinned model (${activePin!.modelId}) does not support vision. Breaking cache lock.`);
-              pinBypassReason = "pin_invalid_image";
-            } else {
-              notes.push(`Pinned model invalid (not in catalog): ${activePin!.modelId}`);
-              pinBypassReason = "pin_invalid";
-            }
-          }
-        } else {
-          pinBypassReason = "pin_missing_or_expired";
-        }
-      } else if (!isContinuation) {
-        pinBypassReason = "new_thread";
-      }
-    }
-
-    if (!pinUsed) {
-      if (this.llmRouter) {
-        const prompt = buildPromptWindow({
-          messages,
-          input: args.request.input,
-        });
-        try {
-          const result = await this.llmRouter({
-            prompt,
-            catalog: allowedCatalog,
-            routingInstructions: effectiveConfig.routingInstructions,
-            classifierModel: effectiveConfig.classifierModel,
-            currentModel: activePin?.modelId,
-          });
-
-          if (result && result.selectedModel) {
-            // Verify model actually exists in catalog
-            const valid = allowedCatalog.some(m => m.id === result.selectedModel);
-            if (valid) {
-              selectedModel = result.selectedModel;
-              confidence = result.confidence;
-              signals = result.signals;
-              pinRerouteAfterTurns = result.rerouteAfterTurns ?? defaultSmartPinTurns;
-              pinBudgetSource = result.rerouteAfterTurns ? "classifier" : "default";
-              pinConsumedUserTurns = 0;
-              notes.push(`LLM router selected: ${result.selectedModel}`);
-            } else {
-              notes.push(`LLM router returned invalid model: ${result.selectedModel}`);
-              if (effectiveConfig.defaultModel) {
-                selectedModel = effectiveConfig.defaultModel;
-                pinRerouteAfterTurns = defaultSmartPinTurns;
-                pinBudgetSource = "default";
-                pinConsumedUserTurns = 0;
-              } else {
-                routingError = "classifier_returned_invalid_model_without_fallback";
-                selectedModel = "";
-              }
-            }
-          } else {
-            if (effectiveConfig.defaultModel) {
-              pinRerouteAfterTurns = defaultSmartPinTurns;
-              pinBudgetSource = "default";
-              pinConsumedUserTurns = 0;
-              notes.push(`LLM router failed or returned no result. Using configured fallback.`);
-            } else {
-              notes.push("LLM router failed or returned no result and no fallback model is configured.");
-              routingError = "classifier_failed_without_fallback";
-            }
-          }
-        } catch (error) {
-          if (effectiveConfig.defaultModel) {
-            pinRerouteAfterTurns = defaultSmartPinTurns;
-            pinBudgetSource = "default";
-            pinConsumedUserTurns = 0;
-            notes.push(`LLM router exploded: ${(error as Error).message}. Using configured fallback.`);
-          } else {
-            notes.push(`LLM router exploded: ${(error as Error).message}. No fallback model is configured.`);
-            routingError = "classifier_failed_without_fallback";
-          }
-        }
-      } else {
-        if (effectiveConfig.defaultModel) {
-          pinRerouteAfterTurns = defaultSmartPinTurns;
-          pinBudgetSource = "default";
-          pinConsumedUserTurns = 0;
-          notes.push("No LLM router configured. Using configured fallback model.");
-        } else {
-          notes.push("No LLM router configured and no fallback model is configured.");
-          routingError = "classifier_missing_without_fallback";
-        }
-      }
-    }
-
-    if (selectedModel && threadHasImage && !allowedCatalog.some(m => m.id === selectedModel)) {
-      if (allowedCatalog.length > 0) {
-        selectedModel = allowedCatalog[0]!.id; // Fallback to a vision model if default model isn't one
-        notes.push(`Thread has an image but selected model doesn't support vision. Forcing vision model: ${selectedModel}`);
-      } else {
-        notes.push(`Warning: Thread contains image but no vision models found in catalog.`);
-      }
-    }
-
-    // Determine fallbacks (simplified: just the effective default model if not already selected)
-    const fallbackModels =
-      effectiveConfig.defaultModel && selectedModel && selectedModel !== effectiveConfig.defaultModel
-        ? [effectiveConfig.defaultModel]
-        : [];
-
-    return {
-      mode: "routed",
+    return buildRouteDecision({
+      requestId: args.requestId,
       requestedModel,
-      selectedModel,
       catalogVersion: args.catalogVersion,
       threadKey,
       isContinuation,
-      pinUsed,
-      degraded: false,
-      fallbackModels,
-      shouldPin,
-      pinTurnCount,
-      pinRerouteAfterTurns: routingFrequency === "smart" ? pinRerouteAfterTurns ?? defaultSmartPinTurns : undefined,
-      pinBudgetSource: routingFrequency === "smart" ? pinBudgetSource ?? "default" : undefined,
-      explanation: {
-        requestId: args.requestId,
-        createdAt: now.toISOString(),
-        catalogVersion: args.catalogVersion,
-        classificationConfidence: confidence,
-        classificationSignals: signals,
-        threadKey,
-        isContinuation,
-        pinUsed,
-        isAgentLoop: isLoop,
-        selectedModel,
-        decisionReason,
-        fallbackChain: fallbackModels,
-        notes,
-        profileId: matchedProfile?.id,
-        pinBypassReason,
-        pinRerouteAfterTurns: routingFrequency === "smart" ? pinRerouteAfterTurns ?? defaultSmartPinTurns : undefined,
-        pinBudgetSource: routingFrequency === "smart" ? pinBudgetSource ?? "default" : undefined,
-        pinConsumedUserTurns: routingFrequency === "smart" ? pinConsumedUserTurns : undefined,
-      },
-      routingError,
-    };
+      isLoop,
+      now,
+      matchedProfileId: matchedProfile.id,
+      routingFrequency,
+      defaultSmartPinTurns,
+      effectiveDefaultModel: effectiveConfig.defaultModel,
+      pinState,
+      selection,
+      telemetry,
+    });
   }
 
   createPin(args: {
@@ -373,6 +207,9 @@ export class RouterEngine {
     turnCount?: number;
     rerouteAfterTurns?: number;
     budgetSource?: "classifier" | "default";
+    familyId?: string;
+    reasoningEffort?: ReasoningEffort;
+    stepMode?: RoutingStepClassification["stepMode"];
     now?: Date;
   }): ThreadPin {
     const now = args.now ?? new Date();
@@ -387,6 +224,9 @@ export class RouterEngine {
       turnCount: args.turnCount ?? 0,
       rerouteAfterTurns: args.rerouteAfterTurns,
       budgetSource: args.budgetSource,
+      familyId: args.familyId,
+      reasoningEffort: args.reasoningEffort,
+      stepMode: args.stepMode,
     };
   }
 }

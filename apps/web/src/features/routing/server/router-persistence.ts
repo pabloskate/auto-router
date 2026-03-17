@@ -15,6 +15,9 @@ export async function pinSelectedModel(args: {
   threadKey: string;
   requestId: string;
   selectedModel: string;
+  selectedFamily?: string;
+  selectedEffort?: RoutingExplanation["selectedEffort"];
+  stepClassification?: RoutingExplanation["stepClassification"];
   pinTurnCount?: number;
   pinRerouteAfterTurns?: number;
   pinBudgetSource?: "classifier" | "default";
@@ -30,6 +33,9 @@ export async function pinSelectedModel(args: {
     turnCount: args.pinTurnCount ?? 0,
     rerouteAfterTurns: args.pinRerouteAfterTurns,
     budgetSource: args.pinBudgetSource,
+    familyId: args.selectedFamily,
+    reasoningEffort: args.selectedEffort,
+    stepMode: args.stepClassification?.stepMode,
   });
   await args.repository.getPinStore().set(pin);
 }

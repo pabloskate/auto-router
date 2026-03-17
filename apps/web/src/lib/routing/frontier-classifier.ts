@@ -79,15 +79,25 @@ ${modelList}
 - For code tasks: prefer models with "coding" in their whenToUse
 - For deep reasoning: prefer variants with higher reasoning presets and stronger thinking hints
 - For simpler or cost-sensitive tasks: prefer base variants with lower reasoning presets
+- If a model shows reasoning:provider_default or thinking:provider_default, that means the router can omit reasoning controls and let the provider choose its native/adaptive default
 - For vision/image tasks: only select models with vision:yes
 - For long documents: prefer models with larger context windows${statusQuoBias}
 - selectedModel MUST be an exact byte-for-byte match to one of the available model IDs
+- Also classify the current step so the router can decide whether to preserve family stickiness or change effort
 
 ## Output Format
 Return JSON with:
 - selectedModel: exact model ID from the catalog
 - confidence: 0-1 score reflecting certainty in this routing decision
 - signals: array of reasoning factors (e.g., "task_type:coding", "complexity:high", "matched:glm-4")
+- stepClassification: object with
+  - stepMode: tool | deliberate | synthesis
+  - complexity: low | medium | high
+  - stakes: low | medium | high | critical
+  - latencySensitivity: low | medium | high
+  - toolNeed: none | optional | required
+  - expectedOutputSize: short | medium | long
+  - interactionHorizon: one_shot | multi_step
 
 Example: {"selectedModel":"anthropic/claude-3-opus","confidence":0.87,"signals":["task_type:coding","complexity:high","matched:claude-3-opus"]}
 
@@ -150,6 +160,19 @@ export async function routeWithFrontierModel(args: {
                 type: "array",
                 items: { type: "string" },
               },
+              stepClassification: {
+                type: "object",
+                properties: {
+                  stepMode: { type: "string", enum: ["tool", "deliberate", "synthesis"] },
+                  complexity: { type: "string", enum: ["low", "medium", "high"] },
+                  stakes: { type: "string", enum: ["low", "medium", "high", "critical"] },
+                  latencySensitivity: { type: "string", enum: ["low", "medium", "high"] },
+                  toolNeed: { type: "string", enum: ["none", "optional", "required"] },
+                  expectedOutputSize: { type: "string", enum: ["short", "medium", "long"] },
+                  interactionHorizon: { type: "string", enum: ["one_shot", "multi_step"] },
+                },
+                additionalProperties: false,
+              },
               rerouteAfterTurns: {
                 type: "integer",
                 minimum: SMART_PIN.MIN_USER_TURNS,
@@ -207,6 +230,15 @@ export async function routeWithFrontierModel(args: {
       selectedModel?: string;
       confidence?: number;
       signals?: string[];
+      stepClassification?: {
+        stepMode?: "tool" | "deliberate" | "synthesis";
+        complexity?: "low" | "medium" | "high";
+        stakes?: "low" | "medium" | "high" | "critical";
+        latencySensitivity?: "low" | "medium" | "high";
+        toolNeed?: "none" | "optional" | "required";
+        expectedOutputSize?: "short" | "medium" | "long";
+        interactionHorizon?: "one_shot" | "multi_step";
+      };
       rerouteAfterTurns?: number;
     };
 
@@ -227,6 +259,17 @@ export async function routeWithFrontierModel(args: {
       signals: Array.isArray(parsed.signals)
         ? parsed.signals.filter((s): s is string => typeof s === "string")
         : ["frontier_classification"],
+      stepClassification: parsed.stepClassification
+        ? {
+            stepMode: parsed.stepClassification.stepMode ?? "deliberate",
+            complexity: parsed.stepClassification.complexity ?? "medium",
+            stakes: parsed.stepClassification.stakes ?? "medium",
+            latencySensitivity: parsed.stepClassification.latencySensitivity ?? "medium",
+            toolNeed: parsed.stepClassification.toolNeed ?? "optional",
+            expectedOutputSize: parsed.stepClassification.expectedOutputSize ?? "medium",
+            interactionHorizon: parsed.stepClassification.interactionHorizon ?? "one_shot",
+          }
+        : undefined,
       rerouteAfterTurns:
         typeof parsed.rerouteAfterTurns === "number" && Number.isInteger(parsed.rerouteAfterTurns)
           ? Math.max(SMART_PIN.MIN_USER_TURNS, Math.min(SMART_PIN.MAX_USER_TURNS, parsed.rerouteAfterTurns))

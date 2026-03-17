@@ -75,6 +75,7 @@ const memoryState = {
   runs: [] as IngestionRunSummary[],
   pinStore: new InMemoryPinStore()
 };
+const threadPinMetadataColumnCache = new WeakMap<D1Database, Promise<boolean>>();
 
 function parseJson<T>(value: string | null | undefined): T | null {
   if (!value) {
@@ -129,10 +130,32 @@ class MemoryRepository implements RouterRepository {
 class D1PinStore implements PinStore {
   constructor(private readonly db: D1Database) { }
 
+  private hasMetadataColumns(): Promise<boolean> {
+    const cached = threadPinMetadataColumnCache.get(this.db);
+    if (cached) {
+      return cached;
+    }
+
+    const lookup = this.db
+      .prepare("PRAGMA table_info(thread_pins)")
+      .all<{ name?: string | null }>()
+      .then(({ results }) => {
+        const names = new Set(results.map((column) => column.name).filter((value): value is string => typeof value === "string"));
+        return names.has("family_id") && names.has("reasoning_effort") && names.has("step_mode");
+      })
+      .catch(() => false);
+
+    threadPinMetadataColumnCache.set(this.db, lookup);
+    return lookup;
+  }
+
   async get(threadKey: string) {
+    const includeMetadata = await this.hasMetadataColumns();
     const row = await this.db
       .prepare(
-        "SELECT model_id, request_id, pinned_at, expires_at, turn_count, reroute_after_turns, budget_source FROM thread_pins WHERE thread_key = ?1 LIMIT 1"
+        includeMetadata
+          ? "SELECT model_id, request_id, pinned_at, expires_at, turn_count, reroute_after_turns, budget_source, family_id, reasoning_effort, step_mode FROM thread_pins WHERE thread_key = ?1 LIMIT 1"
+          : "SELECT model_id, request_id, pinned_at, expires_at, turn_count, reroute_after_turns, budget_source FROM thread_pins WHERE thread_key = ?1 LIMIT 1"
       )
       .bind(threadKey)
       .first<{
@@ -143,6 +166,9 @@ class D1PinStore implements PinStore {
         turn_count: number;
         reroute_after_turns?: number | null;
         budget_source?: "classifier" | "default" | null;
+        family_id?: string | null;
+        reasoning_effort?: ThreadPin["reasoningEffort"] | null;
+        step_mode?: ThreadPin["stepMode"] | null;
       }>();
 
     if (!row) {
@@ -163,22 +189,40 @@ class D1PinStore implements PinStore {
       turnCount: row.turn_count,
       rerouteAfterTurns: typeof row.reroute_after_turns === "number" ? row.reroute_after_turns : undefined,
       budgetSource: row.budget_source ?? undefined,
+      familyId: row.family_id ?? undefined,
+      reasoningEffort: row.reasoning_effort ?? undefined,
+      stepMode: row.step_mode ?? undefined,
     };
   }
 
   async set(pin: ThreadPin): Promise<void> {
+    const includeMetadata = await this.hasMetadataColumns();
     await this.db
       .prepare(
-        `INSERT INTO thread_pins (thread_key, model_id, request_id, pinned_at, expires_at, turn_count, reroute_after_turns, budget_source)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-         ON CONFLICT(thread_key) DO UPDATE SET
-         model_id = excluded.model_id,
-         request_id = excluded.request_id,
-         pinned_at = excluded.pinned_at,
-         expires_at = excluded.expires_at,
-         turn_count = excluded.turn_count,
-         reroute_after_turns = excluded.reroute_after_turns,
-         budget_source = excluded.budget_source`
+        includeMetadata
+          ? `INSERT INTO thread_pins (thread_key, model_id, request_id, pinned_at, expires_at, turn_count, reroute_after_turns, budget_source, family_id, reasoning_effort, step_mode)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+             ON CONFLICT(thread_key) DO UPDATE SET
+             model_id = excluded.model_id,
+             request_id = excluded.request_id,
+             pinned_at = excluded.pinned_at,
+             expires_at = excluded.expires_at,
+             turn_count = excluded.turn_count,
+             reroute_after_turns = excluded.reroute_after_turns,
+             budget_source = excluded.budget_source,
+             family_id = excluded.family_id,
+             reasoning_effort = excluded.reasoning_effort,
+             step_mode = excluded.step_mode`
+          : `INSERT INTO thread_pins (thread_key, model_id, request_id, pinned_at, expires_at, turn_count, reroute_after_turns, budget_source)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             ON CONFLICT(thread_key) DO UPDATE SET
+             model_id = excluded.model_id,
+             request_id = excluded.request_id,
+             pinned_at = excluded.pinned_at,
+             expires_at = excluded.expires_at,
+             turn_count = excluded.turn_count,
+             reroute_after_turns = excluded.reroute_after_turns,
+             budget_source = excluded.budget_source`
       )
       .bind(
         pin.threadKey,
@@ -189,6 +233,13 @@ class D1PinStore implements PinStore {
         pin.turnCount,
         pin.rerouteAfterTurns ?? null,
         pin.budgetSource ?? null,
+        ...(includeMetadata
+          ? [
+              pin.familyId ?? null,
+              pin.reasoningEffort ?? null,
+              pin.stepMode ?? null,
+            ]
+          : []),
       )
       .run();
   }

@@ -35,6 +35,7 @@ describe("routeWithFrontierModel", () => {
     expect(body.response_format.json_schema.schema.properties.selectedModel.enum).toEqual(
       catalog.map((m) => m.id)
     );
+    expect(body.response_format.json_schema.schema.properties.stepClassification).toBeDefined();
     expect(body.messages[0].content).toContain("reasoning:xhigh");
   });
 
@@ -88,5 +89,43 @@ describe("routeWithFrontierModel", () => {
     });
 
     expect(result).toBeNull();
+  });
+
+  it("parses typed step classification when the classifier returns it", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                selectedModel: "openai/gpt-5.2:xhigh",
+                stepClassification: {
+                  stepMode: "deliberate",
+                  complexity: "high",
+                  stakes: "critical",
+                  latencySensitivity: "medium",
+                  toolNeed: "optional",
+                  expectedOutputSize: "medium",
+                  interactionHorizon: "multi_step",
+                },
+              }),
+            },
+          }],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    );
+
+    const result = await routeWithFrontierModel({
+      apiKey: "test",
+      baseUrl: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-5-mini",
+      input: "Need a critical decision review.",
+      catalog,
+      fetchImpl,
+    });
+
+    expect(result?.stepClassification?.stakes).toBe("critical");
+    expect(result?.stepClassification?.interactionHorizon).toBe("multi_step");
   });
 });

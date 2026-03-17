@@ -384,8 +384,10 @@ describe("RouterEngine (LLM Router)", () => {
 
         expect(mockLlmRouter).toHaveBeenCalledOnce();
         expect(decision.pinUsed).toBe(false);
-        expect(decision.selectedModel).toBe("openai/gpt-4o");
+        expect(decision.selectedModel).toBe("anthropic/claude-3-opus");
         expect(decision.explanation.pinBypassReason).toBe("smart_pin_turn_limit");
+        expect(decision.crossFamilySwitchBlocked).toBe(true);
+        expect(decision.familyStickinessApplied).toBe(true);
     });
 
     it("re-evaluates once the next user continuation would exhaust the smart budget", async () => {
@@ -430,8 +432,10 @@ describe("RouterEngine (LLM Router)", () => {
 
         expect(mockLlmRouter).toHaveBeenCalledOnce();
         expect(decision.pinUsed).toBe(false);
-        expect(decision.selectedModel).toBe("openai/gpt-4o");
+        expect(decision.selectedModel).toBe("anthropic/claude-3-opus");
         expect(decision.explanation.pinBypassReason).toBe("smart_pin_turn_limit");
+        expect(decision.crossFamilySwitchBlocked).toBe(true);
+        expect(decision.familyStickinessApplied).toBe(true);
     });
 
     it("uses the supplied config fallback for named profiles when the classifier does not return a model", async () => {
@@ -513,8 +517,10 @@ describe("RouterEngine (LLM Router)", () => {
 
         expect(mockLlmRouter).toHaveBeenCalledOnce();
         expect(decision.pinUsed).toBe(false);
-        expect(decision.selectedModel).toBe("openai/gpt-4o");
+        expect(decision.selectedModel).toBe("anthropic/claude-3-opus");
         expect(decision.explanation.pinBypassReason).toBe("smart_pin_turn_limit");
+        expect(decision.crossFamilySwitchBlocked).toBe(true);
+        expect(decision.familyStickinessApplied).toBe(true);
     });
 
     it("stores the classifier-selected reroute budget for new smart pins", async () => {
@@ -814,5 +820,321 @@ describe("RouterEngine (LLM Router)", () => {
         expect(decision.selectedModel).toBe("anthropic/claude-3-opus");
         expect(decision.explanation.decisionReason).toBe("thread_pin");
         expect(decision.pinTurnCount).toBe(10);
+    });
+
+    it("blocks cross-family continuation switches by default", async () => {
+        const mockLlmRouter = vi.fn().mockResolvedValue({
+            selectedModel: "openai/gpt-5.2",
+            confidence: 0.95,
+            signals: ["family:openai"],
+            stepClassification: {
+                stepMode: "deliberate",
+                complexity: "medium",
+                stakes: "medium",
+                latencySensitivity: "medium",
+                toolNeed: "optional",
+                expectedOutputSize: "medium",
+                interactionHorizon: "multi_step",
+            },
+            rerouteAfterTurns: 1,
+        });
+        const engine = new RouterEngine({ llmRouter: mockLlmRouter });
+        const pinStore = new MockPinStore();
+        const policyCatalog = [
+            { id: "anthropic/claude-3-opus", name: "Claude 3 Opus" },
+            { id: "openai/gpt-5.2", name: "GPT-5.2" },
+        ];
+        const request: RouterRequestLike = {
+            model: "planning-backend",
+            messages: [
+                { role: "user", content: "Plan the system." },
+                { role: "assistant", content: "Here is the plan." },
+                { role: "user", content: "Continue." },
+            ],
+        };
+        const threadKey = buildProfileThreadKey(request);
+        await pinStore.set({
+            threadKey,
+            modelId: "anthropic/claude-3-opus",
+            familyId: "anthropic/claude-3-opus",
+            requestId: "old-req",
+            pinnedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 10000).toISOString(),
+            turnCount: 1,
+            rerouteAfterTurns: 1,
+            reasoningEffort: "high",
+            stepMode: "deliberate",
+        });
+
+        const decision = await engine.decide({
+            requestId: "req-cross-family-blocked",
+            request,
+            config: { ...defaultConfig, smartPinTurns: 1 },
+            catalog: policyCatalog,
+            catalogVersion: "v1",
+            pinStore,
+            profiles: namedProfiles,
+        });
+
+        expect(decision.selectedModel).toBe("anthropic/claude-3-opus");
+        expect(decision.selectedFamily).toBe("anthropic/claude-3-opus");
+        expect(decision.crossFamilySwitchBlocked).toBe(true);
+        expect(decision.familyStickinessApplied).toBe(true);
+        expect(decision.switchReason).toBe("cross_family_switch_blocked_by_policy");
+    });
+
+    it("does not apply family stickiness when the active pin is invalid", async () => {
+        const mockLlmRouter = vi.fn().mockResolvedValue({
+            selectedModel: "openai/gpt-5.2",
+            confidence: 0.95,
+            signals: ["family:openai"],
+            stepClassification: {
+                stepMode: "deliberate",
+                complexity: "medium",
+                stakes: "medium",
+                latencySensitivity: "medium",
+                toolNeed: "optional",
+                expectedOutputSize: "medium",
+                interactionHorizon: "multi_step",
+            },
+        });
+        const engine = new RouterEngine({ llmRouter: mockLlmRouter });
+        const pinStore = new MockPinStore();
+        const policyCatalog = [
+            { id: "openai/gpt-5.2", name: "GPT-5.2" },
+        ];
+        const request: RouterRequestLike = {
+            model: "planning-backend",
+            messages: [
+                { role: "user", content: "Plan the system." },
+                { role: "assistant", content: "Here is the plan." },
+                { role: "user", content: "Continue." },
+            ],
+        };
+        const threadKey = buildProfileThreadKey(request);
+        await pinStore.set({
+            threadKey,
+            modelId: "anthropic/claude-3-opus",
+            familyId: "anthropic/claude-3-opus",
+            requestId: "old-req",
+            pinnedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 10000).toISOString(),
+            turnCount: 1,
+            rerouteAfterTurns: 1,
+            reasoningEffort: "high",
+            stepMode: "deliberate",
+        });
+
+        const decision = await engine.decide({
+            requestId: "req-invalid-pin-family-switch",
+            request,
+            config: { ...defaultConfig, smartPinTurns: 1 },
+            catalog: policyCatalog,
+            catalogVersion: "v1",
+            pinStore,
+            profiles: namedProfiles,
+        });
+
+        expect(decision.selectedModel).toBe("openai/gpt-5.2");
+        expect(decision.selectedFamily).toBe("openai/gpt-5.2");
+        expect(decision.crossFamilySwitchBlocked).toBe(false);
+        expect(decision.familyStickinessApplied).toBe(false);
+        expect(decision.switchMode).toBe("switch_family");
+    });
+
+    it("allows explicit reroute to switch families mid-thread", async () => {
+        const mockLlmRouter = vi.fn().mockResolvedValue({
+            selectedModel: "openai/gpt-5.2",
+            confidence: 0.93,
+            signals: ["forced_reroute"],
+            stepClassification: {
+                stepMode: "deliberate",
+                complexity: "medium",
+                stakes: "medium",
+                latencySensitivity: "medium",
+                toolNeed: "optional",
+                expectedOutputSize: "medium",
+                interactionHorizon: "multi_step",
+            },
+        });
+        const engine = new RouterEngine({ llmRouter: mockLlmRouter });
+        const pinStore = new MockPinStore();
+        const policyCatalog = [
+            { id: "anthropic/claude-3-opus", name: "Claude 3 Opus" },
+            { id: "openai/gpt-5.2", name: "GPT-5.2" },
+        ];
+        const messages: RouterRequestLike["messages"] = [
+            { role: "user", content: "Plan the system." },
+            { role: "assistant", content: "Here is the plan." },
+            { role: "user", content: "$$route use something else" },
+        ];
+        const threadKey = buildProfileThreadKey({ model: "planning-backend", messages });
+        await pinStore.set({
+            threadKey,
+            modelId: "anthropic/claude-3-opus",
+            familyId: "anthropic/claude-3-opus",
+            requestId: "old-req",
+            pinnedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 10000).toISOString(),
+            turnCount: 2,
+            reasoningEffort: "high",
+            stepMode: "deliberate",
+        });
+
+        const decision = await engine.decide({
+            requestId: "req-cross-family-reroute",
+            request: { model: "planning-backend", messages },
+            config: defaultConfig,
+            catalog: policyCatalog,
+            catalogVersion: "v1",
+            pinStore,
+            profiles: namedProfiles,
+        });
+
+        expect(decision.selectedModel).toBe("openai/gpt-5.2");
+        expect(decision.switchMode).toBe("switch_family");
+        expect(decision.crossFamilySwitchBlocked).toBe(false);
+    });
+
+    it("downgrades within a family after planning transitions into a tool step", async () => {
+        const mockLlmRouter = vi.fn().mockResolvedValue({
+            selectedModel: "openai/gpt-5.2:xhigh",
+            confidence: 0.9,
+            signals: ["phase:execution"],
+            stepClassification: {
+                stepMode: "tool",
+                complexity: "low",
+                stakes: "low",
+                latencySensitivity: "high",
+                toolNeed: "required",
+                expectedOutputSize: "short",
+                interactionHorizon: "one_shot",
+            },
+            rerouteAfterTurns: 1,
+        });
+        const engine = new RouterEngine({ llmRouter: mockLlmRouter });
+        const pinStore = new MockPinStore();
+        const familyCatalog = [
+            { id: "openai/gpt-5.2", name: "GPT-5.2", upstreamModelId: "openai/gpt-5.2", reasoningPreset: "none" as const },
+            { id: "openai/gpt-5.2:high", name: "GPT-5.2 High", upstreamModelId: "openai/gpt-5.2", reasoningPreset: "high" as const },
+            { id: "openai/gpt-5.2:xhigh", name: "GPT-5.2 Extra High", upstreamModelId: "openai/gpt-5.2", reasoningPreset: "xhigh" as const },
+        ];
+        const request: RouterRequestLike = {
+            model: "planning-backend",
+            messages: [
+                { role: "user", content: "Plan the migration." },
+                { role: "assistant", content: "Plan complete." },
+                { role: "user", content: "Now just call the tool and edit the file." },
+            ],
+            tools: [{ type: "function", function: { name: "edit_file" } }],
+        };
+        const threadKey = buildProfileThreadKey(request);
+        await pinStore.set({
+            threadKey,
+            modelId: "openai/gpt-5.2:xhigh",
+            familyId: "openai/gpt-5.2",
+            requestId: "old-req",
+            pinnedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 10000).toISOString(),
+            turnCount: 1,
+            rerouteAfterTurns: 1,
+            reasoningEffort: "xhigh",
+            stepMode: "deliberate",
+        });
+
+        const decision = await engine.decide({
+            requestId: "req-in-family-downgrade",
+            request,
+            config: { ...defaultConfig, smartPinTurns: 1 },
+            catalog: familyCatalog,
+            catalogVersion: "v1",
+            pinStore,
+            profiles: namedProfiles,
+        });
+
+        expect(decision.selectedFamily).toBe("openai/gpt-5.2");
+        expect(decision.selectedModel).toBe("openai/gpt-5.2");
+        expect(decision.selectedEffort).toBe("low");
+        expect(decision.switchMode).toBe("shift_within_family");
+    });
+
+    it("raises the effort floor for critical-stakes work", async () => {
+        const mockLlmRouter = vi.fn().mockResolvedValue({
+            selectedModel: "openai/gpt-5.2",
+            confidence: 0.92,
+            signals: ["stakes:critical"],
+            stepClassification: {
+                stepMode: "deliberate",
+                complexity: "medium",
+                stakes: "critical",
+                latencySensitivity: "medium",
+                toolNeed: "optional",
+                expectedOutputSize: "medium",
+                interactionHorizon: "one_shot",
+            },
+        });
+        const engine = new RouterEngine({ llmRouter: mockLlmRouter });
+        const familyCatalog = [
+            { id: "openai/gpt-5.2", name: "GPT-5.2", upstreamModelId: "openai/gpt-5.2", reasoningPreset: "none" as const },
+            { id: "openai/gpt-5.2:xhigh", name: "GPT-5.2 Extra High", upstreamModelId: "openai/gpt-5.2", reasoningPreset: "xhigh" as const },
+        ];
+
+        const decision = await engine.decide({
+            requestId: "req-critical-stakes",
+            request: { model: "planning-backend", messages: [{ role: "user", content: "This is a critical safety decision." }] },
+            config: defaultConfig,
+            catalog: familyCatalog,
+            catalogVersion: "v1",
+            pinStore: new MockPinStore(),
+            profiles: namedProfiles,
+        });
+
+        expect(decision.selectedEffort).toBe("xhigh");
+        expect(decision.selectedModel).toBe("openai/gpt-5.2:xhigh");
+    });
+
+    it("can pin routing to provider-default effort without forcing an explicit reasoning param", async () => {
+        const mockLlmRouter = vi.fn().mockResolvedValue({
+            selectedModel: "google/gemini-2.5-pro:thinking",
+            confidence: 0.85,
+            signals: ["provider_default"],
+            stepClassification: {
+                stepMode: "deliberate",
+                complexity: "medium",
+                stakes: "medium",
+                latencySensitivity: "medium",
+                toolNeed: "optional",
+                expectedOutputSize: "medium",
+                interactionHorizon: "one_shot",
+            },
+        });
+        const engine = new RouterEngine({ llmRouter: mockLlmRouter });
+        const familyCatalog = [
+            { id: "google/gemini-2.5-pro", name: "Gemini 2.5 Pro", upstreamModelId: "google/gemini-2.5-pro", reasoningPreset: "provider_default" as const },
+            { id: "google/gemini-2.5-pro:thinking", name: "Gemini 2.5 Pro Thinking", upstreamModelId: "google/gemini-2.5-pro", reasoningPreset: "high" as const },
+        ];
+        const profiles: RouterProfile[] = [
+            {
+                id: "planning-backend",
+                name: "Planning Backend",
+                routingInstructions: "Use Gemini for planning.",
+                reasoningPolicy: {
+                    mode: "fixed_provider_default",
+                },
+            },
+        ];
+
+        const decision = await engine.decide({
+            requestId: "req-provider-default-effort",
+            request: { model: "planning-backend", messages: [{ role: "user", content: "Plan this carefully." }] },
+            config: defaultConfig,
+            catalog: familyCatalog,
+            catalogVersion: "v1",
+            pinStore: new MockPinStore(),
+            profiles,
+        });
+
+        expect(decision.selectedEffort).toBe("provider_default");
+        expect(decision.selectedModel).toBe("google/gemini-2.5-pro");
     });
 });

@@ -27,7 +27,7 @@ export function createManualGatewayModelDraft(): ManualGatewayModelDraft {
     modelId: "",
     name: "",
     modality: "text->text",
-    reasoningPreset: "none",
+    reasoningPreset: "provider_default",
     whenToUse: "",
     description: "",
   };

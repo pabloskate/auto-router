@@ -38,6 +38,7 @@ const MODALITY_OPTIONS = [
 ];
 
 const THINKING_OPTIONS = [
+  { value: "provider_default", label: "Provider Default" },
   { value: "none", label: "None" },
   { value: "minimal", label: "Minimal" },
   { value: "low", label: "Low" },
@@ -109,7 +110,7 @@ function ModalityBadge({ modality }: { modality?: string }) {
 
 function ThinkingBadge({ level }: { level?: string }) {
   const thinking = THINKING_OPTIONS.find((o) => o.value === level);
-  const label = thinking?.label || "None";
+  const label = thinking?.label || "Provider Default";
 
   // Color based on level
   let variant = "badge--info";
@@ -313,7 +314,7 @@ function ModelCard({
               <label className="form-label">Thinking Level</label>
               <select
                 className="select"
-                value={item.thinking || "none"}
+                value={item.thinking || "provider_default"}
                 onChange={(e) => onUpdate(index, { thinking: e.target.value })}
               >
                 {THINKING_OPTIONS.map((o) => (

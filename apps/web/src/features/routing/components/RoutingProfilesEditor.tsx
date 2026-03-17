@@ -86,6 +86,15 @@ function IconEdit() {
   );
 }
 
+function IconCode() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="6 3 1.5 8 6 13" />
+      <polyline points="10 3 14.5 8 10 13" />
+    </svg>
+  );
+}
+
 function IconClose() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -291,6 +300,19 @@ function ProfileCard({
             {summarizeInstructions(profile.routingInstructions)}
           </span>
           <span className="routing-profile-card__count">{(profile.models ?? []).length} models</span>
+        </div>
+        <div className="routing-profile-card__header-actions">
+          <button
+            className="btn btn--ghost btn--sm"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              editor.openAdvancedEditor(profile.id);
+            }}
+          >
+            <IconCode />
+            Advanced
+          </button>
         </div>
       </div>
 
@@ -614,7 +636,7 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
                         modelId: fallbackModel?.id ?? "",
                         name: current.draft.name || fallbackModel?.name || "",
                         modality: current.draft.modality || fallbackModel?.modality || current.draft.modality,
-                        reasoningPreset: current.draft.reasoningPreset ?? fallbackModel?.reasoningPreset ?? fallbackModel?.thinking ?? "none",
+                        reasoningPreset: current.draft.reasoningPreset ?? fallbackModel?.reasoningPreset ?? fallbackModel?.thinking ?? "provider_default",
                         whenToUse: current.draft.whenToUse || fallbackModel?.whenToUse || "",
                         description: current.draft.description || fallbackModel?.description || "",
                       },
@@ -642,7 +664,7 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
                         modelId: event.target.value,
                         name: current.draft.name || selectedModel?.name || "",
                         modality: current.draft.modality || selectedModel?.modality || current.draft.modality,
-                        reasoningPreset: current.draft.reasoningPreset ?? selectedModel?.reasoningPreset ?? selectedModel?.thinking ?? "none",
+                        reasoningPreset: current.draft.reasoningPreset ?? selectedModel?.reasoningPreset ?? selectedModel?.thinking ?? "provider_default",
                         whenToUse: current.draft.whenToUse || selectedModel?.whenToUse || "",
                         description: current.draft.description || selectedModel?.description || "",
                       },
@@ -688,6 +710,7 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
                         },
                       }))}
                     >
+                      <option value="provider_default">Provider default</option>
                       <option value="none">None</option>
                       <option value="minimal">Minimal</option>
                       <option value="low">Low</option>
@@ -820,6 +843,7 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
                     },
                   }))}
                 >
+                  <option value="provider_default">Provider default</option>
                   <option value="none">None</option>
                   <option value="minimal">Minimal</option>
                   <option value="low">Low</option>
@@ -858,6 +882,40 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
             <button className="btn btn--primary" type="button" onClick={() => void editor.saveCustomModel()} disabled={editor.customModel.saving}>
               {editor.customModel.saving ? "Saving..." : "Create model"}
             </button>
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {editor.advancedEditor.open ? (
+        <ModalShell
+          title="Advanced profile JSON"
+          description="Inspect and edit the raw JSON for this routing profile. This is intended for experimentation."
+          onClose={editor.closeAdvancedEditor}
+        >
+          <div className="routing-profiles-modal__body">
+            {editor.advancedEditor.error ? (
+              <div className="routing-profiles-modal__error">{editor.advancedEditor.error}</div>
+            ) : null}
+            <label className="form-group">
+              <span className="form-label">Profile JSON</span>
+              <AutoGrowTextarea
+                className="textarea input--mono"
+                minHeight={360}
+                rows={16}
+                value={editor.advancedEditor.draft}
+                onChange={(event) => editor.setAdvancedEditor((current) => ({
+                  ...current,
+                  draft: event.target.value,
+                  error: null,
+                }))}
+                placeholder="{\n  &quot;id&quot;: &quot;profile-id&quot;,\n  &quot;name&quot;: &quot;Profile Name&quot;\n}"
+              />
+              <span className="form-hint">Save applies only to this profile and still runs the normal profile validation before autosave.</span>
+            </label>
+          </div>
+          <div className="routing-profiles-modal__actions">
+            <button className="btn btn--secondary" type="button" onClick={editor.closeAdvancedEditor}>Cancel</button>
+            <button className="btn btn--primary" type="button" onClick={editor.saveAdvancedEditor}>Apply JSON</button>
           </div>
         </ModalShell>
       ) : null}

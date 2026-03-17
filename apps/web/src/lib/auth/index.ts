@@ -14,6 +14,14 @@ export {
   verifyAdminSecret,
   verifyPassword,
 } from "./auth";
+export type {
+  PasswordResetRequestResult,
+  ResetPasswordWithTokenResult,
+} from "./password-reset";
+export {
+  requestPasswordReset,
+  resetPasswordWithToken,
+} from "./password-reset";
 export { decryptByokSecret, encryptByokSecret, resolveByokEncryptionSecret } from "./byok-crypto";
 export { isSameOriginRequest } from "./csrf";
 export type { RateLimitResult } from "./rate-limit";

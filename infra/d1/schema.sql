@@ -163,6 +163,18 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id);
 
+-- ── Password reset tokens ──
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  token_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  consumed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires ON password_reset_tokens(expires_at);
+
 -- ── Rate limits ──
 CREATE TABLE IF NOT EXISTS rate_limit_counters (
   bucket TEXT NOT NULL,
@@ -198,7 +210,10 @@ CREATE TABLE IF NOT EXISTS thread_pins (
   expires_at TEXT NOT NULL,
   turn_count INTEGER NOT NULL DEFAULT 0,
   reroute_after_turns INTEGER,
-  budget_source TEXT
+  budget_source TEXT,
+  family_id TEXT,
+  reasoning_effort TEXT,
+  step_mode TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_thread_pins_expires ON thread_pins(expires_at);

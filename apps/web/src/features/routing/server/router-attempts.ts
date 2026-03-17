@@ -1,6 +1,7 @@
 import type { CatalogItem, RouteDecision, RouterRequestLike } from "@custom-router/core";
 
 import { guardrailKey, isDisabled } from "@/src/lib/routing/guardrail-manager";
+import { resolveGatewayCapabilityForBaseUrl } from "./gateway-capabilities";
 
 import type { AttemptTarget, RoutedApiPath } from "./router-service-types";
 
@@ -54,10 +55,50 @@ export function resolveAttemptUpstream(
 export function buildAttemptPayload(args: {
   body: RouterRequestLike & Record<string, unknown>;
   selectedModelId: string;
+  selectedEffort?: RouteDecision["selectedEffort"];
+  catalog: CatalogItem[];
+  baseUrl: string;
   apiPath: RoutedApiPath;
 }): Record<string, unknown> {
-  return {
+  const selectedItem = args.catalog.find((item) => item.id === args.selectedModelId);
+  const capability = resolveGatewayCapabilityForBaseUrl(args.baseUrl);
+  const userReasoning = args.body.reasoning;
+  const hasExplicitReasoningEffort =
+    userReasoning
+    && typeof userReasoning === "object"
+    && !Array.isArray(userReasoning)
+    && typeof (userReasoning as { effort?: unknown }).effort === "string";
+
+  const payload: Record<string, unknown> = {
     ...args.body,
     model: args.selectedModelId,
   };
+
+  if (
+    !hasExplicitReasoningEffort
+    && args.selectedEffort
+    && capability.supportsFamilyIdentity
+    && capability.supportsAdaptiveInFamilyShift
+    && selectedItem?.upstreamModelId
+  ) {
+    payload.model = selectedItem.upstreamModelId;
+  }
+
+  if (
+    hasExplicitReasoningEffort
+    || !args.selectedEffort
+    || args.selectedEffort === "provider_default"
+    || !capability.supportsReasoningEffort
+  ) {
+    return payload;
+  }
+
+  payload.reasoning = {
+    ...(userReasoning && typeof userReasoning === "object" && !Array.isArray(userReasoning)
+      ? userReasoning as Record<string, unknown>
+      : {}),
+    effort: args.selectedEffort,
+  };
+
+  return payload;
 }

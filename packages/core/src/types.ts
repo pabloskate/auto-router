@@ -45,13 +45,61 @@ export interface ProfileWeights {
   reliability: number;
 }
 
+export type RoutingStepMode = "tool" | "deliberate" | "synthesis";
+export type RoutingComplexity = "low" | "medium" | "high";
+export type RoutingStakes = "low" | "medium" | "high" | "critical";
+export type RoutingLatencySensitivity = "low" | "medium" | "high";
+export type RoutingToolNeed = "none" | "optional" | "required";
+export type RoutingExpectedOutputSize = "short" | "medium" | "long";
+export type RoutingInteractionHorizon = "one_shot" | "multi_step";
+
+export interface RoutingStepClassification {
+  stepMode: RoutingStepMode;
+  complexity: RoutingComplexity;
+  stakes: RoutingStakes;
+  latencySensitivity: RoutingLatencySensitivity;
+  toolNeed: RoutingToolNeed;
+  expectedOutputSize: RoutingExpectedOutputSize;
+  interactionHorizon: RoutingInteractionHorizon;
+}
+
+export type ReasoningPolicyMode =
+  | "off"
+  | "adaptive"
+  | "fixed_provider_default"
+  | "fixed_none"
+  | "fixed_minimal"
+  | "fixed_low"
+  | "fixed_medium"
+  | "fixed_high"
+  | "fixed_xhigh";
+
+export type ToolStepBias = "off" | "prefer_reflex" | "strong_reflex";
+export type CrossFamilySwitchMode = "conservative" | "permissive";
+export type InFamilyShiftHysteresis = "off" | "sticky";
+
+export interface ReasoningPolicy {
+  mode?: ReasoningPolicyMode;
+  latencySensitivity?: RoutingLatencySensitivity;
+  toolStepBias?: ToolStepBias;
+  shortOutputThreshold?: number;
+  longOutputThreshold?: number;
+  allowDowngradeAfterPlan?: boolean;
+  preferSameFamily?: boolean;
+  crossFamilySwitchMode?: CrossFamilySwitchMode;
+  inFamilyShiftHysteresis?: InFamilyShiftHysteresis;
+}
+
+export type RoutingSwitchMode = "stay_exact" | "shift_within_family" | "switch_family";
+
 export interface RouterProfileModel {
   gatewayId?: string;           // Selected gateway owner. Missing means the draft is unresolved.
   modelId: string;              // Upstream model ID, e.g. "anthropic/claude-sonnet-4.6"
+  upstreamModelId?: string;
   name?: string;                // Optional profile-local label override
   modality?: string;
-  thinking?: ReasoningPreset;
-  reasoningPreset?: ReasoningPreset;
+  thinking?: ReasoningEffort;
+  reasoningPreset?: ReasoningEffort;
   whenToUse?: string;
   description?: string;
 }
@@ -63,6 +111,7 @@ export interface RouterProfile {
   defaultModel?: string;         // Gateway-bound fallback selection key for this profile
   classifierModel?: string;      // Gateway-bound classifier selection key; may point outside this profile's routed pool
   routingInstructions?: string;  // Classifier instructions scoped to this profile
+  reasoningPolicy?: ReasoningPolicy;
   models?: RouterProfileModel[]; // Authoritative routed pool for this profile
 }
 
@@ -86,6 +135,7 @@ export interface LlmRoutingResult {
   confidence: number;
   signals: string[];
   rerouteAfterTurns?: number;
+  stepClassification?: RoutingStepClassification;
 }
 
 export interface ChatMessage {
@@ -130,6 +180,9 @@ export interface ThreadPin {
   turnCount: number;
   rerouteAfterTurns?: number;
   budgetSource?: "classifier" | "default";
+  familyId?: string;
+  reasoningEffort?: ReasoningEffort;
+  stepMode?: RoutingStepMode;
 }
 
 export interface PinStore {
@@ -144,10 +197,18 @@ export interface RoutingExplanation {
   catalogVersion: string;
   classificationConfidence: number;
   classificationSignals: string[];
+  stepClassification?: RoutingStepClassification;
   threadKey: string;
   isContinuation: boolean;
   pinUsed: boolean;
   selectedModel: string;
+  selectedFamily?: string;
+  previousFamily?: string;
+  selectedEffort?: ReasoningEffort;
+  switchMode?: RoutingSwitchMode;
+  switchReason?: string;
+  familyStickinessApplied?: boolean;
+  crossFamilySwitchBlocked?: boolean;
   decisionReason:
   | "passthrough"
   | "initial_route"
@@ -173,6 +234,14 @@ export interface RouteDecision {
   mode: "passthrough" | "routed";
   requestedModel: string;
   selectedModel: string;
+  selectedFamily?: string;
+  previousFamily?: string;
+  selectedEffort?: ReasoningEffort;
+  stepClassification?: RoutingStepClassification;
+  switchMode?: RoutingSwitchMode;
+  switchReason?: string;
+  familyStickinessApplied?: boolean;
+  crossFamilySwitchBlocked?: boolean;
   catalogVersion: string;
   threadKey: string;
   isContinuation: boolean;
@@ -198,12 +267,19 @@ export const REASONING_PRESETS = [
 
 export type ReasoningPreset = (typeof REASONING_PRESETS)[number];
 
+export const REASONING_EFFORTS = [
+  "provider_default",
+  ...REASONING_PRESETS,
+] as const;
+
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+
 export interface CatalogItem {
   id: string;
   name: string;
   modality?: string;
-  thinking?: ReasoningPreset;
-  reasoningPreset?: ReasoningPreset;
+  thinking?: ReasoningEffort;
+  reasoningPreset?: ReasoningEffort;
   upstreamModelId?: string;
   whenToUse?: string;
   description?: string;

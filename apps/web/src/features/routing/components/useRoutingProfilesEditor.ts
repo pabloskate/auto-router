@@ -9,6 +9,7 @@ import {
   hasResolvedProfileModel,
   normalizeProfileIdInput,
   getProfileIdValidationError,
+  normalizeProfile,
 } from "@/src/lib/routing/profile-config";
 import type { GatewayInfo, GatewayModel } from "@/src/features/gateways/contracts";
 import {
@@ -71,6 +72,13 @@ interface CustomModelState {
   saving: boolean;
 }
 
+interface AdvancedEditorState {
+  draft: string;
+  error: string | null;
+  open: boolean;
+  profileId: string | null;
+}
+
 const INSTRUCTION_AUTOSAVE_DEBOUNCE_MS = 2400;
 
 function createQuickSetupState(presets: readonly RoutingPreset[]): QuickSetupState {
@@ -113,6 +121,15 @@ function createCustomModelState(gateways: GatewayInfo[]): CustomModelState {
   };
 }
 
+function createAdvancedEditorState(): AdvancedEditorState {
+  return {
+    open: false,
+    profileId: null,
+    draft: "",
+    error: null,
+  };
+}
+
 function createEditorDraftFromModel(gateways: GatewayInfo[], model?: RouterProfileModel): CustomModelDraft {
   const base = createCustomModelDraft(gateways);
   if (!model) {
@@ -120,7 +137,7 @@ function createEditorDraftFromModel(gateways: GatewayInfo[], model?: RouterProfi
   }
 
   const gatewayModel = getGatewayModel(gateways, model.gatewayId, model.modelId);
-  const reasoningPreset = model.reasoningPreset ?? model.thinking ?? gatewayModel?.reasoningPreset ?? gatewayModel?.thinking ?? "none";
+  const reasoningPreset = model.reasoningPreset ?? model.thinking ?? gatewayModel?.reasoningPreset ?? gatewayModel?.thinking ?? "provider_default";
 
   return {
     gatewayId: model.gatewayId ?? base.gatewayId,
@@ -174,6 +191,7 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
   const [createProfile, setCreateProfile] = useState<CreateProfileState>(createProfileState);
   const [modelEditor, setModelEditor] = useState<ModelEditorState>(() => createModelEditorState(props.gateways));
   const [customModel, setCustomModel] = useState<CustomModelState>(() => createCustomModelState(props.gateways));
+  const [advancedEditor, setAdvancedEditor] = useState<AdvancedEditorState>(createAdvancedEditorState);
   const autosaveQueueRef = useRef(
     createAutosaveQueue<RouterProfile[]>({
       debounceMs: 900,
@@ -501,6 +519,69 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
     setCustomModel(createCustomModelState(props.gateways));
   }
 
+  function openAdvancedEditor(profileId: string) {
+    const profile = items.find((entry) => entry.id === profileId);
+    if (!profile) {
+      return;
+    }
+
+    setAdvancedEditor({
+      open: true,
+      profileId,
+      draft: `${JSON.stringify(profile, null, 2)}\n`,
+      error: null,
+    });
+  }
+
+  function closeAdvancedEditor() {
+    setAdvancedEditor(createAdvancedEditorState());
+  }
+
+  function saveAdvancedEditor() {
+    if (!advancedEditor.profileId) {
+      return;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(advancedEditor.draft);
+    } catch (error) {
+      setAdvancedEditor((current) => ({
+        ...current,
+        error: `Invalid JSON: ${(error as Error).message}`,
+      }));
+      return;
+    }
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      setAdvancedEditor((current) => ({
+        ...current,
+        error: "Profile JSON must be a single object.",
+      }));
+      return;
+    }
+
+    const nextProfile = sanitizeProfileSelections(normalizeProfile(parsed as RouterProfile), props.gateways);
+    const nextProfiles = items.map((profile) => (
+      profile.id === advancedEditor.profileId ? nextProfile : profile
+    ));
+    const validationError = validateProfilesDraft(nextProfiles, props.gateways);
+    if (validationError) {
+      setAdvancedEditor((current) => ({
+        ...current,
+        error: validationError,
+      }));
+      return;
+    }
+
+    closeAdvancedEditor();
+    commitProfiles(nextProfiles, {
+      expandProfileId: nextProfile.id,
+      touchedField: "profile",
+      touchedProfileId: nextProfile.id,
+    });
+  }
+
   async function saveCustomModel() {
     if (!customModel.profileId) {
       return;
@@ -617,7 +698,9 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
     createProfile,
     createProfileFromQuickSetup,
     customModel,
+    advancedEditor,
     closeCreateProfile,
+    closeAdvancedEditor,
     closeCustomModel,
     closeModelEditor,
     closeQuickSetup,
@@ -630,6 +713,7 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
     lastTouchedProfileId,
     modelEditor,
     openCreateProfile,
+    openAdvancedEditor,
     openCustomModel,
     openModelEditor,
     openQuickSetup,
@@ -640,8 +724,10 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
     removeProfile,
     renameDraft,
     renameProfileId,
+    saveAdvancedEditor,
     saveCustomModel,
     saveModelEditor,
+    setAdvancedEditor,
     setCreateProfile,
     setCustomModel,
     setExpandedProfileId,

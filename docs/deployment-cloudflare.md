@@ -76,7 +76,8 @@ When the schema changes, run migrations against your production D1 database:
 
 ```bash
 # From project root (ensure wrangler is logged in: wrangler login)
-npx wrangler d1 execute custom-router --remote --file=infra/d1/migrations/002_add_user_gateways.sql --config apps/web/wrangler.toml
+# Apply every new file in infra/d1/migrations/ in order.
+npx wrangler d1 execute custom-router --remote --file=infra/d1/migrations/007_add_password_reset_and_thread_pin_metadata.sql --config apps/web/wrangler.toml
 ```
 
 If a migration was already applied, you may see a "duplicate column name" or "table already exists" error — that's fine, both migrations use `IF NOT EXISTS` / `ADD COLUMN` guards.

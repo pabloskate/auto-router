@@ -43,6 +43,7 @@ function sanitizeRouterProfile(profile: z.infer<typeof routerProfileSchema>): z.
       ...normalizeProfileModel(model),
       modelId: sanitizeOptionalString(model.modelId) ?? "",
       gatewayId: sanitizeOptionalString(model.gatewayId),
+      upstreamModelId: sanitizeOptionalString(model.upstreamModelId),
       name: sanitizeOptionalString(model.name),
       modality: sanitizeOptionalString(model.modality),
       whenToUse: sanitizeOptionalString(model.whenToUse),

@@ -9,6 +9,7 @@ import {
     validateAndConsumeInviteCode,
     shouldUseSecureCookies
 } from "@/src/lib/auth";
+import { AUTH } from "@/src/lib/constants";
 import { json, getRuntimeBindings } from "@/src/lib/infra";
 
 export async function POST(request: Request): Promise<Response> {
@@ -64,8 +65,8 @@ export async function POST(request: Request): Promise<Response> {
         );
     }
 
-    if (password.length < 8) {
-        return json({ error: "Password must be at least 8 characters long." }, 400);
+    if (password.length < AUTH.PASSWORD_MIN_LENGTH) {
+        return json({ error: `Password must be at least ${AUTH.PASSWORD_MIN_LENGTH} characters long.` }, 400);
     }
 
     // ── Registration gate ────────────────────────────────────────────────

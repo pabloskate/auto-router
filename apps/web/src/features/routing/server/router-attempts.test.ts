@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { RouteDecision } from "@custom-router/core";
 
-import { buildAttemptOrder } from "./router-attempts";
+import { buildAttemptOrder, buildAttemptPayload } from "./router-attempts";
 
 vi.mock("@/src/lib/routing/guardrail-manager", () => ({
   guardrailKey: vi.fn((modelId: string, provider: string) => `${modelId}:${provider}`),
@@ -64,5 +64,95 @@ describe("buildAttemptOrder", () => {
     });
 
     expect(attempts).toEqual([{ modelId: "model/alpha", provider: "default" }]);
+  });
+});
+
+describe("buildAttemptPayload", () => {
+  it("maps adaptive effort to the upstream family model for full-capability gateways", () => {
+    const payload = buildAttemptPayload({
+      body: { model: "planning-backend", messages: [{ role: "user", content: "Plan this." }] },
+      selectedModelId: "openai/gpt-5.2:high",
+      selectedEffort: "low",
+      catalog: [
+        {
+          id: "openai/gpt-5.2:high",
+          name: "GPT-5.2 High",
+          upstreamModelId: "openai/gpt-5.2",
+          reasoningPreset: "high",
+        },
+      ],
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiPath: "/chat/completions",
+    });
+
+    expect(payload.model).toBe("openai/gpt-5.2");
+    expect(payload.reasoning).toEqual({ effort: "low" });
+  });
+
+  it("preserves explicit reasoning settings from the request body", () => {
+    const payload = buildAttemptPayload({
+      body: {
+        model: "planning-backend",
+        reasoning: { effort: "xhigh" },
+        messages: [{ role: "user", content: "Plan this." }],
+      },
+      selectedModelId: "openai/gpt-5.2:high",
+      selectedEffort: "low",
+      catalog: [
+        {
+          id: "openai/gpt-5.2:high",
+          name: "GPT-5.2 High",
+          upstreamModelId: "openai/gpt-5.2",
+          reasoningPreset: "high",
+        },
+      ],
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiPath: "/chat/completions",
+    });
+
+    expect(payload.model).toBe("openai/gpt-5.2:high");
+    expect(payload.reasoning).toEqual({ effort: "xhigh" });
+  });
+
+  it("omits reasoning.effort for provider-default routing while still using the family model", () => {
+    const payload = buildAttemptPayload({
+      body: { model: "planning-backend", messages: [{ role: "user", content: "Plan this." }] },
+      selectedModelId: "google/gemini-2.5-pro:thinking",
+      selectedEffort: "provider_default",
+      catalog: [
+        {
+          id: "google/gemini-2.5-pro:thinking",
+          name: "Gemini 2.5 Pro Thinking",
+          upstreamModelId: "google/gemini-2.5-pro",
+          reasoningPreset: "high",
+        },
+      ],
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiPath: "/chat/completions",
+    });
+
+    expect(payload.model).toBe("google/gemini-2.5-pro");
+    expect(payload.reasoning).toBeUndefined();
+  });
+
+  it("falls back to exact model routing for unknown gateways", () => {
+    const payload = buildAttemptPayload({
+      body: { model: "planning-backend", messages: [{ role: "user", content: "Plan this." }] },
+      selectedModelId: "openai/gpt-5.2:high",
+      selectedEffort: "low",
+      catalog: [
+        {
+          id: "openai/gpt-5.2:high",
+          name: "GPT-5.2 High",
+          upstreamModelId: "openai/gpt-5.2",
+          reasoningPreset: "high",
+        },
+      ],
+      baseUrl: "https://gateway.example/v1",
+      apiPath: "/chat/completions",
+    });
+
+    expect(payload.model).toBe("openai/gpt-5.2:high");
+    expect(payload.reasoning).toBeUndefined();
   });
 });

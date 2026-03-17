@@ -101,11 +101,12 @@ async function main() {
       await page.waitForTimeout(800);
     }
 
-    // 9. Check routing profiles controls and autosave status.
-    await page.getByRole("button", { name: "Quick setup" }).waitFor({ state: "visible", timeout: 5000 });
+    // 9. Check routing profile controls and autosave status.
+    // "Quick setup" is conditional on gateway inventory, so use the stable
+    // empty-state/profile controls instead of requiring that card.
     await page.getByRole("button", { name: "Add profile" }).waitFor({ state: "visible", timeout: 5000 });
     await page.locator("text=All changes saved").first().waitFor({ state: "visible", timeout: 5000 });
-    await page.locator("text=Profiles").first().waitFor({ state: "visible", timeout: 5000 });
+    await page.locator("text=Routing Profiles").first().waitFor({ state: "visible", timeout: 5000 });
     console.log("✓ Routing page loads");
 
     // 10. Click API Keys tab

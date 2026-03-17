@@ -635,6 +635,15 @@ describe("routeAndProxy", () => {
       selectedModel: "model/alpha",
       confidence: 0.91,
       signals: ["frontier_classification"],
+      stepClassification: {
+        stepMode: "tool",
+        complexity: "low",
+        stakes: "low",
+        latencySensitivity: "high",
+        toolNeed: "required",
+        expectedOutputSize: "short",
+        interactionHorizon: "one_shot",
+      },
       rerouteAfterTurns: 2,
     });
 
@@ -672,11 +681,15 @@ describe("routeAndProxy", () => {
     });
 
     const body = await result.response.json() as {
+      selectedFamily?: string;
+      selectedEffort?: string;
       pinRerouteAfterTurns?: number;
       pinBudgetSource?: string;
       pinConsumedUserTurns?: number;
       isAgentLoop?: boolean;
     };
+    expect(body.selectedFamily).toBe("model/alpha");
+    expect(body.selectedEffort).toBe("low");
     expect(body.pinRerouteAfterTurns).toBe(2);
     expect(body.pinBudgetSource).toBe("classifier");
     expect(body.pinConsumedUserTurns).toBe(0);
