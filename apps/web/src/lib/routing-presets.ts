@@ -662,7 +662,94 @@ Default to Gemini 2.5 Flash Lite when the task is simple or ambiguous.
 `.trim(),
   },
 
-  // ── 8. Vercel Customer Support ─────────────────────────────────────────────
+  // ── 8. Cheap Frontier Coding ───────────────────────────────────────────────
+  {
+    id: "coding-cheap-frontier",
+    name: "Cheap Frontier Coding",
+    description:
+      "OpenRouter coding preset with MiniMax M2.7 as the cheap implementation default, GLM 5 for architecture and complex builds, Kimi K2.5 for UI and multimodal work, Mercury 2 for quick edits, and Gemini 3.1 Flash Lite Preview for long-context overflow",
+    gatewayPresetId: "openrouter",
+    classifierModel: "google/gemini-3.1-flash-lite-preview",
+    defaultModel: "minimax/minimax-m2.7",
+    models: [
+      {
+        id: "minimax/minimax-m2.7",
+        name: "MiniMax M2.7",
+        modality: "text->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Default for everyday implementation, refactors, bug fixes, and general coding where price-performance matters most. 204.8K ctx. $0.30/$1.20 per M tokens.",
+      },
+      {
+        id: "z-ai/glm-5",
+        name: "GLM 5",
+        modality: "text->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Architecture decisions, complex implementations, and harder engineering tasks that need a stronger text-only reasoning model. 80K ctx. $0.72/$2.30 per M tokens.",
+      },
+      {
+        id: "moonshotai/kimi-k2.5",
+        name: "Kimi K2.5",
+        modality: "text,image->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "UI design, screenshot-driven debugging, multimodal implementation work, and fast frontend iteration. 262K ctx. $0.45/$2.20 per M tokens.",
+      },
+      {
+        id: "inception/mercury-2",
+        name: "Mercury 2",
+        modality: "text->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Quick text-only edits, tiny diffs, low-stakes patches, and cheap fast-turn coding. 128K ctx. $0.25/$0.75 per M tokens.",
+      },
+      {
+        id: "google/gemini-3.1-flash-lite-preview",
+        name: "Gemini 3.1 Flash Lite Preview",
+        modality: "text,image,file,audio,video->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Long-context overflow, repo-wide quick edits, large attachments, and multimodal coding tasks when the prompt size gets too large for the cheaper text-only fast-edit path. 1M ctx. $0.25/$1.50 per M tokens.",
+      },
+    ],
+    routingInstructions: `
+Route every request to the best OpenRouter model for cheap frontier coding. Optimize for coding quality per dollar first, then latency.
+
+MODEL REFERENCE
+  minimax/minimax-m2.7                    — $0.30/$1.20 — text only, 204.8K ctx
+  z-ai/glm-5                              — $0.72/$2.30 — text only, 80K ctx
+  moonshotai/kimi-k2.5                    — $0.45/$2.20 — vision, 262K ctx
+  inception/mercury-2                     — $0.25/$0.75 — text only, 128K ctx
+  google/gemini-3.1-flash-lite-preview    — $0.25/$1.50 — multimodal, 1M ctx
+
+ROUTING RULES (apply in order)
+
+UI DESIGN / SCREENSHOTS / IMAGE INPUT / FRONTEND POLISH / MULTIMODAL DEBUGGING
+  → moonshotai/kimi-k2.5
+
+ARCHITECTURE / SYSTEM DESIGN / COMPLEX IMPLEMENTATION / MULTI-STEP REFACTOR / HIGHER-DEPTH ENGINEERING
+  → z-ai/glm-5
+
+LONG CONTEXT / LARGE REPO READS / BIG PASTES / ATTACHMENTS / QUICK EDITS WITH CONTEXT OVERFLOW
+  → google/gemini-3.1-flash-lite-preview
+
+TINY PATCH / SINGLE-FILE TWEAK / LOW-STAKES QUICK EDIT / BUDGET-FIRST SHORT TURN
+  → inception/mercury-2
+
+EVERYTHING ELSE
+  → minimax/minimax-m2.7
+
+Default to MiniMax M2.7 when the task is ordinary implementation work and the route is ambiguous.
+`.trim(),
+  },
+
+  // ── 9. Vercel Customer Support ─────────────────────────────────────────────
   {
     id: "vercel-customer-support",
     name: "Vercel Customer Support",
@@ -748,7 +835,7 @@ Default to Claude Sonnet 4.6 when the support task is ambiguous or emotionally s
 `.trim(),
   },
 
-  // ── 9. Vercel Fast Coding ──────────────────────────────────────────────────
+  // ── 10. Vercel Fast Coding ─────────────────────────────────────────────────
   {
     id: "vercel-coding-fast",
     name: "Vercel Fast Coding",
@@ -834,7 +921,7 @@ Default to Grok Code Fast 1 when the task is ordinary coding and the route is am
 `.trim(),
   },
 
-  // ── 10. Vercel Deep Premium Agentic ────────────────────────────────────────
+  // ── 11. Vercel Deep Premium Agentic ────────────────────────────────────────
   {
     id: "vercel-coding-agentic-premium",
     name: "Vercel Deep Premium Agentic",

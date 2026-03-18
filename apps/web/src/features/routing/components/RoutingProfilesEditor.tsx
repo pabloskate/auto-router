@@ -229,6 +229,7 @@ function ProfileCard({
   const isExpanded = editor.expandedProfileId === profile.id;
   const status = getProfileStatus(profile);
   const instructionStatus = editor.getInstructionStatus(profile.id);
+  const refreshPreset = editor.getMatchingPreset(profile.id);
   const resolvedModels = (profile.models ?? []).filter(hasResolvedProfileModel);
   const fallbackOptions = resolvedModels.map((model) => ({
     key: buildProfileModelKey(model.gatewayId, model.modelId),
@@ -302,6 +303,19 @@ function ProfileCard({
           <span className="routing-profile-card__count">{(profile.models ?? []).length} models</span>
         </div>
         <div className="routing-profile-card__header-actions">
+          {refreshPreset ? (
+            <button
+              className="btn btn--ghost btn--sm"
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                editor.openPresetRefresh(profile.id);
+              }}
+            >
+              <IconSpark />
+              Refresh preset
+            </button>
+          ) : null}
           <button
             className="btn btn--ghost btn--sm"
             type="button"
@@ -454,6 +468,12 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
   const quickSetupProfile = quickSetupPreset ? createQuickSetupPreview(quickSetupPreset, props.gateways) : null;
   const quickSetupResolvedCount = quickSetupProfile ? countResolvedProfileModels(quickSetupProfile) : 0;
   const quickSetupUnresolvedCount = quickSetupProfile ? (quickSetupProfile.models ?? []).length - quickSetupResolvedCount : 0;
+  const presetRefreshProfile = editor.presetRefresh.profileId
+    ? editor.items.find((profile) => profile.id === editor.presetRefresh.profileId)
+    : undefined;
+  const presetRefreshPreset = presetRefreshProfile
+    ? editor.getMatchingPreset(presetRefreshProfile.id)
+    : undefined;
   const modelEditorProfile = editor.modelEditor.profileId
     ? editor.items.find((profile) => profile.id === editor.modelEditor.profileId)
     : undefined;
@@ -600,6 +620,36 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
           <div className="routing-profiles-modal__actions">
             <button className="btn btn--secondary" type="button" onClick={editor.closeCreateProfile}>Cancel</button>
             <button className="btn btn--primary" type="button" onClick={editor.createEmptyProfile}>Create profile</button>
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {editor.presetRefresh.open && presetRefreshProfile && presetRefreshPreset ? (
+        <ModalShell
+          title="Refresh preset profile"
+          description="Replace this profile with the latest built-in preset version for your configured gateway."
+          onClose={editor.closePresetRefresh}
+        >
+          <div className="routing-profiles-modal__body">
+            <div className="routing-profiles-modal__warning">
+              Refresh will overwrite the current profile configuration. Custom model choices, router model, fallback model, and routing instructions will be replaced.
+            </div>
+            <div className="routing-profiles-modal__hint">
+              <span className="routing-profiles-modal__hint-dot">•</span>
+              <span>
+                Profile ID <code>{presetRefreshProfile.id}</code> stays the same so API calls keep working.
+              </span>
+            </div>
+            <div className="routing-profiles-modal__hint">
+              <span className="routing-profiles-modal__hint-dot">•</span>
+              <span>
+                Refreshing from <strong>{presetRefreshPreset.name}</strong> applies the latest preset definition and removes manual edits on this profile.
+              </span>
+            </div>
+          </div>
+          <div className="routing-profiles-modal__actions">
+            <button className="btn btn--secondary" type="button" onClick={editor.closePresetRefresh}>Cancel</button>
+            <button className="btn btn--danger" type="button" onClick={editor.confirmPresetRefresh}>Refresh profile</button>
           </div>
         </ModalShell>
       ) : null}

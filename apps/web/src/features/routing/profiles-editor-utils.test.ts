@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   createProfileFromPreset,
+  findMatchingPresetForProfile,
   getQuickSetupPresets,
   getProfileIdValidationError,
   normalizeProfileIdInput,
   normalizeProfilesForEditor,
+  refreshProfileFromPreset,
 } from "./profiles-editor-utils";
 import { ROUTING_PRESETS } from "@/src/lib/routing-presets";
 
@@ -173,6 +175,44 @@ describe("createProfileFromPreset", () => {
     );
   });
 
+  it("binds the cheap frontier coding preset to synced OpenRouter models", () => {
+    const cheapFrontierCoding = ROUTING_PRESETS.find((preset) => preset.id === "coding-cheap-frontier");
+    expect(cheapFrontierCoding).toBeTruthy();
+
+    const profile = createProfileFromPreset(cheapFrontierCoding!, [
+      {
+        id: "gw_openrouter",
+        name: "OpenRouter",
+        baseUrl: "https://openrouter.ai/api/v1",
+        createdAt: "2026-03-16T00:00:00.000Z",
+        updatedAt: "2026-03-16T00:00:00.000Z",
+        models: [
+          { id: "minimax/minimax-m2.7", name: "MiniMax: MiniMax M2.7" },
+          { id: "z-ai/glm-5", name: "Z.ai: GLM 5" },
+          { id: "moonshotai/kimi-k2.5", name: "MoonshotAI: Kimi K2.5" },
+          { id: "inception/mercury-2", name: "Inception: Mercury 2" },
+          { id: "google/gemini-3.1-flash-lite-preview", name: "Google: Gemini 3.1 Flash Lite Preview" },
+        ],
+      },
+    ]);
+
+    expect(profile.defaultModel).toBe("gw_openrouter::minimax/minimax-m2.7");
+    expect(profile.classifierModel).toBe("gw_openrouter::google/gemini-3.1-flash-lite-preview");
+    expect(profile.models).toHaveLength(5);
+    expect(profile.models).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gatewayId: "gw_openrouter",
+          modelId: "z-ai/glm-5",
+        }),
+        expect.objectContaining({
+          gatewayId: "gw_openrouter",
+          modelId: "moonshotai/kimi-k2.5",
+        }),
+      ]),
+    );
+  });
+
   it("binds the vercel customer-support preset to synced Vercel AI Gateway models", () => {
     const vercelSupport = ROUTING_PRESETS.find((preset) => preset.id === "vercel-customer-support");
     expect(vercelSupport).toBeTruthy();
@@ -246,6 +286,71 @@ describe("createProfileFromPreset", () => {
         expect.objectContaining({
           gatewayId: "gw_vercel",
           modelId: "openai/gpt-5-codex",
+        }),
+      ]),
+    );
+  });
+});
+
+describe("preset refresh helpers", () => {
+  it("matches preset-backed profiles by display name", () => {
+    const preset = findMatchingPresetForProfile(
+      { name: "  balanced general-purpose " },
+      ROUTING_PRESETS,
+    );
+
+    expect(preset?.id).toBe("general-balanced");
+  });
+
+  it("refreshes a preset-backed profile while keeping the API-facing id", () => {
+    const preset = ROUTING_PRESETS.find((entry) => entry.id === "general-balanced");
+    expect(preset).toBeTruthy();
+
+    const refreshed = refreshProfileFromPreset(
+      {
+        id: "team-router",
+        name: "Balanced General-Purpose",
+        routingInstructions: "Custom instructions",
+        defaultModel: "gw_openrouter::custom/default",
+        classifierModel: "gw_openrouter::custom/classifier",
+        models: [
+          {
+            gatewayId: "gw_openrouter",
+            modelId: "custom/model",
+            name: "Custom model",
+          },
+        ],
+      },
+      preset!,
+      [
+        {
+          id: "gw_openrouter",
+          name: "OpenRouter",
+          baseUrl: "https://openrouter.ai/api/v1",
+          createdAt: "2026-03-16T00:00:00.000Z",
+          updatedAt: "2026-03-16T00:00:00.000Z",
+          models: [
+            { id: "anthropic/claude-sonnet-4.6", name: "Anthropic: Claude Sonnet 4.6" },
+            { id: "google/gemini-3.1-flash-lite-preview", name: "Google: Gemini 3.1 Flash Lite Preview" },
+            { id: "google/gemini-3.1-pro-preview", name: "Google: Gemini 3.1 Pro Preview" },
+            { id: "bytedance-seed/seed-1.6-flash", name: "ByteDance Seed: Seed 1.6 Flash" },
+            { id: "inception/mercury-2", name: "Mercury 2" },
+            { id: "deepseek/deepseek-v3.2", name: "DeepSeek: DeepSeek V3.2" },
+          ],
+        },
+      ],
+    );
+
+    expect(refreshed.id).toBe("team-router");
+    expect(refreshed.name).toBe("Balanced General-Purpose");
+    expect(refreshed.routingInstructions).toContain("Route every request to the single best model.");
+    expect(refreshed.defaultModel).toBe("gw_openrouter::anthropic/claude-sonnet-4.6");
+    expect(refreshed.classifierModel).toBe("gw_openrouter::google/gemini-3.1-flash-lite-preview");
+    expect(refreshed.models).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gatewayId: "gw_openrouter",
+          modelId: "inception/mercury-2",
         }),
       ]),
     );

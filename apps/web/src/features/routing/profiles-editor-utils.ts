@@ -319,6 +319,33 @@ export function createProfileFromPreset(preset: RoutingPreset, gateways: Gateway
   };
 }
 
+function normalizePresetName(value: string | null | undefined): string {
+  return sanitizeOptionalString(value)?.toLowerCase() ?? "";
+}
+
+export function findMatchingPresetForProfile(
+  profile: Pick<RouterProfile, "name">,
+  presets: readonly RoutingPreset[],
+): RoutingPreset | undefined {
+  const profileName = normalizePresetName(profile.name);
+  if (!profileName) {
+    return undefined;
+  }
+
+  return presets.find((preset) => normalizePresetName(preset.name) === profileName);
+}
+
+export function refreshProfileFromPreset(
+  profile: RouterProfile,
+  preset: RoutingPreset,
+  gateways: GatewayInfo[],
+): RouterProfile {
+  return {
+    ...createProfileFromPreset(preset, gateways),
+    id: profile.id,
+  };
+}
+
 export function getQuickSetupPresets(gateways: GatewayInfo[]): readonly RoutingPreset[] {
   const supportedGatewayPresetIds = new Set(
     gateways

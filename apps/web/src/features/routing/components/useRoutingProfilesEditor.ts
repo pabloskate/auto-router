@@ -17,10 +17,12 @@ import {
   createCustomModelDraft,
   createProfileFromPreset,
   DEFAULT_AUTOSAVE_SNAPSHOT,
+  findMatchingPresetForProfile,
   formatGatewayModelOptionLabel,
   getGatewayModel,
   getQuickSetupPresets,
   normalizeProfilesForEditor,
+  refreshProfileFromPreset,
   sanitizeProfileSelections,
   syncProfileModelFromGateway,
   type CustomModelDraft,
@@ -79,6 +81,12 @@ interface AdvancedEditorState {
   profileId: string | null;
 }
 
+interface PresetRefreshState {
+  open: boolean;
+  presetId: string | null;
+  profileId: string | null;
+}
+
 const INSTRUCTION_AUTOSAVE_DEBOUNCE_MS = 2400;
 
 function createQuickSetupState(presets: readonly RoutingPreset[]): QuickSetupState {
@@ -127,6 +135,14 @@ function createAdvancedEditorState(): AdvancedEditorState {
     profileId: null,
     draft: "",
     error: null,
+  };
+}
+
+function createPresetRefreshState(): PresetRefreshState {
+  return {
+    open: false,
+    presetId: null,
+    profileId: null,
   };
 }
 
@@ -192,6 +208,7 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
   const [modelEditor, setModelEditor] = useState<ModelEditorState>(() => createModelEditorState(props.gateways));
   const [customModel, setCustomModel] = useState<CustomModelState>(() => createCustomModelState(props.gateways));
   const [advancedEditor, setAdvancedEditor] = useState<AdvancedEditorState>(createAdvancedEditorState);
+  const [presetRefresh, setPresetRefresh] = useState<PresetRefreshState>(createPresetRefreshState);
   const autosaveQueueRef = useRef(
     createAutosaveQueue<RouterProfile[]>({
       debounceMs: 900,
@@ -234,6 +251,23 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
       };
     });
   }, [presets]);
+
+  useEffect(() => {
+    if (!presetRefresh.open) {
+      return;
+    }
+
+    const profile = presetRefresh.profileId
+      ? items.find((entry) => entry.id === presetRefresh.profileId)
+      : undefined;
+    const preset = profile
+      ? findMatchingPresetForProfile(profile, presets)
+      : undefined;
+
+    if (!profile || !preset || preset.id !== presetRefresh.presetId) {
+      setPresetRefresh(createPresetRefreshState());
+    }
+  }, [items, presetRefresh, presets]);
 
   function commitProfiles(nextProfiles: RouterProfile[], args?: {
     autosaveDebounceMs?: number;
@@ -537,6 +571,56 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
     setAdvancedEditor(createAdvancedEditorState());
   }
 
+  function getMatchingPreset(profileId: string): RoutingPreset | undefined {
+    const profile = items.find((entry) => entry.id === profileId);
+    if (!profile) {
+      return undefined;
+    }
+
+    return findMatchingPresetForProfile(profile, presets);
+  }
+
+  function openPresetRefresh(profileId: string) {
+    const preset = getMatchingPreset(profileId);
+    if (!preset) {
+      return;
+    }
+
+    setPresetRefresh({
+      open: true,
+      profileId,
+      presetId: preset.id,
+    });
+  }
+
+  function closePresetRefresh() {
+    setPresetRefresh(createPresetRefreshState());
+  }
+
+  function confirmPresetRefresh() {
+    if (!presetRefresh.profileId || !presetRefresh.presetId) {
+      return;
+    }
+
+    const profile = items.find((entry) => entry.id === presetRefresh.profileId);
+    const preset = presets.find((entry) => entry.id === presetRefresh.presetId);
+    if (!profile || !preset) {
+      closePresetRefresh();
+      return;
+    }
+
+    const nextProfiles = items.map((entry) => (
+      entry.id === profile.id ? refreshProfileFromPreset(profile, preset, props.gateways) : entry
+    ));
+
+    closePresetRefresh();
+    commitProfiles(nextProfiles, {
+      expandProfileId: profile.id,
+      touchedField: "profile",
+      touchedProfileId: profile.id,
+    });
+  }
+
   function saveAdvancedEditor() {
     if (!advancedEditor.profileId) {
       return;
@@ -699,14 +783,18 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
     createProfileFromQuickSetup,
     customModel,
     advancedEditor,
+    presetRefresh,
     closeCreateProfile,
     closeAdvancedEditor,
     closeCustomModel,
     closeModelEditor,
+    closePresetRefresh,
     closeQuickSetup,
+    confirmPresetRefresh,
     commitRename,
     expandedProfileId,
     getInstructionStatus,
+    getMatchingPreset,
     getQuickSetupPreset,
     items,
     lastTouchedField,
@@ -716,6 +804,7 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
     openAdvancedEditor,
     openCustomModel,
     openModelEditor,
+    openPresetRefresh,
     openQuickSetup,
     panelMessage: autosaveSnapshot.state === "error" || autosaveSnapshot.state === "invalid" ? autosaveSnapshot.message : null,
     presets,

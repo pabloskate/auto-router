@@ -12,7 +12,7 @@ CustomRouter is a **highly customizable LLM routing proxy** deployed on Cloudfla
 2. Thread stickiness (pinning a model for multi-turn conversations)
 3. Runtime guardrails that circuit-break underperforming models
 
-The router is **transparent** — it speaks OpenAI's API, so any SDK pointing at it works without modification. Just set `model: "auto"`.
+The router is **transparent** — it speaks OpenAI's API, so any SDK pointing at it works without modification. Set `model` to a saved profile ID such as `planning-backend`. If a user creates a profile with `id: "auto"`, clients can also use `model: "auto"`.
 
 ---
 
@@ -121,8 +121,8 @@ PUT  /api/v1/router/config     → verifyAdminSecret
 | `admin-console.tsx` | Root shell — loads data, wires sub-components together |
 | `AuthGate.tsx` | Login / signup form |
 | `ApiKeyPanel.tsx` | Generate, list, revoke API keys |
-| `RouterConfigPanel.tsx` | Global defaults: fallback model, router model, routing instructions, blocklist |
-| `ProfilesPanel.tsx` | Per-profile config with "Override global models" toggle. The `auto` profile is required and non-deletable. |
+| `RouterConfigPanel.tsx` | Conversation re-routing controls: routing frequency and trigger keywords. Autosaves without a manual save button. |
+| `ProfilesPanel.tsx` | Alias for the routing profile editor. Create/edit named profiles, use quick setup presets, bind routed models, choose fallback/classifier bindings, and autosave changes. |
 | `CatalogEditorPanel.tsx` | Per-user model catalog editor ("constitution") |
 
 ### `packages/core/src/`
@@ -130,7 +130,7 @@ PUT  /api/v1/router/config     → verifyAdminSecret
 | File | Responsibility |
 |------|---------------|
 | `types.ts` | All shared types: RouterConfig, CatalogItem, RouteDecision, RoutingExplanation, etc. |
-| `router-engine.ts` | `RouterEngine.decide()` — stateless routing decision logic (pin check → classifier → fallback). Profile overrides apply only when `overrideModels !== false`; otherwise the profile inherits global defaults. |
+| `router-engine.ts` | `RouterEngine.decide()` — stateless routing decision logic (exact profile match → pin check → classifier → fallback). Unmatched model IDs passthrough. Named profiles use their own routed pool, fallback/classifier bindings, and profile-scoped instructions. |
 | `llm-router.ts` | Interface and helpers for the pluggable LLM classifier |
 | `pin-store.ts` | `PinStore` interface + `InMemoryPinStore` |
 | `index.ts` | Barrel export |
