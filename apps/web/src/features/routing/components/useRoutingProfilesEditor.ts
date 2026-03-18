@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RouterProfile, RouterProfileModel } from "@custom-router/core";
 
 import { createAutosaveQueue } from "@/src/features/routing/profiles-autosave";
@@ -286,9 +286,7 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
       setLastTouchedField(args.touchedField);
     }
 
-    startTransition(() => {
-      props.onChange(normalized);
-    });
+    props.onChange(normalized);
     autosaveQueueRef.current.update(normalized, {
       debounceMs: args?.autosaveDebounceMs,
     });
