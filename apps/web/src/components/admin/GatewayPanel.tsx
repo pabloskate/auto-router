@@ -10,10 +10,19 @@ import {
   mergeFetchedGatewayModels,
   type ManualGatewayModelDraft,
 } from "@/src/features/gateways/inventory";
+import {
+  GATEWAY_RECOMMENDATIONS,
+  GATEWAY_SPEND_GUIDANCE,
+  getDirectProviderPresets,
+  getGatewayFormHint,
+  getRecommendedGatewayPresets,
+} from "@/src/features/gateways/recommendations";
 
 export type { GatewayInfo, GatewayModel } from "@/src/features/gateways/contracts";
 
 const INVENTORY_PREVIEW_LIMIT = 10;
+const RECOMMENDED_GATEWAY_PRESETS = getRecommendedGatewayPresets();
+const DIRECT_PROVIDER_PRESETS = getDirectProviderPresets();
 
 interface Props {
   onStatus?: (msg: string) => void;
@@ -57,6 +66,64 @@ function IconTrash({ className }: { className?: string }) {
   );
 }
 
+function GatewayRecommendationsCard() {
+  return (
+    <div className="card">
+      <div className="card-header">
+        <div>
+          <h3>Recommended setup</h3>
+          <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>
+            Connect a gateway that already aggregates models. CustomRouter handles routing logic; your gateway handles provider access, billing, and spend controls.
+          </p>
+        </div>
+      </div>
+      <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: "var(--space-3)",
+          }}
+        >
+          {GATEWAY_RECOMMENDATIONS.map((recommendation) => (
+            <div
+              key={recommendation.id}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "var(--space-2)",
+                padding: "var(--space-4)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-md)",
+                background: "var(--bg-surface)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                <strong>{recommendation.name}</strong>
+                <span className="badge badge--info">{recommendation.badge}</span>
+              </div>
+              <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--text-primary)" }}>
+                {recommendation.summary}
+              </p>
+              <p style={{ margin: 0, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                {recommendation.setup}
+              </p>
+              {!recommendation.quickSetup ? (
+                <code className="code" style={{ fontSize: "0.75rem", wordBreak: "break-all" }}>
+                  {recommendation.baseUrlHint}
+                </code>
+              ) : null}
+            </div>
+          ))}
+        </div>
+        <p style={{ margin: 0, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+          {GATEWAY_SPEND_GUIDANCE}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 interface GatewayFormProps {
   initial?: { name: string; baseUrl: string };
   isEdit?: boolean;
@@ -73,6 +140,7 @@ function GatewayForm({ initial, isEdit, saving, onSave, onCancel }: GatewayFormP
   const [error, setError] = useState("");
 
   const isPresetSelected = selectedPreset !== "" && selectedPreset !== CUSTOM_PRESET_ID;
+  const formHint = getGatewayFormHint(selectedPreset || undefined);
 
   function handlePresetChange(presetId: string) {
     setSelectedPreset(presetId);
@@ -107,14 +175,22 @@ function GatewayForm({ initial, isEdit, saving, onSave, onCancel }: GatewayFormP
       )}
       {!isEdit && (
         <div className="form-group">
-          <label className="form-label">Provider</label>
+          <label className="form-label">Gateway</label>
           <select className="input" value={selectedPreset} onChange={(event) => handlePresetChange(event.target.value)}>
-            <option value="">Select a provider…</option>
-            {GATEWAY_PRESETS.map((preset) => (
-              <option key={preset.id} value={preset.id}>{preset.name}</option>
-            ))}
-            <option value={CUSTOM_PRESET_ID}>Other / Custom</option>
+            <option value="">Choose a gateway…</option>
+            <optgroup label="Recommended">
+              {RECOMMENDED_GATEWAY_PRESETS.map((preset) => (
+                <option key={preset.id} value={preset.id}>{preset.name}</option>
+              ))}
+              <option value={CUSTOM_PRESET_ID}>Other / Custom</option>
+            </optgroup>
+            <optgroup label="Individual providers">
+              {DIRECT_PROVIDER_PRESETS.map((preset) => (
+                <option key={preset.id} value={preset.id}>{preset.name}</option>
+              ))}
+            </optgroup>
           </select>
+          <span className="form-hint">{formHint}</span>
         </div>
       )}
       <div className="form-row">
@@ -137,7 +213,7 @@ function GatewayForm({ initial, isEdit, saving, onSave, onCancel }: GatewayFormP
           placeholder={isEdit ? "Leave blank to keep existing key" : "sk-..."}
           autoComplete="new-password"
         />
-        <span className="form-hint">Stored encrypted. Used only for requests routed to this gateway.</span>
+        <span className="form-hint">Stored encrypted. Used only for requests routed to this gateway. Billing stays with this gateway, not with CustomRouter.</span>
       </div>
       <div style={{ display: "flex", gap: "var(--space-3)" }}>
         <button type="submit" className="btn btn--primary btn--sm" disabled={saving}>
@@ -274,7 +350,7 @@ function ManualGatewayModelForm({
       <div>
         <div style={{ fontWeight: 600, marginBottom: "var(--space-1)" }}>Add model manually</div>
         <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", margin: 0 }}>
-          Use this when the provider does not implement <code>/models</code>. Once saved, the model will appear in Routing Profiles for router, fallback, and profile model selection.
+          Use this when the gateway does not implement <code>/models</code>. Once saved, the model will appear in Routing Profiles for router, fallback, and profile model selection.
         </p>
       </div>
 
@@ -382,8 +458,7 @@ function GatewayInventoryPreview({
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
         <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", margin: 0 }}>
-          No models available yet. Try <strong>Sync inventory</strong>. If this gateway does not expose a <code>/models</code> endpoint,
-          add the first model manually here so Routing Profiles can use it immediately.
+          No models yet. Try <strong>Sync inventory</strong>. If this gateway does not expose <code>/models</code>, add the first model manually so Routing Profiles can use it.
         </p>
         {onAddManual ? (
           <div>
@@ -416,7 +491,7 @@ function GatewayInventoryPreview({
         }}
       >
         <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", margin: 0 }}>
-          Synced inventory is used by routing profile pickers. Keep it collapsed here and choose models from the Routing tab.
+          This inventory powers Routing Profiles. Choose models there; keep this list lean here.
         </p>
         <button className="btn btn--ghost btn--sm" type="button" onClick={() => setShowInventory((current) => !current)}>
           {showInventory ? "Hide inventory" : `View inventory (${models.length})`}
@@ -557,13 +632,13 @@ function GatewayCard({
       const result = await syncGatewayInventory(gateway);
       if (!result.ok) {
         setManualModelOpen(true);
-        onError?.(`${result.error ?? "Failed to sync gateway inventory."} Use the manual model form below if this provider does not expose /models.`);
+        onError?.(`${result.error ?? "Failed to sync gateway inventory."} Add the model manually below if this gateway does not expose /models.`);
         return;
       }
 
       if (result.models.length === 0) {
         setManualModelOpen(true);
-        onStatus?.("No models were returned, so the manual model form is open below. Add your first model to use this gateway in Routing Profiles.");
+        onStatus?.("No models were returned. Add your first model manually below to use this gateway in Routing Profiles.");
       } else {
         onStatus?.("Gateway inventory synced.");
       }
@@ -682,7 +757,7 @@ export function GatewayPanel({ onStatus, onError }: Props) {
           setPrimedManualGatewayId(null);
         } else {
           setPrimedManualGatewayId(payload.gateway.id);
-          statusMessage = "Gateway added. Automatic inventory sync was not available, so the manual model form is open below. Add at least one model to use it in Routing Profiles.";
+          statusMessage = "Gateway added. Automatic inventory sync was not available, so add your first model manually below.";
         }
       }
 
@@ -704,12 +779,14 @@ export function GatewayPanel({ onStatus, onError }: Props) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+      <GatewayRecommendationsCard />
+
       <div className="card">
         <div className="card-header">
           <div>
             <h3>Gateway credentials</h3>
             <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>
-              Gateways now manage credentials and synced inventory only. Routed model pools are assembled in Routing Profiles.
+              Connect composite gateways like OpenRouter or Vercel AI Gateway, sync their model inventory, then build routing profiles on top.
             </p>
           </div>
           <button className="btn btn--primary btn--sm" type="button" onClick={() => setShowAddForm((current) => !current)}>
@@ -726,8 +803,16 @@ export function GatewayPanel({ onStatus, onError }: Props) {
 
       {gateways.length === 0 && !showAddForm ? (
         <div className="empty-state" style={{ padding: "var(--space-10) var(--space-6)" }}>
-          <div className="empty-state-title">No gateways configured</div>
-          <p className="empty-state-desc">Add a gateway so routing profiles can bind models from a synced inventory.</p>
+          <div className="empty-state-title">Start with a composite gateway</div>
+          <p className="empty-state-desc">Use one gateway that exposes multiple models, then build routing profiles on top of that inventory.</p>
+          <div style={{ display: "grid", gap: "var(--space-2)", textAlign: "left", maxWidth: 460 }}>
+            <div>1. Create a gateway account.</div>
+            <div>2. Paste its base URL and API key here.</div>
+            <div>3. Sync models, then choose them in Routing Profiles.</div>
+          </div>
+          <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--text-muted)" }}>
+            If your gateway does not expose <code>/models</code>, add the model IDs manually after saving.
+          </p>
           <button className="btn btn--primary" type="button" onClick={() => setShowAddForm(true)}>
             <IconPlus />
             Add your first gateway

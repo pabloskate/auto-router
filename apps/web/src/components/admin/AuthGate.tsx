@@ -301,6 +301,29 @@ export function AuthGate({ onAuthenticated }: Props) {
         ? "Enter your email and we will send reset instructions if the account exists"
         : "Paste your reset token or open the reset link to finish signing in";
 
+  const emailInputId = isForgot ? "forgot-email" : isLogin ? "login-email" : "signup-email";
+  const passwordInputId = isLogin ? "password-input" : "signup-password";
+  const emailAutoComplete = isLogin ? "username" : "email";
+
+  function handleCredentialSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (loading) {
+      return;
+    }
+
+    if (isForgot) {
+      void handleForgotPassword();
+      return;
+    }
+
+    if (isReset) {
+      void handleResetPassword();
+      return;
+    }
+
+    void handleAuthSubmit();
+  }
+
   return (
     <div
       style={{
@@ -378,6 +401,7 @@ export function AuthGate({ onAuthenticated }: Props) {
             }}
           >
             <button
+              type="button"
               className={`tab ${isSignInMode ? "tab--active" : ""}`}
               onClick={() => {
                 if (!isLogin) {
@@ -390,6 +414,7 @@ export function AuthGate({ onAuthenticated }: Props) {
             </button>
             {signupAvailable && (
               <button
+                type="button"
                 className={`tab ${isSignup ? "tab--active" : ""}`}
                 onClick={() => {
                   if (!isSignup) {
@@ -404,7 +429,7 @@ export function AuthGate({ onAuthenticated }: Props) {
           </div>
 
           {/* Form Fields */}
-          <div style={{ padding: "var(--space-6)" }}>
+          <form key={mode} onSubmit={handleCredentialSubmit} autoComplete="on" style={{ padding: "var(--space-6)" }}>
             {/* Registration closed message */}
             {!isLogin && !signupAvailable && (
               <div
@@ -419,19 +444,22 @@ export function AuthGate({ onAuthenticated }: Props) {
               {/* Name Field - Signup Only */}
               {isSignup && (
                 <div className="form-group">
-                  <label className="form-label">
-                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                  <label className="form-label" htmlFor="signup-name">
+                    <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                       <IconUser style={{ width: 14, height: 14 } as any} />
                       Full Name
-                    </div>
+                    </span>
                   </label>
                   <input
+                    id="signup-name"
+                    name="name"
                     className="input"
                     type="text"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     placeholder="Your name"
                     autoComplete="name"
+                    required
                     disabled={loading}
                   />
                 </div>
@@ -440,18 +468,21 @@ export function AuthGate({ onAuthenticated }: Props) {
               {/* Invite Code Field - Signup + invite mode only */}
               {isSignup && regStatus?.requiresInviteCode && (
                 <div className="form-group">
-                  <label className="form-label">
-                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                  <label className="form-label" htmlFor="signup-invite-code">
+                    <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                       <IconTicket style={{ width: 14, height: 14 } as any} />
                       Invite Code
-                    </div>
+                    </span>
                   </label>
                   <input
+                    id="signup-invite-code"
+                    name="inviteCode"
                     className="input"
                     type="text"
                     value={inviteCode}
                     onChange={(e) => setInviteCode(e.target.value)}
                     placeholder="Enter your invite code"
+                    required
                     disabled={loading}
                   />
                 </div>
@@ -460,13 +491,15 @@ export function AuthGate({ onAuthenticated }: Props) {
               {/* Email Field */}
               {!isReset && (
                 <div className="form-group">
-                  <label className="form-label">
-                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                  <label className="form-label" htmlFor={emailInputId}>
+                    <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                       <IconMail style={{ width: 14, height: 14 } as any} />
                       Email Address
-                    </div>
+                    </span>
                   </label>
                   <input
+                    id={emailInputId}
+                    name={isLogin ? "username" : "email"}
                     className="input"
                     type="email"
                     value={isForgot ? forgotEmail : form.email}
@@ -479,47 +512,37 @@ export function AuthGate({ onAuthenticated }: Props) {
                       }
                     }}
                     placeholder="you@example.com"
-                    autoComplete="email"
+                    autoComplete={emailAutoComplete}
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    inputMode="email"
+                    required
                     disabled={loading}
-                    onKeyDown={(e) => {
-                      if (e.key !== "Enter") {
-                        return;
-                      }
-
-                      if (isForgot) {
-                        void handleForgotPassword();
-                        return;
-                      }
-
-                      const passwordInput = document.getElementById("password-input") as HTMLInputElement;
-                      passwordInput?.focus();
-                    }}
                   />
                 </div>
               )}
 
               {(isLogin || isSignup) && (
                 <div className="form-group">
-                  <label className="form-label">
-                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                  <label className="form-label" htmlFor={passwordInputId}>
+                    <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                       <IconKey style={{ width: 14, height: 14 } as any} />
                       Password
-                    </div>
+                    </span>
                   </label>
                   <input
-                    id="password-input"
+                    id={passwordInputId}
+                    name={isLogin ? "password" : "newPassword"}
                     className="input"
                     type="password"
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
                     placeholder="••••••••"
                     autoComplete={isLogin ? "current-password" : "new-password"}
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    required
                     disabled={loading}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        void handleAuthSubmit();
-                      }
-                    }}
                   />
                 </div>
               )}
@@ -549,61 +572,73 @@ export function AuthGate({ onAuthenticated }: Props) {
               {isReset && (
                 <>
                   <div className="form-group">
-                    <label className="form-label">
-                      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                    <label className="form-label" htmlFor="reset-token">
+                      <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                         <IconKey style={{ width: 14, height: 14 } as any} />
                         Reset Token
-                      </div>
+                      </span>
                     </label>
                     <input
+                      id="reset-token"
+                      name="resetToken"
                       className="input"
                       type="text"
                       value={resetForm.token}
                       onChange={(e) => setResetForm({ ...resetForm, token: e.target.value })}
                       placeholder="Paste the token from your reset link"
                       autoComplete="one-time-code"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      required
                       disabled={loading}
                     />
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">
-                      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                    <label className="form-label" htmlFor="reset-new-password">
+                      <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                         <IconKey style={{ width: 14, height: 14 } as any} />
                         New Password
-                      </div>
+                      </span>
                     </label>
                     <input
+                      id="reset-new-password"
+                      name="newPassword"
                       className="input"
                       type="password"
                       value={resetForm.password}
                       onChange={(e) => setResetForm({ ...resetForm, password: e.target.value })}
                       placeholder="••••••••"
                       autoComplete="new-password"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      minLength={AUTH.PASSWORD_MIN_LENGTH}
+                      required
                       disabled={loading}
                     />
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">
-                      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                    <label className="form-label" htmlFor="reset-confirm-password">
+                      <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                         <IconKey style={{ width: 14, height: 14 } as any} />
                         Confirm Password
-                      </div>
+                      </span>
                     </label>
                     <input
+                      id="reset-confirm-password"
+                      name="confirmPassword"
                       className="input"
                       type="password"
                       value={resetForm.confirmPassword}
                       onChange={(e) => setResetForm({ ...resetForm, confirmPassword: e.target.value })}
                       placeholder="••••••••"
                       autoComplete="new-password"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      minLength={AUTH.PASSWORD_MIN_LENGTH}
+                      required
                       disabled={loading}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          void handleResetPassword();
-                        }
-                      }}
                     />
                   </div>
                 </>
@@ -660,24 +695,12 @@ export function AuthGate({ onAuthenticated }: Props) {
 
             {/* Submit Button */}
             <button
+              type="submit"
               className="btn btn--primary"
               style={{
                 width: "100%",
                 marginTop: "var(--space-6)",
                 justifyContent: "center",
-              }}
-              onClick={() => {
-                if (isForgot) {
-                  void handleForgotPassword();
-                  return;
-                }
-
-                if (isReset) {
-                  void handleResetPassword();
-                  return;
-                }
-
-                void handleAuthSubmit();
               }}
               disabled={
                 loading ||
@@ -759,7 +782,7 @@ export function AuthGate({ onAuthenticated }: Props) {
                 I already have a reset token
               </button>
             )}
-          </div>
+          </form>
         </div>
 
         {/* Help Text */}
