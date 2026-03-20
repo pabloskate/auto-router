@@ -1319,30 +1319,9 @@ body {
   font-size: 0.875rem;
 }
 
-.routing-profile-card__preview {
-  max-width: min(28rem, 42vw);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-}
-
-.routing-profile-card__preview.is-empty {
-  color: #f4c94c;
-  font-style: italic;
-  font-family: var(--font-sans);
-}
-
 .routing-profile-card__count {
   flex-shrink: 0;
   color: #7a8095;
-}
-
-.routing-profile-card__header-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
 }
 
 .routing-profile-card__body {
@@ -1828,10 +1807,6 @@ body {
     width: 100%;
     margin-left: 0;
     justify-content: space-between;
-  }
-
-  .routing-profile-card__preview {
-    max-width: 100%;
   }
 }
 

@@ -166,15 +166,6 @@ export function normalizeProfilesForEditor(profiles: RouterProfile[] | null | un
   });
 }
 
-export function summarizeInstructions(value?: string): string {
-  const trimmed = value?.trim();
-  if (!trimmed) {
-    return "No routing instructions";
-  }
-
-  return trimmed.length > 72 ? `${trimmed.slice(0, 72).trim()}...` : trimmed;
-}
-
 export function countResolvedProfileModels(profile: RouterProfile): number {
   return (profile.models ?? []).filter(hasResolvedProfileModel).length;
 }

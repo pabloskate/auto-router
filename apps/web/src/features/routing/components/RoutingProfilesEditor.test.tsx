@@ -133,10 +133,9 @@ describe("RoutingProfilesEditor", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the add-profile choice sheet with manual and disabled agent options", () => {
+  it("renders the add-profile choice sheet with manual and coming-soon agent option", () => {
     mockUseRoutingProfilesEditor.mockReturnValue(createEditorMock({
       createProfileChoice: { open: true },
-      profileBuilderUnavailableReason: "Sync OpenRouter or Vercel models first.",
     }));
 
     const markup = renderToStaticMarkup(
@@ -149,8 +148,8 @@ describe("RoutingProfilesEditor", () => {
     );
 
     expect(markup).toContain("Manual");
-    expect(markup).toContain("With agent");
-    expect(markup).toContain("Sync OpenRouter or Vercel models first.");
+    expect(markup).toContain("Coming soon");
+    expect(markup).toContain("With agent:");
   });
 
   it("renders import and export JSON actions", () => {
@@ -294,5 +293,60 @@ describe("RoutingProfilesEditor", () => {
 
     expect(markup).toContain("Additional context");
     expect(markup).toContain("Freeform notes for the agent building this draft.");
+  });
+
+  it("renders a searchable gateway model picker in the synced-model modal", () => {
+    mockUseRoutingProfilesEditor.mockReturnValue(createEditorMock({
+      items: [
+        {
+          id: "team-router",
+          name: "Team Router",
+          models: [],
+        },
+      ],
+      modelEditor: {
+        open: true,
+        profileId: "team-router",
+        rowIndex: null,
+        error: null,
+        draft: {
+          gatewayId: "gw_openrouter",
+          modelId: "openai/gpt-5.4-mini",
+          name: "",
+          modality: "",
+          reasoningPreset: "provider_default",
+          whenToUse: "",
+          description: "",
+        },
+      },
+    }));
+
+    const markup = renderToStaticMarkup(
+      createElement(RoutingProfilesEditor, {
+        profiles: [],
+        gateways: [
+          {
+            id: "gw_openrouter",
+            name: "OpenRouter",
+            baseUrl: "https://openrouter.ai/api/v1",
+            createdAt: "2026-03-20T00:00:00.000Z",
+            updatedAt: "2026-03-20T00:00:00.000Z",
+            models: [
+              {
+                id: "openai/gpt-5.4-mini",
+                name: "GPT-5.4 mini",
+                modality: "text->text",
+              },
+            ],
+          },
+        ],
+        onChange: () => undefined,
+        onSave: async () => true,
+      }),
+    );
+
+    expect(markup).not.toContain("Select a gateway model");
+    expect(markup).toContain("GPT-5.4 mini");
+    expect(markup).toContain("openai/gpt-5.4-mini");
   });
 });

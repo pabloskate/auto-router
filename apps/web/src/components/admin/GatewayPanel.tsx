@@ -407,9 +407,17 @@ function ManualGatewayModelForm({
 function GatewayModelsPreview({
   models,
   onAddManual,
+  onSync,
+  syncing,
+  manualModelOpen,
+  onToggleManual,
 }: {
   models: GatewayModel[];
   onAddManual?: () => void;
+  onSync?: () => void;
+  syncing?: boolean;
+  manualModelOpen?: boolean;
+  onToggleManual?: () => void;
 }) {
   const [showAllModels, setShowAllModels] = useState(false);
   const [query, setQuery] = useState("");
@@ -418,14 +426,27 @@ function GatewayModelsPreview({
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
         <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", margin: 0 }}>
-          No models yet. Try <strong>Sync models</strong>. If this gateway does not expose <code>/models</code>, add the first model manually so Routing Profiles can use it.
+          No models yet. Sync from the gateway if it exposes <code>/models</code>, or add the first model manually so Routing Profiles can use it.
         </p>
-        {onAddManual ? (
-          <div>
-            <button className="btn btn--secondary btn--sm" type="button" onClick={onAddManual}>
-              <IconPlus />
-              Add model manually
-            </button>
+        {onSync || onToggleManual ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", alignItems: "center" }}>
+            {onSync ? (
+              <button className="btn btn--secondary btn--sm" type="button" onClick={() => void onSync()} disabled={syncing}>
+                <IconDownload />
+                {syncing ? "Syncing…" : "Sync models"}
+              </button>
+            ) : null}
+            {onToggleManual ? (
+              <button className="btn btn--secondary btn--sm" type="button" onClick={onToggleManual}>
+                <IconPlus />
+                {manualModelOpen ? "Close model form" : "Add model manually"}
+              </button>
+            ) : onAddManual ? (
+              <button className="btn btn--secondary btn--sm" type="button" onClick={onAddManual}>
+                <IconPlus />
+                Add model manually
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -444,18 +465,40 @@ function GatewayModelsPreview({
       <div
         style={{
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           justifyContent: "space-between",
           gap: "var(--space-3)",
           flexWrap: "wrap",
         }}
       >
-        <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", margin: 0 }}>
+        <p
+          style={{
+            fontSize: "0.875rem",
+            color: "var(--text-muted)",
+            margin: 0,
+            flex: "1 1 12rem",
+            minWidth: 0,
+          }}
+        >
           These models power Routing Profiles. Choose bindings there; keep this list lean here.
         </p>
-        <button className="btn btn--ghost btn--sm" type="button" onClick={() => setShowAllModels((current) => !current)}>
-          {showAllModels ? "Hide models" : `View models (${models.length})`}
-        </button>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", alignItems: "center", justifyContent: "flex-end" }}>
+          {onSync ? (
+            <button className="btn btn--secondary btn--sm" type="button" onClick={() => void onSync()} disabled={syncing}>
+              <IconDownload />
+              {syncing ? "Syncing…" : "Sync models"}
+            </button>
+          ) : null}
+          {onToggleManual ? (
+            <button className="btn btn--secondary btn--sm" type="button" onClick={onToggleManual}>
+              <IconPlus />
+              {manualModelOpen ? "Close model form" : "Add model manually"}
+            </button>
+          ) : null}
+          <button className="btn btn--ghost btn--sm" type="button" onClick={() => setShowAllModels((current) => !current)}>
+            {showAllModels ? "Hide models" : `View models (${models.length})`}
+          </button>
+        </div>
       </div>
 
       {!showAllModels ? (
@@ -610,23 +653,33 @@ function GatewayCard({
 
   return (
     <div className="card">
-      <div className="card-header">
-        <div>
-          <h3>{gateway.name}</h3>
-          <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: "var(--space-1)", marginBottom: 0 }}>
-            <code className="code">{gateway.baseUrl}</code>
+      <div className="card-header" style={{ alignItems: "flex-start" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "var(--space-1)",
+            minWidth: 0,
+            flex: "1 1 auto",
+          }}
+        >
+          <h3 style={{ margin: 0 }}>{gateway.name}</h3>
+          <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", margin: 0 }}>
+            <code className="code" style={{ wordBreak: "break-all", whiteSpace: "pre-wrap" }}>
+              {gateway.baseUrl}
+            </code>
           </p>
         </div>
-        <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
-          <span className="badge badge--info">{gateway.models.length} synced models</span>
-          <button className="btn btn--secondary btn--sm" type="button" onClick={() => void syncModels()} disabled={syncing}>
-            <IconDownload />
-            {syncing ? "Syncing…" : "Sync models"}
-          </button>
-          <button className="btn btn--secondary btn--sm" type="button" onClick={() => setManualModelOpen((current) => !current)}>
-            <IconPlus />
-            {manualModelOpen ? "Close model form" : "Add model manually"}
-          </button>
+        <div
+          style={{
+            display: "flex",
+            gap: "var(--space-2)",
+            flexShrink: 0,
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "flex-end",
+          }}
+        >
           <button className="btn btn--ghost btn--sm" type="button" onClick={() => setEditing((current) => !current)}>
             <IconEdit />
             {editing ? "Close" : "Edit"}
@@ -650,7 +703,14 @@ function GatewayCard({
 
         <div>
           <div style={{ fontWeight: 600, marginBottom: "var(--space-2)" }}>Synced models</div>
-          <GatewayModelsPreview models={gateway.models} onAddManual={() => setManualModelOpen(true)} />
+          <GatewayModelsPreview
+            models={gateway.models}
+            onAddManual={() => setManualModelOpen(true)}
+            onSync={() => void syncModels()}
+            syncing={syncing}
+            manualModelOpen={manualModelOpen}
+            onToggleManual={() => setManualModelOpen((current) => !current)}
+          />
         </div>
 
         {manualModelOpen ? (

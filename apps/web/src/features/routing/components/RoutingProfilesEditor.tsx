@@ -23,7 +23,6 @@ import {
   formatGatewayModelOptionLabel,
   gatewayName,
   getProfileStatus,
-  summarizeInstructions,
 } from "@/src/features/routing/profiles-editor-utils";
 import type { RoutingPreset } from "@/src/lib/routing-presets";
 import { SearchableSelect } from "@/src/components/ui/SearchableSelect";
@@ -366,47 +365,7 @@ function ProfileCard({
           <span className={`routing-profile-card__badge is-${status.tone}`}>{status.label}</span>
         </div>
         <div className="routing-profile-card__meta">
-          <span className={`routing-profile-card__preview ${!profile.routingInstructions?.trim() ? "is-empty" : ""}`}>
-            {summarizeInstructions(profile.routingInstructions)}
-          </span>
           <span className="routing-profile-card__count">{(profile.models ?? []).length} models</span>
-        </div>
-        <div className="routing-profile-card__header-actions">
-          {refreshPreset ? (
-            <button
-              className="btn btn--ghost btn--sm"
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                editor.openPresetRefresh(profile.id);
-              }}
-            >
-              <IconSpark />
-              Refresh preset
-            </button>
-          ) : null}
-          <button
-            className="btn btn--ghost btn--sm"
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              editor.exportProfileJson(profile.id);
-            }}
-          >
-            <IconDownload />
-            Export JSON
-          </button>
-          <button
-            className="btn btn--ghost btn--sm"
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              editor.openAdvancedEditor(profile.id);
-            }}
-          >
-            <IconCode />
-            Advanced
-          </button>
         </div>
       </div>
 
@@ -515,7 +474,44 @@ function ProfileCard({
             </label>
           </div>
 
-          <div className="routing-profile-card__footer">
+          <div className="routing-profile-card__footer" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "var(--space-4)" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+              {refreshPreset ? (
+                <button
+                  className="btn btn--secondary btn--sm"
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    editor.openPresetRefresh(profile.id);
+                  }}
+                >
+                  <IconSpark />
+                  Refresh preset
+                </button>
+              ) : null}
+              <button
+                className="btn btn--secondary btn--sm"
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  editor.exportProfileJson(profile.id);
+                }}
+              >
+                <IconDownload />
+                Export JSON
+              </button>
+              <button
+                className="btn btn--secondary btn--sm"
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  editor.openAdvancedEditor(profile.id);
+                }}
+              >
+                <IconCode />
+                Advanced
+              </button>
+            </div>
             <button className="routing-profile-card__delete" type="button" onClick={() => editor.removeProfile(profile.id)}>
               Delete profile
             </button>
@@ -556,6 +552,14 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
     : undefined;
   const currentGateway = props.gateways.find((gateway) => gateway.id === editor.modelEditor.draft.gatewayId);
   const modelOptions = availableGatewayModels(currentGateway, modelEditorProfile ?? { id: "", name: "", models: [] }, editor.modelEditor.rowIndex ?? undefined);
+  const searchableModelOptions = modelOptions.map((model) => ({
+    key: model.id,
+    label: formatGatewayModelOptionLabel(props.gateways, {
+      gatewayId: currentGateway?.id ?? editor.modelEditor.draft.gatewayId,
+      modelId: model.id,
+      name: model.name,
+    }),
+  }));
   const availableModalities = modalityOptions(props.gateways, [
     editor.modelEditor.draft.modality,
     editor.customModel.draft.modality,
@@ -695,7 +699,7 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
       {editor.createProfileChoice.open ? (
         <ModalShell
           title="Add profile"
-          description="Create a blank profile yourself, or let the agent research a first draft from your synced gateway models."
+          description="Create a blank profile yourself. Agent-assisted drafts from your gateway inventory are coming soon."
           onClose={editor.closeCreateProfileChoice}
         >
           <div className="routing-profiles-modal__body">
@@ -709,21 +713,15 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
               <button
                 className="routing-profiles-modal__choice-card"
                 type="button"
-                onClick={editor.openAgentCreate}
-                disabled={Boolean(editor.profileBuilderUnavailableReason)}
+                disabled
+                aria-label="Coming soon: agent-guided profile drafts from your gateway inventory"
               >
-                <span className="routing-profiles-modal__choice-title">With agent</span>
+                <span className="routing-profiles-modal__choice-title">Coming soon</span>
                 <span className="routing-profiles-modal__choice-copy">
-                  Answer a fixed intake, then let the agent build a draft from your gateway inventory.
+                  With agent: answer a fixed intake, then let the agent build a draft from your gateway inventory.
                 </span>
               </button>
             </div>
-            {editor.profileBuilderUnavailableReason ? (
-              <div className="routing-profiles-modal__hint">
-                <span className="routing-profiles-modal__hint-dot">•</span>
-                <span>{editor.profileBuilderUnavailableReason}</span>
-              </div>
-            ) : null}
           </div>
           <div className="routing-profiles-modal__actions">
             <button className="btn btn--secondary" type="button" onClick={editor.closeCreateProfileChoice}>Cancel</button>
@@ -1128,17 +1126,17 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
               </label>
               <label className="form-group">
                 <span className="form-label">Gateway model</span>
-                <select
-                  className="input input--mono"
+                <SearchableSelect
+                  options={searchableModelOptions}
                   value={editor.modelEditor.draft.modelId}
-                  onChange={(event) => {
-                    const selectedModel = modelOptions.find((model) => model.id === event.target.value);
+                  onChange={(value) => {
+                    const selectedModel = modelOptions.find((model) => model.id === value);
                     editor.setModelEditor((current) => ({
                       ...current,
                       error: null,
                       draft: {
                         ...current.draft,
-                        modelId: event.target.value,
+                        modelId: value,
                         name: current.draft.name || selectedModel?.name || "",
                         modality: current.draft.modality || selectedModel?.modality || current.draft.modality,
                         reasoningPreset: current.draft.reasoningPreset ?? selectedModel?.reasoningPreset ?? selectedModel?.thinking ?? "provider_default",
@@ -1147,12 +1145,8 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
                       },
                     }));
                   }}
-                >
-                  <option value="">Select a gateway model</option>
-                  {modelOptions.map((model) => (
-                    <option key={model.id} value={model.id}>{model.id}</option>
-                  ))}
-                </select>
+                  placeholder="Search gateway models..."
+                />
               </label>
             </div>
 

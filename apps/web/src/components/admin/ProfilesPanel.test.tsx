@@ -46,10 +46,7 @@ describe("ProfilesPanel", () => {
     expect(markup).toContain("Quick setup");
     expect(markup).toContain("All changes saved");
     expect(markup).toContain("Add profile");
-    expect(markup).toContain("Refresh preset");
-    expect(markup).toContain("Advanced");
     expect(markup).toContain("Needs setup");
-    expect(markup).toContain("No routing instructions");
     expect(markup).toContain("team-router");
   });
 
