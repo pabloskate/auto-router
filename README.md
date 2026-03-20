@@ -70,10 +70,12 @@ npm run dev -w @custom-router/web
 ```
 
 1. Copy `.env.example` to `.env.local`.
-2. Set `BYOK_ENCRYPTION_SECRET` and add a gateway in the admin console.
-3. Open `http://localhost:3000/admin`.
-4. Create an account, add a gateway, generate an API key, and call `/api/v1` with `model: "auto"`.
-5. For endpoint-level usage, request payloads, and admin routes, see [Usage Guide](docs/usage.md).
+2. Set `BYOK_ENCRYPTION_SECRET`.
+3. If you want password reset emails, also set `RESEND_API_KEY`, `PASSWORD_RESET_FROM_EMAIL`, and `PASSWORD_RESET_BASE_URL`.
+4. Add a gateway in the admin console.
+5. Open `http://localhost:3000/admin`.
+6. Create an account, add a gateway, generate an API key, and call `/api/v1` with `model: "auto"`.
+7. For endpoint-level usage, request payloads, Cloudflare env setup, and admin routes, see [Usage Guide](docs/usage.md).
 
 ## Self-Host Docs
 

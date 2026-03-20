@@ -188,6 +188,41 @@ export const createGatewaySchema = z.object({
   apiKey:  z.string().min(1),
 });
 
+const profileBuilderOptimizeForSchema = z.enum(["balanced", "quality", "speed", "cost"]);
+const profileBuilderTaskFamilySchema = z.enum([
+  "general",
+  "coding",
+  "agentic_coding",
+  "research",
+  "support",
+  "long_context",
+  "multimodal",
+]);
+const profileBuilderLatencySensitivitySchema = z.enum(["low", "medium", "high"]);
+const profileBuilderBudgetPostureSchema = z.enum(["balanced", "budget_first", "quality_first"]);
+
+export const profileBuilderRequestSchema = z.object({
+  profileId: z.string().min(1),
+  displayName: z.string().min(1).max(100),
+  optimizeFor: profileBuilderOptimizeForSchema,
+  taskFamilies: z.array(profileBuilderTaskFamilySchema).min(1),
+  needsVision: z.boolean(),
+  needsLongContext: z.boolean(),
+  latencySensitivity: profileBuilderLatencySensitivitySchema,
+  budgetPosture: profileBuilderBudgetPostureSchema,
+  preferredGatewayId: z.string().min(1).optional(),
+  mustUse: z.string().max(500).optional(),
+  avoid: z.string().max(500).optional(),
+  additionalContext: z.string().max(2000).optional(),
+});
+
+export const profileBuilderApplySchema = z.object({
+  profileId: z.string().min(1).optional(),
+  displayName: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional(),
+  routingInstructions: z.string().optional(),
+});
+
 export const updateGatewaySchema = z.object({
   name:    z.string().min(1).max(100).optional(),
   baseUrl: z.string().url().optional(),

@@ -163,6 +163,7 @@ export function getBaseAdminTabs(args: BaseAdminTabsArgs): AdminTabDefinition[] 
             }}
             saveState={ctx.profilesDraftState}
             onSave={(profiles) => ctx.saveProfilesData({ profiles })}
+            onProfileBuilderApplied={args.reloadData}
             routingConfigRequiresReset={ctx.user.routingConfigRequiresReset}
             routingConfigResetMessage={ctx.user.routingConfigResetMessage}
             onResetLegacyConfig={async () => {

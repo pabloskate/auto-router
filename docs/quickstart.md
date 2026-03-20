@@ -31,6 +31,8 @@ Recommended local variables:
 
 - `BYOK_ENCRYPTION_SECRET` for stored user upstream credentials (required)
 - `ADMIN_SECRET` if you want to exercise privileged routes locally
+- `PASSWORD_RESET_BASE_URL=http://localhost:3010` if you want to test password reset on the stable local flow
+- `RESEND_API_KEY` and `PASSWORD_RESET_FROM_EMAIL` if you want real password reset email delivery instead of preview links
 
 Open `http://localhost:3000/admin`, then:
 
@@ -92,8 +94,9 @@ Most issues come from stale/mismatched `.next` artifacts while an older `next st
 1. Create a D1 database and KV namespace.
 2. Apply `infra/d1/schema.sql`, then any migrations in `infra/d1/migrations/`.
 3. Configure bindings in `apps/web/wrangler.toml` and `apps/ingest-worker/wrangler.toml`.
-4. Deploy the ingest worker.
-5. Deploy the web app with OpenNext for Cloudflare.
+4. If you want password reset email delivery in production, set `RESEND_API_KEY`, `PASSWORD_RESET_FROM_EMAIL`, and `PASSWORD_RESET_BASE_URL=https://your-app-domain.com` in Cloudflare for the web app.
+5. Deploy the ingest worker.
+6. Deploy the web app with OpenNext for Cloudflare.
 
 See [deployment-cloudflare.md](deployment-cloudflare.md) for the full walkthrough.
 

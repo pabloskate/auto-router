@@ -368,6 +368,26 @@ export function createBlankProfile(input?: { id?: string; name?: string }): Rout
   };
 }
 
+export function serializeProfileForJson(profile: RouterProfile): string {
+  return `${JSON.stringify(normalizeProfile(profile), null, 2)}\n`;
+}
+
+export function parseImportedProfileJson(json: string, gateways: GatewayInfo[]): RouterProfile {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch (error) {
+    throw new Error(`Invalid JSON: ${(error as Error).message}`);
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Profile JSON must be a single object.");
+  }
+
+  const normalized = normalizeProfile(parsed as RouterProfile);
+  return normalizeProfilesForEditor([normalized], gateways)[0] ?? sanitizeProfileSelections(normalized, gateways);
+}
+
 export function validateProfilesDraft(profiles: RouterProfile[], gateways: GatewayInfo[]): string | null {
   const seenProfileIds = new Set<string>();
   const validGatewayKeys = buildGatewayModelKeySet(gateways);

@@ -106,6 +106,24 @@ CREATE TABLE IF NOT EXISTS routing_explanations (
 
 CREATE INDEX IF NOT EXISTS idx_routing_explanations_created_at ON routing_explanations(created_at DESC);
 
+CREATE TABLE IF NOT EXISTS profile_builder_runs (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL,
+  request_json TEXT NOT NULL,
+  result_json TEXT,
+  executor_gateway_id TEXT NOT NULL,
+  executor_model_id TEXT NOT NULL,
+  executor_json TEXT NOT NULL,
+  error TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  finished_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_profile_builder_runs_user_created
+  ON profile_builder_runs(user_id, created_at DESC);
+
 -- ── User accounts ──
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,

@@ -28,11 +28,18 @@ Set secrets:
   - `invite` — signup requires an invite code from an existing user
   - `open` — anyone can sign up
 
+Set these too if you want password reset email delivery:
+
+- `RESEND_API_KEY`
+- `PASSWORD_RESET_FROM_EMAIL` such as `CustomRouter <noreply@yourdomain.com>`
+- `PASSWORD_RESET_BASE_URL` set to your canonical public app URL, for example `https://router.yourdomain.com`
+
 Important:
 
 - `BYOK_ENCRYPTION_SECRET` must stay stable across deployments.
 - If you change or remove it after users have saved gateway keys, those stored encrypted keys can no longer be decrypted.
 - In that case, users must re-save their gateways and any stored classifier BYOK key in the admin console.
+- `PASSWORD_RESET_BASE_URL` must be a trusted public URL for your deployment. Do not point it at `localhost` or rely on request host headers in production.
 
 ## 3. Deploy ingestion worker
 

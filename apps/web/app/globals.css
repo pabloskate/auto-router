@@ -1130,6 +1130,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
   gap: var(--space-2);
   padding: 0.95rem 1.4rem;
   border-radius: 18px;
@@ -1620,6 +1621,146 @@ body {
   gap: var(--space-4);
 }
 
+.routing-profiles-modal__choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.routing-profiles-modal__choice-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 1.15rem 1.1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.routing-profiles-modal__choice-card:hover:not(:disabled) {
+  border-color: rgba(96, 165, 250, 0.4);
+  background: rgba(96, 165, 250, 0.08);
+}
+
+.routing-profiles-modal__choice-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.routing-profiles-modal__choice-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.routing-profiles-modal__choice-copy {
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.routing-profiles-modal__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.routing-profiles-modal__section-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.routing-profiles-modal__checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.routing-profiles-modal__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 44px;
+  padding: 0.8rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+}
+
+.routing-profiles-modal__checkbox--inline {
+  width: 100%;
+}
+
+.routing-profiles-modal__progress {
+  padding: 1rem 1.1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(96, 165, 250, 0.22);
+  background: rgba(96, 165, 250, 0.08);
+}
+
+.routing-profiles-modal__progress-title {
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.routing-profiles-modal__result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.routing-profiles-modal__recommendations {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.routing-profiles-modal__recommendation {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.routing-profiles-modal__recommendation-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.routing-profiles-modal__recommendation-title span {
+  color: #9cc8ff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.routing-profiles-modal__recommendation-copy {
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.routing-profiles-modal__sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+}
+
+.routing-profiles-modal__sources a {
+  color: #9cc8ff;
+  text-decoration: none;
+}
+
+.routing-profiles-modal__sources a:hover {
+  text-decoration: underline;
+}
+
 .routing-profiles-modal__details {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
@@ -1696,7 +1837,9 @@ body {
 
 @media (max-width: 700px) {
   .routing-profile-card__selectors,
-  .routing-profiles-modal__grid {
+  .routing-profiles-modal__grid,
+  .routing-profiles-modal__choice-grid,
+  .routing-profiles-modal__checkbox-grid {
     grid-template-columns: 1fr;
   }
 

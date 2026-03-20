@@ -7,7 +7,9 @@ import {
   getProfileIdValidationError,
   normalizeProfileIdInput,
   normalizeProfilesForEditor,
+  parseImportedProfileJson,
   refreshProfileFromPreset,
+  serializeProfileForJson,
 } from "./profiles-editor-utils";
 import { ROUTING_PRESETS } from "@/src/lib/routing-presets";
 
@@ -354,5 +356,66 @@ describe("preset refresh helpers", () => {
         }),
       ]),
     );
+  });
+});
+
+describe("profile JSON helpers", () => {
+  it("serializes a profile as normalized pretty-printed JSON", () => {
+    const json = serializeProfileForJson({
+      id: "team-router",
+      name: " Team Router ",
+      description: "  Balanced routing profile. ",
+      routingInstructions: " Route by latency and quality. ",
+      models: [
+        {
+          gatewayId: "gw_openrouter",
+          modelId: "openai/gpt-5.4",
+          name: " GPT-5.4 ",
+        },
+      ],
+    });
+
+    expect(json).toContain('"id": "team-router"');
+    expect(json).toContain('"name": "Team Router"');
+    expect(json).toContain('"description": "Balanced routing profile."');
+    expect(json.endsWith("\n")).toBe(true);
+  });
+
+  it("parses imported profile JSON and binds unique synced models", () => {
+    const profile = parseImportedProfileJson(JSON.stringify({
+      id: "support-router",
+      name: "Support Router",
+      models: [
+        {
+          modelId: "google/gemini-3.1-flash-lite-preview:nitro",
+          name: "Gemini 3.1 Flash Lite",
+        },
+      ],
+    }), [
+      {
+        id: "gw_openrouter",
+        name: "OpenRouter",
+        baseUrl: "https://openrouter.ai/api/v1",
+        createdAt: "2026-03-16T00:00:00.000Z",
+        updatedAt: "2026-03-16T00:00:00.000Z",
+        models: [
+          {
+            id: "google/gemini-3.1-flash-lite-preview",
+            name: "Google: Gemini 3.1 Flash Lite Preview",
+            modality: "text,image->text",
+          },
+        ],
+      },
+    ]);
+
+    expect(profile.models?.[0]).toMatchObject({
+      gatewayId: "gw_openrouter",
+      modelId: "google/gemini-3.1-flash-lite-preview:nitro",
+      modality: "text,image->text",
+    });
+  });
+
+  it("rejects non-object profile imports", () => {
+    expect(() => parseImportedProfileJson("[]", [])).toThrow("Profile JSON must be a single object.");
   });
 });

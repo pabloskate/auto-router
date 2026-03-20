@@ -49,8 +49,26 @@ function shouldReturnPreviewLink(): boolean {
   return process.env.NODE_ENV !== "production";
 }
 
-function buildPasswordResetUrl(request: Request, token: string): string {
-  const url = new URL("/", request.url);
+function resolveTrustedPasswordResetBaseUrl(bindings: RouterRuntimeBindings): string | null {
+  const configuredBaseUrl = bindings.PASSWORD_RESET_BASE_URL?.trim();
+  if (!configuredBaseUrl) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(configuredBaseUrl);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return null;
+    }
+
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function buildPasswordResetUrl(baseUrl: string, token: string): string {
+  const url = new URL("/", baseUrl);
   url.searchParams.set("reset_token", token);
   return url.toString();
 }
@@ -146,21 +164,26 @@ export async function requestPasswordReset(args: {
     .bind(tokenHash, user.id, expiresAt, createdAt)
     .run();
 
-  const resetUrl = buildPasswordResetUrl(args.request, token);
-  const delivered = await sendPasswordResetEmail({
-    bindings: args.bindings,
-    email: user.email,
-    name: user.name,
-    resetUrl,
-    expiresAt,
-  });
+  const trustedBaseUrl = resolveTrustedPasswordResetBaseUrl(args.bindings);
+  const resetUrl = trustedBaseUrl ? buildPasswordResetUrl(trustedBaseUrl, token) : null;
+  const delivered = resetUrl
+    ? await sendPasswordResetEmail({
+        bindings: args.bindings,
+        email: user.email,
+        name: user.name,
+        resetUrl,
+        expiresAt,
+      })
+    : false;
 
   if (delivered || !shouldReturnPreviewLink()) {
     return {};
   }
 
+  const previewResetUrl = resetUrl ?? buildPasswordResetUrl(args.request.url, token);
+
   return {
-    resetUrl,
+    resetUrl: previewResetUrl,
     resetToken: token,
   };
 }

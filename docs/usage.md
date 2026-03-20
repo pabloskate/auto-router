@@ -24,7 +24,9 @@ Routing is done by a cheap LLM classifier with sticky thread pinning and fallbac
    cp .env.example .env.local
    ```
 3. Set `BYOK_ENCRYPTION_SECRET` in `.env.local` (required for gateway encryption).
-4. Seed local D1.
+4. If you want to test password reset locally, set `PASSWORD_RESET_BASE_URL=http://localhost:3010` for the stable local flow or use your actual local dev port.
+5. If you want real password reset email delivery, also set `RESEND_API_KEY` and `PASSWORD_RESET_FROM_EMAIL`.
+6. Seed local D1.
    ```bash
    npm run db:seed
    ```
@@ -63,12 +65,21 @@ From `.env.example`, the important variables are:
 - `REGISTRATION_MODE` (`open`, `closed`, `invite`)
 - `SESSION_COOKIE_SECURE` (`true` / `false`)
 - `ROUTER_CLASSIFIER_MODEL` (optional default)
+- `RESEND_API_KEY` (required if you want real password reset email delivery)
+- `PASSWORD_RESET_FROM_EMAIL` (required if you want real password reset email delivery)
+- `PASSWORD_RESET_BASE_URL` (required for password reset links; use `http://localhost:3010` locally or your canonical `https://...` app URL in production)
 
 Cloudflare runtime bindings are read from:
 
 - `ROUTER_DB` (D1)
 - `ROUTER_KV` (KV)
 - same vars above in Worker vars
+
+Password reset behavior:
+
+- If the three password reset email vars are set, the app sends reset emails through Resend.
+- If email delivery vars are missing in non-production, the forgot-password flow returns a preview reset link instead.
+- In production, reset email delivery requires a trusted `PASSWORD_RESET_BASE_URL`; the app does not fall back to the incoming request host.
 
 For production setup and cron details, see [Deployment](./deployment-cloudflare.md).
 

@@ -4,6 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import type { RouterProfile, RouterProfileModel } from "@custom-router/core";
 
 import { createAutosaveQueue } from "@/src/features/routing/profiles-autosave";
+import type {
+  ProfileBuilderRequest,
+  ProfileBuilderRun,
+  ProfileBuilderTaskFamily,
+} from "@/src/features/routing/profile-builder-contracts";
+import {
+  PROFILE_BUILDER_BUDGET_POSTURES,
+  PROFILE_BUILDER_LATENCY_SENSITIVITIES,
+  PROFILE_BUILDER_OPTIMIZE_FOR,
+  PROFILE_BUILDER_TASK_FAMILIES,
+} from "@/src/features/routing/profile-builder-contracts";
 import {
   buildProfileModelKey,
   hasResolvedProfileModel,
@@ -22,14 +33,16 @@ import {
   getGatewayModel,
   getQuickSetupPresets,
   normalizeProfilesForEditor,
+  parseImportedProfileJson,
   refreshProfileFromPreset,
   sanitizeProfileSelections,
+  serializeProfileForJson,
   syncProfileModelFromGateway,
   type CustomModelDraft,
   type ProfilesAutosaveSnapshot,
   validateProfilesDraft,
 } from "@/src/features/routing/profiles-editor-utils";
-import type { RoutingPreset } from "@/src/lib/routing-presets";
+import { getGatewayPresetId, type RoutingPreset } from "@/src/lib/routing-presets";
 
 export interface RoutingProfilesEditorProps {
   profiles: RouterProfile[] | null;
@@ -41,6 +54,7 @@ export interface RoutingProfilesEditorProps {
   routingConfigResetMessage?: string | null;
   onResetLegacyConfig?: () => Promise<void>;
   onCreateGatewayModel?: (gatewayId: string, model: GatewayModel) => Promise<GatewayModel | null>;
+  onProfileBuilderApplied?: () => Promise<void>;
 }
 
 interface QuickSetupState {
@@ -56,6 +70,23 @@ interface CreateProfileState {
   error: string | null;
   open: boolean;
   profileId: string;
+}
+
+interface CreateProfileChoiceState {
+  open: boolean;
+}
+
+interface AgentCreateState {
+  applying: boolean;
+  editedDescription: string;
+  editedDisplayName: string;
+  editedProfileId: string;
+  editedRoutingInstructions: string;
+  error: string | null;
+  open: boolean;
+  request: ProfileBuilderRequest;
+  run: ProfileBuilderRun | null;
+  submitting: boolean;
 }
 
 interface ModelEditorState {
@@ -106,6 +137,68 @@ function createProfileState(): CreateProfileState {
     profileId: "",
     displayName: "",
     error: null,
+  };
+}
+
+function createProfileChoiceState(): CreateProfileChoiceState {
+  return {
+    open: false,
+  };
+}
+
+function supportedProfileBuilderGateways(gateways: GatewayInfo[]): GatewayInfo[] {
+  return gateways.filter((gateway) => {
+    const presetId = getGatewayPresetId(gateway.baseUrl);
+    return (presetId === "openrouter" || presetId === "vercel") && gateway.models.length > 0;
+  });
+}
+
+function profileBuilderGatewayUnavailableReason(gateways: GatewayInfo[]): string | null {
+  const supported = gateways.filter((gateway) => {
+    const presetId = getGatewayPresetId(gateway.baseUrl);
+    return presetId === "openrouter" || presetId === "vercel";
+  });
+
+  if (supported.length === 0) {
+    return "Agent-assisted profile creation currently supports OpenRouter and Vercel AI Gateway only.";
+  }
+  if (!supported.some((gateway) => gateway.models.length > 0)) {
+    return "Sync at least one OpenRouter or Vercel gateway model before using the agent flow.";
+  }
+
+  return null;
+}
+
+function defaultTaskFamilies(): ProfileBuilderTaskFamily[] {
+  return ["general", "coding"];
+}
+
+function createAgentCreateState(gateways: GatewayInfo[], existingProfiles: RouterProfile[]): AgentCreateState {
+  const supportedGateways = supportedProfileBuilderGateways(gateways);
+  return {
+    open: false,
+    submitting: false,
+    applying: false,
+    error: null,
+    run: null,
+    editedProfileId: "",
+    editedDisplayName: "",
+    editedDescription: "",
+    editedRoutingInstructions: "",
+    request: {
+      profileId: nextGeneratedProfileId(existingProfiles),
+      displayName: "",
+      optimizeFor: PROFILE_BUILDER_OPTIMIZE_FOR[0],
+      taskFamilies: defaultTaskFamilies(),
+      needsVision: false,
+      needsLongContext: false,
+      latencySensitivity: PROFILE_BUILDER_LATENCY_SENSITIVITIES[1],
+      budgetPosture: PROFILE_BUILDER_BUDGET_POSTURES[0],
+      preferredGatewayId: supportedGateways[0]?.id,
+      mustUse: "",
+      avoid: "",
+      additionalContext: "",
+    },
   };
 }
 
@@ -194,17 +287,23 @@ function nextGeneratedProfileId(existing: RouterProfile[]): string {
 export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
   const items = normalizeProfilesForEditor(props.profiles, props.gateways);
   const presets = getQuickSetupPresets(props.gateways);
+  const profileBuilderGateways = supportedProfileBuilderGateways(props.gateways);
+  const profileBuilderUnavailableReason = profileBuilderGatewayUnavailableReason(props.gateways);
   const gatewaysRef = useRef(props.gateways);
   const onSaveRef = useRef(props.onSave);
   const mountedRef = useRef(true);
+  const profileBuilderPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expandedProfileId, setExpandedProfileId] = useState<string | null>(null);
   const [renameProfileId, setRenameProfileId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [lastTouchedProfileId, setLastTouchedProfileId] = useState<string | null>(null);
   const [lastTouchedField, setLastTouchedField] = useState<"routingInstructions" | "profile" | "model" | null>(null);
   const [autosaveSnapshot, setAutosaveSnapshot] = useState<ProfilesAutosaveSnapshot>(DEFAULT_AUTOSAVE_SNAPSHOT);
+  const [panelStatusMessage, setPanelStatusMessage] = useState<string | null>(null);
   const [quickSetup, setQuickSetup] = useState<QuickSetupState>(() => createQuickSetupState(presets));
+  const [createProfileChoice, setCreateProfileChoice] = useState<CreateProfileChoiceState>(createProfileChoiceState);
   const [createProfile, setCreateProfile] = useState<CreateProfileState>(createProfileState);
+  const [agentCreate, setAgentCreate] = useState<AgentCreateState>(() => createAgentCreateState(props.gateways, items));
   const [modelEditor, setModelEditor] = useState<ModelEditorState>(() => createModelEditorState(props.gateways));
   const [customModel, setCustomModel] = useState<CustomModelState>(() => createCustomModelState(props.gateways));
   const [advancedEditor, setAdvancedEditor] = useState<AdvancedEditorState>(createAdvancedEditorState);
@@ -228,6 +327,10 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
   useEffect(() => {
     return () => {
       mountedRef.current = false;
+      if (profileBuilderPollRef.current) {
+        clearTimeout(profileBuilderPollRef.current);
+        profileBuilderPollRef.current = null;
+      }
       void autosaveQueueRef.current.dispose({ flushPending: true });
     };
   }, []);
@@ -269,12 +372,40 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
     }
   }, [items, presetRefresh, presets]);
 
+  useEffect(() => {
+    setAgentCreate((current) => {
+      const preferredGatewayId = current.request.preferredGatewayId;
+      const hasPreferredGateway = preferredGatewayId
+        ? profileBuilderGateways.some((gateway) => gateway.id === preferredGatewayId)
+        : false;
+      const nextPreferredGatewayId = hasPreferredGateway ? preferredGatewayId : profileBuilderGateways[0]?.id;
+      const nextProfileId = current.run ? current.request.profileId : nextGeneratedProfileId(items);
+
+      if (
+        current.request.preferredGatewayId === nextPreferredGatewayId
+        && current.request.profileId === nextProfileId
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        request: {
+          ...current.request,
+          profileId: nextProfileId,
+          preferredGatewayId: nextPreferredGatewayId,
+        },
+      };
+    });
+  }, [items, profileBuilderGateways]);
+
   function commitProfiles(nextProfiles: RouterProfile[], args?: {
     autosaveDebounceMs?: number;
     expandProfileId?: string | null;
     touchedField?: "routingInstructions" | "profile" | "model";
     touchedProfileId?: string | null;
   }) {
+    setPanelStatusMessage(null);
     const normalized = normalizeProfilesForEditor(nextProfiles, props.gateways);
     if (typeof args?.expandProfileId !== "undefined") {
       setExpandedProfileId(args.expandProfileId);
@@ -403,7 +534,23 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
     });
   }
 
+  function clearProfileBuilderPoll() {
+    if (profileBuilderPollRef.current) {
+      clearTimeout(profileBuilderPollRef.current);
+      profileBuilderPollRef.current = null;
+    }
+  }
+
+  function openCreateProfileChoice() {
+    setCreateProfileChoice({ open: true });
+  }
+
+  function closeCreateProfileChoice() {
+    setCreateProfileChoice({ open: false });
+  }
+
   function openCreateProfile() {
+    closeCreateProfileChoice();
     setCreateProfile({
       open: true,
       profileId: nextGeneratedProfileId(items),
@@ -414,6 +561,270 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
 
   function closeCreateProfile() {
     setCreateProfile((current) => ({ ...current, open: false, error: null }));
+  }
+
+  function openAgentCreate() {
+    closeCreateProfileChoice();
+    clearProfileBuilderPoll();
+    const initial = createAgentCreateState(props.gateways, items);
+    setAgentCreate({
+      ...initial,
+      open: true,
+    });
+  }
+
+  function closeAgentCreate() {
+    clearProfileBuilderPoll();
+    setAgentCreate((current) => ({
+      ...current,
+      open: false,
+      submitting: false,
+      applying: false,
+      error: null,
+      run: null,
+      editedProfileId: "",
+      editedDisplayName: "",
+      editedDescription: "",
+      editedRoutingInstructions: "",
+    }));
+  }
+
+  function updateAgentRequest<K extends keyof ProfileBuilderRequest>(key: K, value: ProfileBuilderRequest[K]) {
+    setAgentCreate((current) => ({
+      ...current,
+      error: null,
+      request: {
+        ...current.request,
+        [key]: value,
+      },
+    }));
+  }
+
+  function toggleAgentTaskFamily(taskFamily: ProfileBuilderTaskFamily) {
+    setAgentCreate((current) => {
+      const selected = new Set(current.request.taskFamilies);
+      if (selected.has(taskFamily)) {
+        selected.delete(taskFamily);
+      } else {
+        selected.add(taskFamily);
+      }
+
+      return {
+        ...current,
+        error: null,
+        request: {
+          ...current.request,
+          taskFamilies: selected.size > 0 ? [...selected] : [taskFamily],
+        },
+      };
+    });
+  }
+
+  async function pollAgentRun(runId: string) {
+    try {
+      const response = await fetch(`/api/v1/user/profile-builder/runs/${runId}`, {
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => ({ error: "Failed to load the builder run." })) as {
+        error?: string;
+        run?: ProfileBuilderRun;
+      };
+
+      if (!response.ok || !payload.run) {
+        setAgentCreate((current) => ({
+          ...current,
+          submitting: false,
+          applying: false,
+          error: payload.error ?? "Failed to load the builder run.",
+        }));
+        clearProfileBuilderPoll();
+        return;
+      }
+
+      setAgentCreate((current) => ({
+        ...current,
+        submitting: payload.run?.status === "running",
+        run: payload.run ?? current.run,
+        error: payload.run?.status === "error" ? payload.run.error ?? "Profile builder failed." : null,
+        editedProfileId: payload.run?.status === "completed" ? payload.run.draftProfile?.id ?? current.editedProfileId : current.editedProfileId,
+        editedDisplayName: payload.run?.status === "completed" ? payload.run.draftProfile?.name ?? current.editedDisplayName : current.editedDisplayName,
+        editedDescription: payload.run?.status === "completed" ? payload.run.draftProfile?.description ?? "" : current.editedDescription,
+        editedRoutingInstructions: payload.run?.status === "completed" ? payload.run.draftProfile?.routingInstructions ?? "" : current.editedRoutingInstructions,
+      }));
+
+      if (payload.run.status === "running") {
+        clearProfileBuilderPoll();
+        profileBuilderPollRef.current = setTimeout(() => {
+          void pollAgentRun(runId);
+        }, 1500);
+      } else {
+        clearProfileBuilderPoll();
+      }
+    } catch {
+      setAgentCreate((current) => ({
+        ...current,
+        submitting: false,
+        error: "Failed to poll the profile builder run.",
+      }));
+      clearProfileBuilderPoll();
+    }
+  }
+
+  async function createProfileWithAgent() {
+    const profileId = normalizeProfileIdInput(agentCreate.request.profileId);
+    const displayName = agentCreate.request.displayName.trim();
+    const profileIdError = getProfileIdValidationError(profileId);
+    if (profileIdError) {
+      setAgentCreate((current) => ({
+        ...current,
+        error: profileIdError,
+        request: {
+          ...current.request,
+          profileId,
+        },
+      }));
+      return;
+    }
+    if (!displayName) {
+      setAgentCreate((current) => ({
+        ...current,
+        error: "Display name is required.",
+      }));
+      return;
+    }
+    if (agentCreate.request.taskFamilies.length === 0) {
+      setAgentCreate((current) => ({
+        ...current,
+        error: "Select at least one task family.",
+      }));
+      return;
+    }
+
+    setAgentCreate((current) => ({
+      ...current,
+      submitting: true,
+      error: null,
+      run: null,
+      request: {
+        ...current.request,
+        profileId,
+        displayName,
+      },
+    }));
+
+    try {
+      const response = await fetch("/api/v1/user/profile-builder/runs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...agentCreate.request,
+          profileId,
+          displayName,
+        }),
+      });
+      const payload = await response.json().catch(() => ({ error: "Failed to start the profile builder." })) as {
+        error?: string;
+        run?: ProfileBuilderRun;
+      };
+      if (!response.ok || !payload.run) {
+        setAgentCreate((current) => ({
+          ...current,
+          submitting: false,
+          error: payload.error ?? "Failed to start the profile builder.",
+        }));
+        return;
+      }
+
+      setAgentCreate((current) => ({
+        ...current,
+        run: payload.run ?? null,
+        submitting: payload.run?.status === "running",
+        error: null,
+      }));
+
+      if (payload.run.status === "running") {
+        clearProfileBuilderPoll();
+        profileBuilderPollRef.current = setTimeout(() => {
+          void pollAgentRun(payload.run!.id);
+        }, 1200);
+      } else {
+        await pollAgentRun(payload.run.id);
+      }
+    } catch {
+      setAgentCreate((current) => ({
+        ...current,
+        submitting: false,
+        error: "Failed to start the profile builder.",
+      }));
+    }
+  }
+
+  async function applyAgentDraft() {
+    if (!agentCreate.run?.id) {
+      return;
+    }
+
+    const profileId = normalizeProfileIdInput(agentCreate.editedProfileId);
+    const profileIdError = getProfileIdValidationError(profileId);
+    if (profileIdError) {
+      setAgentCreate((current) => ({
+        ...current,
+        error: profileIdError,
+        editedProfileId: profileId,
+      }));
+      return;
+    }
+    if (!agentCreate.editedDisplayName.trim()) {
+      setAgentCreate((current) => ({
+        ...current,
+        error: "Display name is required.",
+      }));
+      return;
+    }
+
+    setAgentCreate((current) => ({
+      ...current,
+      applying: true,
+      error: null,
+    }));
+
+    try {
+      const response = await fetch(`/api/v1/user/profile-builder/runs/${agentCreate.run.id}/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profileId,
+          displayName: agentCreate.editedDisplayName.trim(),
+          description: agentCreate.editedDescription.trim() || undefined,
+          routingInstructions: agentCreate.editedRoutingInstructions.trim() || undefined,
+        }),
+      });
+      const payload = await response.json().catch(() => ({ error: "Failed to apply the draft." })) as {
+        error?: string;
+        profile?: RouterProfile;
+      };
+      if (!response.ok || !payload.profile) {
+        setAgentCreate((current) => ({
+          ...current,
+          applying: false,
+          error: payload.error ?? "Failed to apply the draft.",
+        }));
+        return;
+      }
+
+      if (props.onProfileBuilderApplied) {
+        await props.onProfileBuilderApplied();
+      } else {
+        props.onChange(normalizeProfilesForEditor([...items, payload.profile], props.gateways));
+      }
+      closeAgentCreate();
+    } catch {
+      setAgentCreate((current) => ({
+        ...current,
+        applying: false,
+        error: "Failed to apply the draft.",
+      }));
+    }
   }
 
   function updateCreateProfileId(value: string) {
@@ -567,6 +978,53 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
 
   function closeAdvancedEditor() {
     setAdvancedEditor(createAdvancedEditorState());
+  }
+
+  async function importProfileFile(file: Pick<File, "name" | "text">) {
+    let importedProfile: RouterProfile;
+    try {
+      importedProfile = parseImportedProfileJson(await file.text(), props.gateways);
+    } catch (error) {
+      setPanelStatusMessage((error as Error).message || "Failed to import the profile JSON file.");
+      return;
+    }
+
+    const nextProfiles = [...items, importedProfile];
+    const validationError = validateProfilesDraft(nextProfiles, props.gateways);
+    if (validationError) {
+      setPanelStatusMessage(validationError);
+      return;
+    }
+
+    commitProfiles(nextProfiles, {
+      expandProfileId: importedProfile.id,
+      touchedField: "profile",
+      touchedProfileId: importedProfile.id,
+    });
+    setPanelStatusMessage(`Imported "${importedProfile.name || importedProfile.id}" from ${file.name}.`);
+  }
+
+  function exportProfileJson(profileId: string) {
+    const profile = items.find((entry) => entry.id === profileId);
+    if (!profile) {
+      setPanelStatusMessage("That profile could not be found.");
+      return;
+    }
+
+    try {
+      const blob = new Blob([serializeProfileForJson(profile)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${profile.id}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setPanelStatusMessage(`Downloaded ${profile.id}.json.`);
+    } catch {
+      setPanelStatusMessage(`Failed to export "${profile.id}" as JSON.`);
+    }
   }
 
   function getMatchingPreset(profileId: string): RoutingPreset | undefined {
@@ -775,14 +1233,20 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
   }
 
   return {
+    agentCreate,
     autosaveSnapshot,
+    applyAgentDraft,
     createEmptyProfile,
+    createProfileChoice,
     createProfile,
+    createProfileWithAgent,
     createProfileFromQuickSetup,
     customModel,
     advancedEditor,
     presetRefresh,
+    closeAgentCreate,
     closeCreateProfile,
+    closeCreateProfileChoice,
     closeAdvancedEditor,
     closeCustomModel,
     closeModelEditor,
@@ -798,14 +1262,22 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
     lastTouchedField,
     lastTouchedProfileId,
     modelEditor,
+    openAgentCreate,
+    openCreateProfileChoice,
     openCreateProfile,
     openAdvancedEditor,
     openCustomModel,
+    exportProfileJson,
+    importProfileFile,
     openModelEditor,
     openPresetRefresh,
     openQuickSetup,
-    panelMessage: autosaveSnapshot.state === "error" || autosaveSnapshot.state === "invalid" ? autosaveSnapshot.message : null,
+    panelMessage: autosaveSnapshot.state === "error" || autosaveSnapshot.state === "invalid"
+      ? autosaveSnapshot.message
+      : panelStatusMessage,
     presets,
+    profileBuilderGateways,
+    profileBuilderUnavailableReason,
     quickSetup,
     removeModel,
     removeProfile,
@@ -815,7 +1287,9 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
     saveCustomModel,
     saveModelEditor,
     setAdvancedEditor,
+    setAgentCreate,
     setCreateProfile,
+    setCreateProfileChoice,
     setCustomModel,
     setExpandedProfileId,
     setModelEditor,
@@ -823,9 +1297,11 @@ export function useRoutingProfilesEditor(props: RoutingProfilesEditorProps) {
     setRenameDraft,
     setRenameProfileId,
     toggleProfile,
+    toggleAgentTaskFamily,
     updateClassifierModel,
     updateCreateProfileId,
     updateDefaultModel,
+    updateAgentRequest,
     updateQuickSetupPreset,
     updateQuickSetupProfileId,
     updateRoutingInstructions,

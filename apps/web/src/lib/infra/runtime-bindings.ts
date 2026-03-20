@@ -25,6 +25,7 @@ export interface RouterRuntimeBindings {
   REGISTRATION_MODE?: string;
   RESEND_API_KEY?: string;
   PASSWORD_RESET_FROM_EMAIL?: string;
+  PASSWORD_RESET_BASE_URL?: string;
 }
 
 declare global {
@@ -71,5 +72,7 @@ export function getRuntimeBindings(): RouterRuntimeBindings {
       fromGlobal?.RESEND_API_KEY ?? process.env.RESEND_API_KEY,
     PASSWORD_RESET_FROM_EMAIL:
       fromGlobal?.PASSWORD_RESET_FROM_EMAIL ?? process.env.PASSWORD_RESET_FROM_EMAIL,
+    PASSWORD_RESET_BASE_URL:
+      fromGlobal?.PASSWORD_RESET_BASE_URL ?? process.env.PASSWORD_RESET_BASE_URL,
   };
 }

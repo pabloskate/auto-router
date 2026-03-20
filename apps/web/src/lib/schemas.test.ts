@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { routerProfileSchema, updateGatewaySchema } from "./schemas";
+import { profileBuilderRequestSchema, routerProfileSchema, updateGatewaySchema } from "./schemas";
 
 describe("updateGatewaySchema", () => {
   it("accepts gateway models with reasoningPreset", () => {
@@ -60,6 +60,24 @@ describe("routerProfileSchema", () => {
           reasoningPreset: "provider_default",
         },
       ],
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+});
+
+describe("profileBuilderRequestSchema", () => {
+  it("accepts additionalContext as a freeform field", () => {
+    const parsed = profileBuilderRequestSchema.safeParse({
+      profileId: "agent-profile",
+      displayName: "Agent Profile",
+      optimizeFor: "balanced",
+      taskFamilies: ["general", "coding"],
+      needsVision: false,
+      needsLongContext: false,
+      latencySensitivity: "medium",
+      budgetPosture: "balanced",
+      additionalContext: "Prioritize stable model picks for internal ticket triage and include one stronger fallback for escalations.",
     });
 
     expect(parsed.success).toBe(true);

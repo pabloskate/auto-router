@@ -4,8 +4,16 @@ import React, { useEffect, useRef } from "react";
 import type { RouterProfile } from "@custom-router/core";
 
 import {
+  PROFILE_BUILDER_BUDGET_POSTURES,
+  PROFILE_BUILDER_LATENCY_SENSITIVITIES,
+  PROFILE_BUILDER_OPTIMIZE_FOR,
+  PROFILE_BUILDER_TASK_FAMILIES,
+  type ProfileBuilderTaskFamily,
+} from "@/src/features/routing/profile-builder-contracts";
+import {
   buildProfileModelKey,
   hasResolvedProfileModel,
+  normalizeProfileIdInput,
 } from "@/src/lib/routing/profile-config";
 import type { GatewayInfo } from "@/src/features/gateways/contracts";
 import {
@@ -26,6 +34,16 @@ import {
 } from "./useRoutingProfilesEditor";
 
 export type { RoutingProfilesEditorProps } from "./useRoutingProfilesEditor";
+
+const PROFILE_BUILDER_TASK_FAMILY_LABELS: Record<ProfileBuilderTaskFamily, string> = {
+  general: "General",
+  coding: "Coding",
+  agentic_coding: "Agentic coding",
+  research: "Research",
+  support: "Support",
+  long_context: "Long context",
+  multimodal: "Multimodal",
+};
 
 function IconChevron({ open }: { open: boolean }) {
   return (
@@ -92,6 +110,26 @@ function IconCode() {
     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <polyline points="6 3 1.5 8 6 13" />
       <polyline points="10 3 14.5 8 10 13" />
+    </svg>
+  );
+}
+
+function IconUpload() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
+
+function IconDownload() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
     </svg>
   );
 }
@@ -216,6 +254,10 @@ function autosaveMeta(state: ReturnType<typeof useRoutingProfilesEditor>["autosa
   }
 
   return { label: "All changes saved", tone: "success" as const, icon: <IconCheck /> };
+}
+
+function optionLabel(value: string): string {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function modalityOptions(gateways: GatewayInfo[], selectedValues: Array<string | undefined>): string[] {
@@ -348,6 +390,17 @@ function ProfileCard({
             type="button"
             onClick={(event) => {
               event.stopPropagation();
+              editor.exportProfileJson(profile.id);
+            }}
+          >
+            <IconDownload />
+            Export JSON
+          </button>
+          <button
+            className="btn btn--ghost btn--sm"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
               editor.openAdvancedEditor(profile.id);
             }}
           >
@@ -475,6 +528,7 @@ function ProfileCard({
 
 export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
   const editor = useRoutingProfilesEditor(props);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   if (props.routingConfigRequiresReset) {
     return (
@@ -517,7 +571,15 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
               Quick setup
             </button>
           ) : null}
-          <button className="routing-profiles__ghost-button" type="button" onClick={editor.openCreateProfile}>
+          <button
+            className="routing-profiles__ghost-button"
+            type="button"
+            onClick={() => importInputRef.current?.click()}
+          >
+            <IconUpload />
+            Import JSON
+          </button>
+          <button className="routing-profiles__ghost-button" type="button" onClick={editor.openCreateProfileChoice}>
             <IconPlus />
             Add profile
           </button>
@@ -533,6 +595,20 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
           {editor.panelMessage}
         </div>
       ) : null}
+
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".json,application/json"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) {
+            void editor.importProfileFile(file);
+          }
+          event.target.value = "";
+        }}
+      />
 
       <div className="routing-profiles__section-label">Profiles</div>
 
@@ -616,6 +692,45 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
         </ModalShell>
       ) : null}
 
+      {editor.createProfileChoice.open ? (
+        <ModalShell
+          title="Add profile"
+          description="Create a blank profile yourself, or let the agent research a first draft from your synced gateway models."
+          onClose={editor.closeCreateProfileChoice}
+        >
+          <div className="routing-profiles-modal__body">
+            <div className="routing-profiles-modal__choice-grid">
+              <button className="routing-profiles-modal__choice-card" type="button" onClick={editor.openCreateProfile}>
+                <span className="routing-profiles-modal__choice-title">Manual</span>
+                <span className="routing-profiles-modal__choice-copy">
+                  Start from a blank profile and bind models yourself.
+                </span>
+              </button>
+              <button
+                className="routing-profiles-modal__choice-card"
+                type="button"
+                onClick={editor.openAgentCreate}
+                disabled={Boolean(editor.profileBuilderUnavailableReason)}
+              >
+                <span className="routing-profiles-modal__choice-title">With agent</span>
+                <span className="routing-profiles-modal__choice-copy">
+                  Answer a fixed intake, then let the agent build a draft from your gateway inventory.
+                </span>
+              </button>
+            </div>
+            {editor.profileBuilderUnavailableReason ? (
+              <div className="routing-profiles-modal__hint">
+                <span className="routing-profiles-modal__hint-dot">•</span>
+                <span>{editor.profileBuilderUnavailableReason}</span>
+              </div>
+            ) : null}
+          </div>
+          <div className="routing-profiles-modal__actions">
+            <button className="btn btn--secondary" type="button" onClick={editor.closeCreateProfileChoice}>Cancel</button>
+          </div>
+        </ModalShell>
+      ) : null}
+
       {editor.createProfile.open ? (
         <ModalShell
           title="Add profile"
@@ -647,6 +762,291 @@ export function RoutingProfilesEditor(props: RoutingProfilesEditorProps) {
           <div className="routing-profiles-modal__actions">
             <button className="btn btn--secondary" type="button" onClick={editor.closeCreateProfile}>Cancel</button>
             <button className="btn btn--primary" type="button" onClick={editor.createEmptyProfile}>Create profile</button>
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {editor.agentCreate.open ? (
+        <ModalShell
+          title="Add profile with agent"
+          description="The agent uses your selected gateway and synced models to build a draft profile. Nothing is saved until you apply the draft."
+          onClose={editor.closeAgentCreate}
+        >
+          <div className="routing-profiles-modal__body">
+            {editor.agentCreate.error ? (
+              <div className="routing-profiles-modal__error">{editor.agentCreate.error}</div>
+            ) : null}
+
+            {!editor.agentCreate.run ? (
+              <>
+                <div className="routing-profiles-modal__grid">
+                  <label className="form-group">
+                    <span className="form-label">Profile ID</span>
+                    <input
+                      className="input input--mono"
+                      value={editor.agentCreate.request.profileId}
+                      onChange={(event) => editor.updateAgentRequest("profileId", normalizeProfileIdInput(event.target.value))}
+                    />
+                    <span className="form-hint">Use lowercase letters, numbers, and hyphens only.</span>
+                  </label>
+                  <label className="form-group">
+                    <span className="form-label">Display name</span>
+                    <input
+                      className="input"
+                      value={editor.agentCreate.request.displayName}
+                      onChange={(event) => editor.updateAgentRequest("displayName", event.target.value)}
+                    />
+                  </label>
+                  <label className="form-group">
+                    <span className="form-label">Gateway</span>
+                    <select
+                      className="input"
+                      value={editor.agentCreate.request.preferredGatewayId ?? ""}
+                      onChange={(event) => editor.updateAgentRequest("preferredGatewayId", event.target.value || undefined)}
+                    >
+                      {editor.profileBuilderGateways.map((gateway) => (
+                        <option key={gateway.id} value={gateway.id}>{gateway.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="form-group">
+                    <span className="form-label">Optimize for</span>
+                    <select
+                      className="input"
+                      value={editor.agentCreate.request.optimizeFor}
+                      onChange={(event) => editor.updateAgentRequest("optimizeFor", event.target.value as typeof editor.agentCreate.request.optimizeFor)}
+                    >
+                      {PROFILE_BUILDER_OPTIMIZE_FOR.map((value) => (
+                        <option key={value} value={value}>{optionLabel(value)}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="form-group">
+                    <span className="form-label">Latency sensitivity</span>
+                    <select
+                      className="input"
+                      value={editor.agentCreate.request.latencySensitivity}
+                      onChange={(event) => editor.updateAgentRequest("latencySensitivity", event.target.value as typeof editor.agentCreate.request.latencySensitivity)}
+                    >
+                      {PROFILE_BUILDER_LATENCY_SENSITIVITIES.map((value) => (
+                        <option key={value} value={value}>{optionLabel(value)}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="form-group">
+                    <span className="form-label">Budget posture</span>
+                    <select
+                      className="input"
+                      value={editor.agentCreate.request.budgetPosture}
+                      onChange={(event) => editor.updateAgentRequest("budgetPosture", event.target.value as typeof editor.agentCreate.request.budgetPosture)}
+                    >
+                      {PROFILE_BUILDER_BUDGET_POSTURES.map((value) => (
+                        <option key={value} value={value}>{optionLabel(value)}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="routing-profiles-modal__section">
+                  <div className="routing-profiles-modal__section-title">What kinds of tasks will this profile handle?</div>
+                  <div className="routing-profiles-modal__checkbox-grid">
+                    {PROFILE_BUILDER_TASK_FAMILIES.map((taskFamily) => (
+                      <label key={taskFamily} className="routing-profiles-modal__checkbox">
+                        <input
+                          type="checkbox"
+                          checked={editor.agentCreate.request.taskFamilies.includes(taskFamily)}
+                          onChange={() => editor.toggleAgentTaskFamily(taskFamily)}
+                        />
+                        <span>{PROFILE_BUILDER_TASK_FAMILY_LABELS[taskFamily]}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="routing-profiles-modal__grid">
+                  <label className="routing-profiles-modal__checkbox routing-profiles-modal__checkbox--inline">
+                    <input
+                      type="checkbox"
+                      checked={editor.agentCreate.request.needsVision}
+                      onChange={(event) => editor.updateAgentRequest("needsVision", event.target.checked)}
+                    />
+                    <span>Needs image / screenshot support</span>
+                  </label>
+                  <label className="routing-profiles-modal__checkbox routing-profiles-modal__checkbox--inline">
+                    <input
+                      type="checkbox"
+                      checked={editor.agentCreate.request.needsLongContext}
+                      onChange={(event) => editor.updateAgentRequest("needsLongContext", event.target.checked)}
+                    />
+                    <span>Needs long-context or repo-wide reads</span>
+                  </label>
+                </div>
+
+                <div className="routing-profiles-modal__grid">
+                  <label className="form-group">
+                    <span className="form-label">Must use</span>
+                    <input
+                      className="input input--mono"
+                      value={editor.agentCreate.request.mustUse ?? ""}
+                      onChange={(event) => editor.updateAgentRequest("mustUse", event.target.value)}
+                      placeholder="Optional: model ids or providers"
+                    />
+                  </label>
+                  <label className="form-group">
+                    <span className="form-label">Avoid</span>
+                    <input
+                      className="input input--mono"
+                      value={editor.agentCreate.request.avoid ?? ""}
+                      onChange={(event) => editor.updateAgentRequest("avoid", event.target.value)}
+                      placeholder="Optional: model ids or providers"
+                    />
+                  </label>
+                </div>
+
+                <label className="form-group">
+                  <span className="form-label">Additional context</span>
+                  <textarea
+                    className="input"
+                    rows={4}
+                    value={editor.agentCreate.request.additionalContext ?? ""}
+                    onChange={(event) => editor.updateAgentRequest("additionalContext", event.target.value)}
+                    placeholder="Optional: describe the workload, constraints, quality bar, or any routing nuance the fixed intake missed."
+                  />
+                  <span className="form-hint">Freeform notes for the agent building this draft.</span>
+                </label>
+              </>
+            ) : null}
+
+            {editor.agentCreate.run?.status === "running" ? (
+              <div className="routing-profiles-modal__progress">
+                <div className="routing-profiles-modal__progress-title">Researching models...</div>
+                <p>
+                  The agent is ranking models from your synced gateway inventory and building a draft profile.
+                </p>
+                <div className="routing-profiles-modal__hint">
+                  <span className="routing-profiles-modal__hint-dot">•</span>
+                  <span>Executor: <code>{editor.agentCreate.run.executor.modelId}</code> on {editor.agentCreate.run.executor.gatewayName}</span>
+                </div>
+              </div>
+            ) : null}
+
+            {editor.agentCreate.run?.status === "completed" && editor.agentCreate.run.draftProfile ? (
+              <>
+                <div className="routing-profiles-modal__grid">
+                  <label className="form-group">
+                    <span className="form-label">Profile ID</span>
+                    <input
+                      className="input input--mono"
+                      value={editor.agentCreate.editedProfileId}
+                      onChange={(event) => editor.setAgentCreate((current) => ({ ...current, editedProfileId: normalizeProfileIdInput(event.target.value), error: null }))}
+                    />
+                  </label>
+                  <label className="form-group">
+                    <span className="form-label">Display name</span>
+                    <input
+                      className="input"
+                      value={editor.agentCreate.editedDisplayName}
+                      onChange={(event) => editor.setAgentCreate((current) => ({ ...current, editedDisplayName: event.target.value, error: null }))}
+                    />
+                  </label>
+                </div>
+
+                {editor.agentCreate.run.summary ? (
+                  <div className="routing-profiles-modal__hint">
+                    <span className="routing-profiles-modal__hint-dot">•</span>
+                    <span>{editor.agentCreate.run.summary}</span>
+                  </div>
+                ) : null}
+
+                <div className="routing-profiles-modal__result-meta">
+                  <span><strong>Executor:</strong> <code>{editor.agentCreate.run.executor.modelId}</code></span>
+                  <span><strong>Research mode:</strong> {optionLabel(editor.agentCreate.run.researchMode ?? "catalog_only")}</span>
+                </div>
+
+                <label className="form-group">
+                  <span className="form-label">Description</span>
+                  <input
+                    className="input"
+                    value={editor.agentCreate.editedDescription}
+                    onChange={(event) => editor.setAgentCreate((current) => ({ ...current, editedDescription: event.target.value, error: null }))}
+                  />
+                </label>
+
+                <label className="form-group">
+                  <span className="form-label">Routing instructions</span>
+                  <AutoGrowTextarea
+                    className="routing-profile-card__instructions-input"
+                    minHeight={140}
+                    value={editor.agentCreate.editedRoutingInstructions}
+                    onChange={(event) => editor.setAgentCreate((current) => ({ ...current, editedRoutingInstructions: event.target.value, error: null }))}
+                  />
+                </label>
+
+                <div className="routing-profiles-modal__section">
+                  <div className="routing-profiles-modal__section-title">Recommended models</div>
+                  <div className="routing-profiles-modal__recommendations">
+                    {editor.agentCreate.run.recommendations.map((recommendation) => (
+                      <div key={`${recommendation.gatewayId}::${recommendation.modelId}`} className="routing-profiles-modal__recommendation">
+                        <div className="routing-profiles-modal__recommendation-title">
+                          <strong>{recommendation.modelName}</strong>
+                          <span>{recommendation.roleLabel}</span>
+                        </div>
+                        <div className="routing-profiles-modal__recommendation-copy">{recommendation.rationale}</div>
+                        <div className="routing-profiles-modal__result-meta">
+                          {recommendation.contextSummary ? <span>{recommendation.contextSummary}</span> : null}
+                          {recommendation.costSummary ? <span>{recommendation.costSummary}</span> : null}
+                          {recommendation.liveVerified ? <span>Live verified</span> : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {editor.agentCreate.run.rejections.length > 0 ? (
+                  <div className="routing-profiles-modal__section">
+                    <div className="routing-profiles-modal__section-title">Rejected alternatives</div>
+                    <div className="routing-profiles-modal__recommendations">
+                      {editor.agentCreate.run.rejections.map((rejection) => (
+                        <div key={rejection.modelId} className="routing-profiles-modal__recommendation">
+                          <div className="routing-profiles-modal__recommendation-title">
+                            <strong>{rejection.modelName}</strong>
+                          </div>
+                          <div className="routing-profiles-modal__recommendation-copy">{rejection.reason}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {editor.agentCreate.run.sources.length > 0 ? (
+                  <div className="routing-profiles-modal__section">
+                    <div className="routing-profiles-modal__section-title">Sources</div>
+                    <div className="routing-profiles-modal__sources">
+                      {editor.agentCreate.run.sources.map((source) => (
+                        <a key={`${source.label}:${source.url}`} href={source.url} target="_blank" rel="noreferrer">
+                          {source.label}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+          <div className="routing-profiles-modal__actions">
+            <button className="btn btn--secondary" type="button" onClick={editor.closeAgentCreate}>
+              {editor.agentCreate.run?.status === "completed" ? "Close" : "Cancel"}
+            </button>
+            {!editor.agentCreate.run ? (
+              <button className="btn btn--primary" type="button" onClick={editor.createProfileWithAgent}>
+                Start research
+              </button>
+            ) : null}
+            {editor.agentCreate.run?.status === "completed" ? (
+              <button className="btn btn--primary" type="button" onClick={editor.applyAgentDraft}>
+                Apply draft
+              </button>
+            ) : null}
           </div>
         </ModalShell>
       ) : null}
