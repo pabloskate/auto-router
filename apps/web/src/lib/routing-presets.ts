@@ -42,9 +42,9 @@ export const ROUTING_PRESETS: readonly RoutingPreset[] = [
   {
     id: "general-balanced",
     name: "Balanced General-Purpose",
-    description: "Practical daily driver: Claude for quality, Mercury 2 for speed, Gemini for long docs, Seed for images",
+    description: "Practical daily driver: Claude for quality, Mercury 2 for speed, Gemini for long docs and multimodal work, Sonar Pro for live web lookups",
     gatewayPresetId: "openrouter",
-    classifierModel: "google/gemini-3.1-flash-lite-preview",
+    classifierModel: "nvidia/nemotron-3-super-120b-a12b",
     defaultModel: "anthropic/claude-sonnet-4.6",
     models: [
       {
@@ -54,7 +54,7 @@ export const ROUTING_PRESETS: readonly RoutingPreset[] = [
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Complex reasoning, creative writing, nuanced Q&A, professional emails, summarization. $3/$15 per M tokens.",
+          "Default for nuanced reasoning, polished writing, summarization, and other ambiguous high-judgment work.",
       },
       {
         id: "inception/mercury-2",
@@ -63,7 +63,7 @@ export const ROUTING_PRESETS: readonly RoutingPreset[] = [
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Short conversational replies, quick factual lookups, casual chat. 1000+ T/s. $0.25/$0.75 per M tokens.",
+          "Shortest-turn conversational replies, quick factual questions, and latency-sensitive text-only requests.",
       },
       {
         id: "google/gemini-3.1-pro-preview",
@@ -72,44 +72,44 @@ export const ROUTING_PRESETS: readonly RoutingPreset[] = [
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Long document analysis, large pastes (>50K tokens), research synthesis, 1M context window. $2/$12 per M tokens.",
+          "Long document analysis, large pastes, research synthesis, and file-heavy work with very high context headroom.",
       },
       {
-        id: "bytedance-seed/seed-1.6-flash",
-        name: "Seed 1.6 Flash",
-        modality: "text,image->text",
+        id: "google/gemini-3-flash-preview",
+        name: "Gemini 3 Flash",
+        modality: "text,image,file,audio,video->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Image inputs, screenshots, visual content analysis. Multimodal, ultra-cheap. $0.075/$0.30 per M tokens.",
+          "Fast multimodal tasks, screenshots, image-heavy prompts, and general work that benefits from lower latency than the Pro tier.",
       },
       {
-        id: "deepseek/deepseek-v3.2",
-        name: "DeepSeek V3.2",
+        id: "perplexity/sonar-pro-search",
+        name: "Sonar Pro Search",
         modality: "text->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Budget-first mode when cost is the primary concern. Strong output quality. $0.26/$0.38 per M tokens.",
+          "Web-grounded current-info questions, source comparison, and live lookups where freshness matters.",
       },
     ],
     routingInstructions: `
-Route every request to the single best model. Pricing is shown per million tokens (input/output).
+Route every request to the single best model.
 
 MODEL REFERENCE
-  anthropic/claude-sonnet-4.6    — $3/$15    — vision, 1M ctx
-  inception/mercury-2            — $0.25/$0.75 — text only, 128K ctx, 1000+ T/s
-  google/gemini-3.1-pro-preview  — $2/$12    — vision, 1M ctx
-  bytedance-seed/seed-1.6-flash  — $0.075/$0.30 — vision, 256K ctx
-  deepseek/deepseek-v3.2         — $0.26/$0.38 — text only, 163K ctx
+  anthropic/claude-sonnet-4.6    — high-judgment default
+  inception/mercury-2            — fastest text-only short-turn path
+  google/gemini-3.1-pro-preview  — long-context analysis and large attachments
+  google/gemini-3-flash-preview  — fast multimodal and screenshot handling
+  perplexity/sonar-pro-search    — live web lookup and current-info lane
 
 ROUTING RULES (apply in order)
 
 IMAGE INPUT (message contains an image or screenshot)
-  → bytedance-seed/seed-1.6-flash  [cheapest vision; escalate to claude-sonnet-4.6 only if high-quality output explicitly needed]
+  → google/gemini-3-flash-preview
 
 WEB SEARCH / CURRENT INFO (user asks about "latest", "current", "today", "news", "recent", or requests a web lookup)
-  → anthropic/claude-sonnet-4.6:online
+  → perplexity/sonar-pro-search
 
 LONG DOCUMENTS / ANALYSIS (large paste, PDF, "summarize this", context >50K tokens)
   → google/gemini-3.1-pro-preview
@@ -117,13 +117,11 @@ LONG DOCUMENTS / ANALYSIS (large paste, PDF, "summarize this", context >50K toke
 COMPLEX REASONING / CREATIVE / NUANCED Q&A
   → anthropic/claude-sonnet-4.6
 
-QUICK CHAT / SHORT FACTUAL LOOKUPS / CONVERSATIONAL REPLIES
+QUICK CHAT / SHORT FACTUAL LOOKUPS / CONVERSATIONAL REPLIES (text only)
   → inception/mercury-2
 
-BUDGET MODE (user says "cheap", "quick", or cost is the explicit priority)
-  → deepseek/deepseek-v3.2
-
-Default to Claude Sonnet 4.6 when the task is unclear.
+EVERYTHING ELSE
+  → anthropic/claude-sonnet-4.6
 `.trim(),
   },
 
@@ -131,9 +129,9 @@ Default to Claude Sonnet 4.6 when the task is unclear.
   {
     id: "speed-first",
     name: "Speed-First",
-    description: "Minimum latency at all costs: Mercury 2 default (1000+ T/s), Seed for images, Grok for web search and tool calls",
+    description: "Lowest-latency OpenRouter setup: Mercury 2 default, Gemini 3 Flash for fast multimodal work, Grok Fast for tools/search, Gemini 3.1 Flash Lite for long-context overflow, Nemotron for cheap structured text",
     gatewayPresetId: "openrouter",
-    classifierModel: "google/gemini-3.1-flash-lite-preview",
+    classifierModel: "nvidia/nemotron-3-super-120b-a12b",
     defaultModel: "inception/mercury-2",
     models: [
       {
@@ -143,16 +141,16 @@ Default to Claude Sonnet 4.6 when the task is unclear.
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Default for everything. 1000+ T/s reasoning diffusion model, native tool use, 128K ctx. $0.25/$0.75 per M tokens.",
+          "Default for the shortest-turn text workflows when raw latency matters more than anything else.",
       },
       {
-        id: "bytedance-seed/seed-1.6-flash",
-        name: "Seed 1.6 Flash",
-        modality: "text,image->text",
+        id: "google/gemini-3-flash-preview",
+        name: "Gemini 3 Flash",
+        modality: "text,image,file,audio,video->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Image inputs, screenshots, visual content. Also the cheapest fast path for ultra-high-volume text. 256K ctx. $0.075/$0.30 per M tokens.",
+          "Fast multimodal tasks, screenshots, and lightweight general requests that still need vision or richer inputs.",
       },
       {
         id: "x-ai/grok-4.1-fast",
@@ -161,58 +159,56 @@ Default to Claude Sonnet 4.6 when the task is unclear.
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Tool calls / function calling, web search, long context (>128K tokens), 2M ctx window. 115.6 T/s. $0.20/$0.50 per M tokens.",
+          "Tool calls, web search, long-context operational requests, and live lookups where you still want very fast execution.",
       },
       {
-        id: "google/gemini-3.1-flash-lite-preview:nitro",
-        name: "Gemini 3.1 Flash Lite (Nitro)",
-        modality: "text,image->text",
+        id: "google/gemini-3.1-flash-lite-preview",
+        name: "Gemini 3.1 Flash Lite Preview",
+        modality: "text,image,file,audio,video->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Context >128K tokens when tool use is not needed. 1M ctx, throughput-optimized via :nitro. $0.25/$1.50 per M tokens.",
+          "Long-context overflow, fast multimodal routing, and cheap large-prompt handling when tool use is not the main need.",
       },
       {
-        id: "meta-llama/llama-3.3-70b-instruct:nitro",
-        name: "Llama 3.3 70B (Nitro)",
+        id: "nvidia/nemotron-3-super-120b-a12b",
+        name: "NVIDIA Nemotron 3 Super",
         modality: "text->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Open-source preference, cost-optimized workloads. Routed to Groq via :nitro for fastest inference. $0.10/$0.32 per M tokens.",
+          "Cheap structured extraction, classification, and other hot-path text tasks where you want strong speed per dollar.",
       },
     ],
     routingInstructions: `
-Route every request to the fastest appropriate model. Pricing shown per million tokens (input/output).
+Route every request to the fastest appropriate model.
 
 MODEL REFERENCE
-  inception/mercury-2                         — $0.25/$0.75  — text only, 128K ctx, 1000+ T/s
-  bytedance-seed/seed-1.6-flash               — $0.075/$0.30 — vision, 256K ctx
-  x-ai/grok-4.1-fast                          — $0.20/$0.50  — vision, 2M ctx, native web search
-  google/gemini-3.1-flash-lite-preview:nitro  — $0.25/$1.50  — vision, 1M ctx, throughput-sorted
-  meta-llama/llama-3.3-70b-instruct:nitro     — $0.10/$0.32  — text only, 131K ctx, Groq-fast
+  inception/mercury-2                      — fastest text-only short-turn path
+  google/gemini-3-flash-preview           — fast multimodal lane
+  x-ai/grok-4.1-fast                      — tools, search, and 2M-context lane
+  google/gemini-3.1-flash-lite-preview    — cheap long-context overflow
+  nvidia/nemotron-3-super-120b-a12b       — cheap structured text and classification
 
 ROUTING RULES (apply in order — speed is the primary objective)
 
 IMAGE INPUT (message contains an image or screenshot)
-  → bytedance-seed/seed-1.6-flash
+  → google/gemini-3-flash-preview
 
 WEB SEARCH / CURRENT INFO (user asks about "latest", "current", "today", "news", "recent")
-  → x-ai/grok-4.1-fast  [has native web search + X search at $5/K calls]
+  → x-ai/grok-4.1-fast
 
 TOOL USE / FUNCTION CALLING / AGENTIC
-  → x-ai/grok-4.1-fast  [best tool-call throughput with 2M context]
+  → x-ai/grok-4.1-fast
 
 CONTEXT > 128K TOKENS (no tool use needed)
-  → google/gemini-3.1-flash-lite-preview:nitro
+  → google/gemini-3.1-flash-lite-preview
 
-OPEN-SOURCE / COST-OPTIMIZED
-  → meta-llama/llama-3.3-70b-instruct:nitro
+STRICT CLASSIFICATION / EXTRACTION / HOT-PATH STRUCTURED TEXT
+  → nvidia/nemotron-3-super-120b-a12b
 
 EVERYTHING ELSE
-  → inception/mercury-2  [default — fastest generation at 1000+ T/s]
-
-Never use a slower model when a faster one can handle the task.
+  → inception/mercury-2
 `.trim(),
   },
 
@@ -220,37 +216,37 @@ Never use a slower model when a faster one can handle the task.
   {
     id: "coding-fast",
     name: "Fast Coding",
-    description: "Near-frontier coding quality at a fraction of the cost: MiniMax M2.5 (80.2% SWE-bench) as the workhorse",
+    description: "Fast coding pool with MiniMax M2.7 as the default, Qwen 3.5 397B for deeper agentic work, GLM 5 for architecture, Kimi for frontend/vision, and Grok Fast for current docs and tool-heavy workflows",
     gatewayPresetId: "openrouter",
-    classifierModel: "google/gemini-3.1-flash-lite-preview",
-    defaultModel: "minimax/minimax-m2.5",
+    classifierModel: "nvidia/nemotron-3-super-120b-a12b",
+    defaultModel: "minimax/minimax-m2.7",
     models: [
       {
-        id: "minimax/minimax-m2.5",
-        name: "MiniMax M2.5",
+        id: "minimax/minimax-m2.7",
+        name: "MiniMax M2.7",
         modality: "text->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Most coding tasks: features, bug fixes, code review, refactors. 80.2% SWE-bench (near Claude Opus level at 1/20 the output cost). $0.25/$1.20 per M tokens.",
+          "Default for everyday implementation, refactors, bug fixes, and ordinary coding where speed and price-performance matter most.",
       },
       {
-        id: "qwen/qwen3-coder",
-        name: "Qwen3-Coder",
-        modality: "text->text",
+        id: "qwen/qwen3.5-397b-a17b",
+        name: "Qwen 3.5 397B A17B",
+        modality: "text,image,video->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Large codebases, multi-file navigation, tool-heavy agentic coding. 480B total / 35B active MoE, 262K ctx. $0.22/$1 per M tokens.",
+          "Large codebases, multi-file navigation, and heavier agentic coding where you want more depth than the default fast lane.",
       },
       {
-        id: "deepseek/deepseek-v3.2",
-        name: "DeepSeek V3.2",
+        id: "z-ai/glm-5",
+        name: "GLM 5",
         modality: "text->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Scripts, data transforms, standalone logic-heavy functions. 73% SWE-bench, cheapest strong output. $0.26/$0.38 per M tokens.",
+          "Architecture decisions, complex implementation planning, and long multi-step engineering reasoning.",
       },
       {
         id: "moonshotai/kimi-k2.5",
@@ -259,52 +255,47 @@ Never use a slower model when a faster one can handle the task.
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "UI/frontend coding, CSS, visual layout, image inputs (only vision-capable model here). 76.8% SWE-bench, 262K ctx. $0.45/$2.20 per M tokens.",
+          "UI/frontend coding, CSS, visual layout work, and screenshot-driven implementation tasks.",
       },
       {
-        id: "qwen/qwen3.5-9b",
-        name: "Qwen 3.5 9B",
-        modality: "text->text",
+        id: "x-ai/grok-4.1-fast",
+        name: "Grok 4.1 Fast",
+        modality: "text,image->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Trivial completions, fill-in-the-blank boilerplate, autocomplete-style tasks where cost matters most. $0.05/$0.15 per M tokens.",
+          "Current-docs lookups, tool-heavy execution, and coding tasks that benefit from a live-search or operational lane.",
       },
     ],
     routingInstructions: `
-Route every request to the best coding model for the task. Pricing shown per million tokens (input/output).
+Route every request to the best coding model for the task.
 
 MODEL REFERENCE
-  minimax/minimax-m2.5    — $0.25/$1.20  — text only, 80.2% SWE-bench, 196K ctx
-  qwen/qwen3-coder        — $0.22/$1     — text only, 480B/35B active MoE, 262K ctx
-  deepseek/deepseek-v3.2  — $0.26/$0.38  — text only, 73% SWE-bench, 163K ctx
-  moonshotai/kimi-k2.5    — $0.45/$2.20  — VISION, 76.8% SWE-bench, 262K ctx
-  qwen/qwen3.5-9b         — $0.05/$0.15  — text only, ultra-cheap
+  minimax/minimax-m2.7       — default fast implementation lane
+  qwen/qwen3.5-397b-a17b     — deeper multi-file and agentic coding
+  z-ai/glm-5                 — architecture and harder reasoning
+  moonshotai/kimi-k2.5       — UI/frontend and screenshot work
+  x-ai/grok-4.1-fast         — tools, current docs, and operational coding
 
 ROUTING RULES (apply in order)
 
 IMAGE INPUT (screenshot, UI mockup, diagram, code in an image)
-  → moonshotai/kimi-k2.5  [only vision-capable model in this catalog]
+  → moonshotai/kimi-k2.5
 
 WEB SEARCH / CURRENT DOCS (user asks about latest library version, API changes, "look up X")
-  → minimax/minimax-m2.5:online  [append :online for Exa web search, ~$0.02/request]
+  → x-ai/grok-4.1-fast
 
 AGENTIC / MULTI-FILE (codebase navigation, tool loops, multi-step execution)
-  → qwen/qwen3-coder
+  → qwen/qwen3.5-397b-a17b
 
-SCRIPTS / DATA / STANDALONE FUNCTIONS (isolated logic, data transforms, one-file tasks)
-  → deepseek/deepseek-v3.2  [cheapest strong output at $0.38/M]
+ARCHITECTURE / SYSTEM DESIGN / HARDER ENGINEERING REASONING
+  → z-ai/glm-5
 
-UI / FRONTEND / CSS / VISUAL LAYOUT (text only, no image)
-  → moonshotai/kimi-k2.5  [specialized for visual coding even without an image]
-
-TRIVIAL BOILERPLATE / AUTOCOMPLETE (getters, setters, simple loops, obvious completions)
-  → qwen/qwen3.5-9b
+UI / FRONTEND / CSS / VISUAL LAYOUT
+  → moonshotai/kimi-k2.5
 
 ALL OTHER CODING (features, bugs, reviews, refactors, tests)
-  → minimax/minimax-m2.5  [default — 80.2% SWE-bench at $1.20/M output]
-
-Only escalate to a more expensive model when the cheaper one genuinely cannot handle the task.
+  → minimax/minimax-m2.7
 `.trim(),
   },
 
@@ -312,102 +303,9 @@ Only escalate to a more expensive model when the cheaper one genuinely cannot ha
   {
     id: "coding-agentic-premium",
     name: "Deep Premium Agentic",
-    description: "Best-in-class agentic coding: Claude Opus for top tasks, MiniMax M2.5 as the smart-cheap workhorse (80.2% SWE-bench at 1/20 Opus cost)",
+    description: "Premium agentic coding pool with Claude Sonnet as the main workhorse, Claude Opus for the highest-stakes work, GPT-5.4 for tool-heavy multimodal execution, GLM 5 for long agent loops, and Gemini 3.1 Pro for whole-repo reads",
     gatewayPresetId: "openrouter",
-    classifierModel: "google/gemini-3.1-flash-lite-preview",
-    defaultModel: "minimax/minimax-m2.5",
-    models: [
-      {
-        id: "anthropic/claude-opus-4.6",
-        name: "Claude Opus 4.6",
-        modality: "text,image->text",
-        thinking: "none",
-        reasoningPreset: "none",
-        whenToUse:
-          "Highest-stakes tasks: production architecture, security-critical refactors, complex multi-agent orchestration. 80.8% SWE-bench. $5/$25 per M tokens.",
-      },
-      {
-        id: "openai/gpt-5.4",
-        name: "GPT-5.4",
-        modality: "text,image->text",
-        thinking: "none",
-        reasoningPreset: "none",
-        whenToUse:
-          "Computer use, browser automation, OS-level tool orchestration, image-in-code tasks. Built-in computer use, 57.7% SWE-Bench Pro, 1M ctx. $2.50/$15 per M tokens.",
-      },
-      {
-        id: "minimax/minimax-m2.5",
-        name: "MiniMax M2.5",
-        modality: "text->text",
-        thinking: "none",
-        reasoningPreset: "none",
-        whenToUse:
-          "Standard agentic coding: features, bug fixes, PR reviews, most multi-file work. 80.2% SWE-bench at 1/20th Opus output cost. $0.25/$1.20 per M tokens.",
-      },
-      {
-        id: "z-ai/glm-5",
-        name: "GLM-5",
-        modality: "text->text",
-        thinking: "none",
-        reasoningPreset: "none",
-        whenToUse:
-          "Long sequential agent loops, complex instruction decomposition, execution chains, self-correction cycles. 77.8% SWE-bench, optimized for persistent multi-turn agents. $0.72/$2.30 per M tokens.",
-      },
-      {
-        id: "google/gemini-3.1-pro-preview",
-        name: "Gemini 3.1 Pro",
-        modality: "text,image->text",
-        thinking: "none",
-        reasoningPreset: "none",
-        whenToUse:
-          "Full codebase analysis, 100K+ token repos, architectural Q&A requiring entire-repo context. 1M ctx, cheapest frontier model. $2/$12 per M tokens.",
-      },
-    ],
-    routingInstructions: `
-Route every request to the best model for production-grade agentic coding. Pricing shown per million tokens (input/output).
-
-MODEL REFERENCE
-  anthropic/claude-opus-4.6     — $5/$25    — VISION, 80.8% SWE-bench, 1M ctx
-  openai/gpt-5.4                — $2.50/$15  — VISION, 57.7% SWE-bench Pro, 1M ctx, computer use
-  minimax/minimax-m2.5          — $0.25/$1.20 — text only, 80.2% SWE-bench, 196K ctx
-  z-ai/glm-5                    — $0.72/$2.30 — text only, 77.8% SWE-bench, 202K ctx, agent-optimized
-  google/gemini-3.1-pro-preview — $2/$12     — VISION, 1M ctx, cheapest frontier
-
-ROUTING RULES (apply in order)
-
-IMAGE INPUT (screenshots, diagrams, UI mockups, code in an image)
-  → openai/gpt-5.4  [best vision + coding combination in this catalog]
-
-WEB SEARCH / CURRENT DOCS / API LOOKUPS (user asks about latest versions, changelogs, real-time info)
-  → openai/gpt-5.4:online  [or anthropic/claude-opus-4.6:online for highest-quality research]
-
-COMPUTER USE / BROWSER AUTOMATION / OS-LEVEL TOOLING
-  → openai/gpt-5.4
-
-HIGHEST-STAKES: PRODUCTION ARCHITECTURE / SECURITY-CRITICAL / COMPLEX MULTI-AGENT
-  → anthropic/claude-opus-4.6  [only when genuine complexity justifies the cost]
-
-LONG AGENT LOOPS / EXECUTION CHAINS / SELF-CORRECTION CYCLES
-  → z-ai/glm-5  [built for persistent step-by-step multi-turn agents]
-
-ENTIRE REPO ANALYSIS / 100K+ TOKEN CONTEXT WINDOW REQUIRED
-  → google/gemini-3.1-pro-preview  [1M context at $12/M output — far cheaper than Opus for read-heavy tasks]
-
-ALL OTHER AGENTIC CODING (features, bugs, PRs, refactors, most multi-file work)
-  → minimax/minimax-m2.5  [default — 80.2% SWE-bench at 1/20th Opus output cost]
-
-Reserve Claude Opus 4.6 for tasks where the extra cost is genuinely justified by complexity.
-Prefer MiniMax M2.5 by default — it matches Opus-class benchmark scores at a fraction of the price.
-`.trim(),
-  },
-
-  // ── 5. Customer Support ─────────────────────────────────────────────────────
-  {
-    id: "customer-support",
-    name: "Customer Support",
-    description: "Nuanced support replies by default, with dedicated paths for long ticket history, screenshots, tool-driven lookups, and budget-scale FAQ volume",
-    gatewayPresetId: "openrouter",
-    classifierModel: "google/gemini-3.1-flash-lite-preview",
+    classifierModel: "nvidia/nemotron-3-super-120b-a12b",
     defaultModel: "anthropic/claude-sonnet-4.6",
     models: [
       {
@@ -417,7 +315,34 @@ Prefer MiniMax M2.5 by default — it matches Opus-class benchmark scores at a f
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Default for nuanced customer replies, de-escalation, policy explanations, retention conversations, and other high-empathy cases. $3/$15 per M tokens.",
+          "Default premium workhorse for serious implementation, refactors, code review, and broad agentic coding.",
+      },
+      {
+        id: "anthropic/claude-opus-4.6",
+        name: "Claude Opus 4.6",
+        modality: "text,image->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Highest-stakes tasks: production architecture, security-critical refactors, and the hardest engineering decisions where extra cost is justified.",
+      },
+      {
+        id: "openai/gpt-5.4",
+        name: "GPT-5.4",
+        modality: "text,image->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Computer use, browser automation, multimodal engineering tasks, and tool-heavy structured execution.",
+      },
+      {
+        id: "z-ai/glm-5",
+        name: "GLM-5",
+        modality: "text->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Long sequential agent loops, complex instruction decomposition, execution chains, and self-correction-heavy workflows.",
       },
       {
         id: "google/gemini-3.1-pro-preview",
@@ -426,25 +351,157 @@ Prefer MiniMax M2.5 by default — it matches Opus-class benchmark scores at a f
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Long ticket threads, full account histories, policy manuals, help-center synthesis, and large transcript summarization. 1M ctx. $2/$12 per M tokens.",
+          "Full codebase analysis, read-heavy repository work, and architectural Q&A requiring very large context.",
       },
+    ],
+    routingInstructions: `
+Route every request to the best model for production-grade agentic coding.
+
+MODEL REFERENCE
+  anthropic/claude-sonnet-4.6   — premium default workhorse
+  anthropic/claude-opus-4.6     — highest-stakes reasoning and architecture
+  openai/gpt-5.4                — computer use and multimodal tool-heavy execution
+  z-ai/glm-5                    — long agent loops and instruction decomposition
+  google/gemini-3.1-pro-preview — whole-repo reads and very large context
+
+ROUTING RULES (apply in order)
+
+IMAGE INPUT / COMPUTER USE / BROWSER AUTOMATION / OS-LEVEL TOOLING
+  → openai/gpt-5.4
+
+HIGHEST-STAKES: PRODUCTION ARCHITECTURE / SECURITY-CRITICAL / COMPLEX MULTI-AGENT
+  → anthropic/claude-opus-4.6
+
+LONG AGENT LOOPS / EXECUTION CHAINS / SELF-CORRECTION CYCLES
+  → z-ai/glm-5
+
+ENTIRE REPO ANALYSIS / 100K+ TOKEN CONTEXT WINDOW REQUIRED
+  → google/gemini-3.1-pro-preview
+
+ALL OTHER AGENTIC CODING (features, bugs, PRs, refactors, most multi-file work)
+  → anthropic/claude-sonnet-4.6
+`.trim(),
+  },
+
+  // ── 5. Frontend UI Builder ──────────────────────────────────────────────────
+  {
+    id: "frontend-ui-builder",
+    name: "Frontend UI Builder",
+    description: "Frontend-specialized pool: Claude Sonnet for most product UI work, Claude Opus for highest-stakes design-system changes, GLM 5 for debugging, Kimi for screenshot-driven implementation, and Mercury 2 for very fast small edits",
+    gatewayPresetId: "openrouter",
+    classifierModel: "nvidia/nemotron-3-super-120b-a12b",
+    defaultModel: "anthropic/claude-sonnet-4.6",
+    models: [
       {
-        id: "x-ai/grok-4.1-fast",
-        name: "Grok 4.1 Fast",
+        id: "anthropic/claude-sonnet-4.6",
+        name: "Claude Sonnet 4.6",
         modality: "text,image->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Tool-driven support triage, order/account lookups, current-status checks, function calling, and fast operational answers. 2M ctx. $0.20/$0.50 per M tokens.",
+          "Default for most frontend implementation: components, layout work, UX-sensitive changes, polished copy changes, and day-to-day product UI work.",
       },
       {
-        id: "bytedance-seed/seed-1.6-flash",
-        name: "Seed 1.6 Flash",
+        id: "anthropic/claude-opus-4.6",
+        name: "Claude Opus 4.6",
         modality: "text,image->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Screenshot troubleshooting, UI walkthroughs, and image-based support issues at the cheapest multimodal price point. $0.075/$0.30 per M tokens.",
+          "Highest-stakes frontend architecture, design-system work, difficult interaction design, and polished UI changes where judgment matters most.",
+      },
+      {
+        id: "z-ai/glm-5",
+        name: "GLM 5",
+        modality: "text->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Tricky UI bugs, hydration/state issues, debugging complex regressions, and harder reasoning-heavy frontend fixes.",
+      },
+      {
+        id: "moonshotai/kimi-k2.5",
+        name: "Kimi K2.5",
+        modality: "text,image->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Screenshot-driven implementation, mock-to-code work, visual QA, CSS tuning, and image-heavy frontend tasks.",
+      },
+      {
+        id: "inception/mercury-2",
+        name: "Mercury 2",
+        modality: "text->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Quick easy edits: copy tweaks, spacing fixes, small JSX/CSS changes, and fast low-risk iteration where throughput matters most.",
+      },
+    ],
+    routingInstructions: `
+Route every frontend request to the best specialized model. Optimize for UI quality first, then debugging accuracy, then quick-edit speed.
+
+MODEL REFERENCE
+  anthropic/claude-sonnet-4.6  — default frontend implementation lane
+  anthropic/claude-opus-4.6    — highest-stakes frontend architecture and polish
+  z-ai/glm-5                   — debugging and hard reasoning lane
+  moonshotai/kimi-k2.5         — screenshot, mockup, and visual UI lane
+  inception/mercury-2          — quick-edit and low-risk fast lane
+
+ROUTING RULES (apply in order)
+
+IMAGE INPUT / SCREENSHOT / MOCKUP / "MAKE THIS MATCH" / VISUAL QA
+  → moonshotai/kimi-k2.5
+
+DEBUGGING / HYDRATION / STATE BUG / WEIRD LAYOUT REGRESSION / BROWSER-SPECIFIC ISSUE
+  → z-ai/glm-5
+
+DESIGN SYSTEM / SHARED COMPONENT API / HIGHEST-STAKES UI REFACTOR / PIXEL-PERFECT POLISH
+  → anthropic/claude-opus-4.6
+
+SMALL SAFE EDITS / COPY TWEAK / SPACING / CLASSNAME CHANGE / MINOR JSX OR CSS UPDATE
+  → inception/mercury-2
+
+ALL OTHER FRONTEND IMPLEMENTATION (components, pages, forms, responsiveness, interaction polish)
+  → anthropic/claude-sonnet-4.6
+`.trim(),
+  },
+
+  // ── 6. Open-Source Sovereign ───────────────────────────────────────────────
+  {
+    id: "open-source-sovereign",
+    name: "Open-Source Sovereign",
+    description: "Open-weight-first routing pool: GLM 5 as the flagship default, Qwen 3.5 397B for long-context multimodal work, Kimi for open visual/UI tasks, DeepSeek for budget volume, and Nemotron for fast cheap routing and extraction",
+    gatewayPresetId: "openrouter",
+    classifierModel: "nvidia/nemotron-3-super-120b-a12b",
+    defaultModel: "z-ai/glm-5",
+    models: [
+      {
+        id: "z-ai/glm-5",
+        name: "GLM 5",
+        modality: "text->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Default open-weight flagship for coding, agentic work, product reasoning, and high-judgment text tasks where you want strong capability without a closed frontier vendor.",
+      },
+      {
+        id: "qwen/qwen3.5-397b-a17b",
+        name: "Qwen3.5 397B A17B",
+        modality: "text,image,video->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Open-weight multimodal, long-context, repo-scale, and harder reasoning work when you want the strongest Qwen 3.5 option in the pool.",
+      },
+      {
+        id: "moonshotai/kimi-k2.5",
+        name: "Kimi K2.5",
+        modality: "text,image->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Open-weight visual/UI work, screenshot tasks, and multimodal workflows where GLM 5's text-only deployable ID is limiting.",
       },
       {
         id: "deepseek/deepseek-v3.2",
@@ -453,23 +510,116 @@ Prefer MiniMax M2.5 by default — it matches Opus-class benchmark scores at a f
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "High-volume FAQ handling, repetitive support macros, low-stakes deflection, and budget-sensitive queue coverage. $0.26/$0.38 per M tokens.",
+          "Budget-first open-weight text volume, background jobs, FAQ-style tasks, and cheap queue coverage.",
+      },
+      {
+        id: "nvidia/nemotron-3-super-120b-a12b",
+        name: "NVIDIA Nemotron 3 Super",
+        modality: "text->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Fast cheap open-weight routing, extraction, classification, and operational text tasks where speed per dollar matters most.",
       },
     ],
     routingInstructions: `
-Route every request to the single best support model. Optimize for accurate, empathetic resolution with minimal follow-up. Pricing shown per million tokens (input/output).
+Route every request to the best open-weight model in the pool. Prefer open-source deployable models even when proprietary frontier models might benchmark higher.
 
 MODEL REFERENCE
-  anthropic/claude-sonnet-4.6    — $3/$15     — vision, 1M ctx
-  google/gemini-3.1-pro-preview  — $2/$12     — vision, 1M ctx
-  x-ai/grok-4.1-fast             — $0.20/$0.50 — vision, 2M ctx, strong for tools / live lookup
-  bytedance-seed/seed-1.6-flash  — $0.075/$0.30 — vision, 256K ctx
-  deepseek/deepseek-v3.2         — $0.26/$0.38 — text only, 163K ctx
+  z-ai/glm-5                         — open-weight flagship default
+  qwen/qwen3.5-397b-a17b            — long-context multimodal and harder reasoning
+  moonshotai/kimi-k2.5              — visual/UI and open multimodal lane
+  deepseek/deepseek-v3.2            — cheapest open text volume lane
+  nvidia/nemotron-3-super-120b-a12b — classifier, extraction, and fast operational lane
+
+ROUTING RULES (apply in order)
+
+IMAGE INPUT / SCREENSHOT / VISUAL TASK / OPEN MULTIMODAL WORK
+  → moonshotai/kimi-k2.5
+
+LONG CONTEXT / LARGE REPO / BIG PASTE / HEAVIER MULTIMODAL OR MULTI-FILE WORK
+  → qwen/qwen3.5-397b-a17b
+
+CLASSIFICATION / EXTRACTION / HOT-PATH ROUTING / CHEAP STRUCTURED TEXT
+  → nvidia/nemotron-3-super-120b-a12b
+
+BUDGET-FIRST TEXT VOLUME / BACKGROUND TASK / FAQ / LOW-STAKES HIGH-THROUGHPUT
+  → deepseek/deepseek-v3.2
+
+EVERYTHING ELSE
+  → z-ai/glm-5
+`.trim(),
+  },
+
+  // ── 7. Customer Support ─────────────────────────────────────────────────────
+  {
+    id: "customer-support",
+    name: "Customer Support",
+    description: "Nuanced support replies by default, with dedicated paths for long ticket history, screenshots, tool-driven lookups, and budget-scale FAQ volume",
+    gatewayPresetId: "openrouter",
+    classifierModel: "nvidia/nemotron-3-super-120b-a12b",
+    defaultModel: "anthropic/claude-sonnet-4.6",
+    models: [
+      {
+        id: "anthropic/claude-sonnet-4.6",
+        name: "Claude Sonnet 4.6",
+        modality: "text,image->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Default for nuanced customer replies, de-escalation, policy explanations, retention conversations, and other high-empathy cases.",
+      },
+      {
+        id: "google/gemini-3.1-pro-preview",
+        name: "Gemini 3.1 Pro",
+        modality: "text,image->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Long ticket threads, full account histories, policy manuals, help-center synthesis, and large transcript summarization.",
+      },
+      {
+        id: "x-ai/grok-4.1-fast",
+        name: "Grok 4.1 Fast",
+        modality: "text,image->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Tool-driven support triage, order/account lookups, current-status checks, function calling, and fast operational answers.",
+      },
+      {
+        id: "google/gemini-3-flash-preview",
+        name: "Gemini 3 Flash",
+        modality: "text,image,file,audio,video->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Screenshot troubleshooting, UI walkthroughs, and image-based support issues that benefit from a fast multimodal model.",
+      },
+      {
+        id: "deepseek/deepseek-v3.2",
+        name: "DeepSeek V3.2",
+        modality: "text->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "High-volume FAQ handling, repetitive support macros, low-stakes deflection, and budget-sensitive queue coverage.",
+      },
+    ],
+    routingInstructions: `
+Route every request to the single best support model. Optimize for accurate, empathetic resolution with minimal follow-up.
+
+MODEL REFERENCE
+  anthropic/claude-sonnet-4.6    — nuanced response and empathy default
+  google/gemini-3.1-pro-preview  — long case history and large policy context
+  x-ai/grok-4.1-fast             — tools, live lookup, and operational support
+  google/gemini-3-flash-preview  — screenshot and multimodal troubleshooting
+  deepseek/deepseek-v3.2         — cheap high-volume FAQ and macro lane
 
 ROUTING RULES (apply in order)
 
 IMAGE INPUT / SCREENSHOT TROUBLESHOOTING
-  → bytedance-seed/seed-1.6-flash
+  → google/gemini-3-flash-preview
 
 TOOL USE / FUNCTION CALLING / ACCOUNT LOOKUPS / ORDER STATUS / CURRENT INFO
   → x-ai/grok-4.1-fast
@@ -490,13 +640,13 @@ Default to Claude Sonnet 4.6 when the task is ambiguous.
 `.trim(),
   },
 
-  // ── 6. Vercel Balanced General-Purpose ─────────────────────────────────────
+  // ── 8. Vercel Balanced General-Purpose ─────────────────────────────────────
   {
     id: "vercel-balanced",
     name: "Vercel Balanced",
-    description: "Balanced Vercel AI Gateway setup: Claude default, Gemini Pro for long context, Gemini Flash for speed, GPT-5 mini for structured/tool-heavy work, DeepSeek for budget",
+    description: "Balanced Vercel setup: Claude default, Gemini 3.1 Pro for long context, Gemini 3 Flash for speed and multimodal work, GPT-5.4 Mini for structured/tool-heavy flows, DeepSeek for budget text",
     gatewayPresetId: "vercel",
-    classifierModel: "google/gemini-2.5-flash-lite",
+    classifierModel: "google/gemini-3.1-flash-lite-preview",
     defaultModel: "anthropic/claude-sonnet-4.6",
     models: [
       {
@@ -509,31 +659,31 @@ Default to Claude Sonnet 4.6 when the task is ambiguous.
           "Default for nuanced reasoning, polished writing, and ambiguous tasks where quality matters most. $3/$15 per M tokens.",
       },
       {
-        id: "google/gemini-2.5-pro",
-        name: "Gemini 2.5 Pro",
-        modality: "text,image->text",
+        id: "google/gemini-3.1-pro-preview",
+        name: "Gemini 3.1 Pro Preview",
+        modality: "text,image,file,audio,video->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Large documents, long transcripts, file-heavy analysis, and read-heavy work with 1M context. $1.25/$10 per M tokens up to 200K input tokens.",
+          "Large documents, long transcripts, file-heavy analysis, and read-heavy work with very large context.",
       },
       {
-        id: "google/gemini-2.5-flash",
-        name: "Gemini 2.5 Flash",
+        id: "google/gemini-3-flash",
+        name: "Gemini 3 Flash",
         modality: "text,image->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Fast replies, lightweight multimodal tasks, and lower-latency general chat. $0.30/$2.50 per M tokens.",
+          "Fast replies, lightweight multimodal tasks, and lower-latency general chat.",
       },
       {
-        id: "openai/gpt-5-mini",
-        name: "GPT-5 mini",
+        id: "openai/gpt-5.4-mini",
+        name: "GPT-5.4 Mini",
         modality: "text,image->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Structured outputs, tool-heavy tasks, and reliable instruction-following with lower cost than frontier GPT models. $0.25/$2 per M tokens.",
+          "Structured outputs, tool-heavy tasks, and reliable instruction-following when you want tighter behavior than the Gemini fast lane.",
       },
       {
         id: "deepseek/deepseek-v3.2",
@@ -549,22 +699,22 @@ Default to Claude Sonnet 4.6 when the task is ambiguous.
 Route every request to the best Vercel AI Gateway model for the task. Prefer quality first, then speed and cost.
 
 MODEL REFERENCE
-  anthropic/claude-sonnet-4.6  — $3/$15      — vision, 1M ctx
-  google/gemini-2.5-pro        — $1.25/$10   — vision, 1M ctx
-  google/gemini-2.5-flash      — $0.30/$2.50 — vision, 1M ctx
-  openai/gpt-5-mini            — $0.25/$2    — vision, 400K ctx
-  deepseek/deepseek-v3.2       — $0.26/$0.38 — text only, 128K ctx
+  anthropic/claude-sonnet-4.6     — quality-first default
+  google/gemini-3.1-pro-preview   — long-context and file-heavy analysis
+  google/gemini-3-flash           — fast multimodal lane
+  openai/gpt-5.4-mini             — structured output and tool-heavy lane
+  deepseek/deepseek-v3.2          — budget text fallback
 
 ROUTING RULES (apply in order)
 
 LONG DOCUMENTS / FILE INPUT / TRANSCRIPTS / CONTEXT >50K TOKENS
-  → google/gemini-2.5-pro
+  → google/gemini-3.1-pro-preview
 
 STRICT JSON / STRUCTURED OUTPUT / TOOL-HEAVY WORKFLOWS
-  → openai/gpt-5-mini
+  → openai/gpt-5.4-mini
 
 QUICK GENERAL CHAT / LIGHTWEIGHT MULTIMODAL / LOWER-LATENCY REQUESTS
-  → google/gemini-2.5-flash
+  → google/gemini-3-flash
 
 BUDGET-FIRST TEXT TASKS
   → deepseek/deepseek-v3.2
@@ -576,32 +726,32 @@ Default to Claude Sonnet 4.6 when the task is ambiguous.
 `.trim(),
   },
 
-  // ── 7. Vercel Speed-First ──────────────────────────────────────────────────
+  // ── 9. Vercel Speed-First ──────────────────────────────────────────────────
   {
     id: "vercel-speed-first",
     name: "Vercel Speed-First",
-    description: "Low-latency Vercel AI Gateway setup with Gemini Flash Lite as default, Grok Fast for long-context tools, GPT-5 mini for stricter structured work, and DeepSeek for cheapest text volume",
+    description: "Low-latency Vercel setup with Gemini 3.1 Flash Lite default, Gemini 3 Flash for fast multimodal work, Grok Fast for long-context text, Claude Haiku for stricter structured replies, and DeepSeek for cheap text volume",
     gatewayPresetId: "vercel",
-    classifierModel: "google/gemini-2.5-flash-lite",
-    defaultModel: "google/gemini-2.5-flash-lite",
+    classifierModel: "google/gemini-3.1-flash-lite-preview",
+    defaultModel: "google/gemini-3.1-flash-lite-preview",
     models: [
       {
-        id: "google/gemini-2.5-flash-lite",
-        name: "Gemini 2.5 Flash Lite",
+        id: "google/gemini-3.1-flash-lite-preview",
+        name: "Gemini 3.1 Flash Lite Preview",
         modality: "text,image->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Default for the fastest low-cost responses on Vercel with multimodal support. $0.10/$0.40 per M tokens.",
+          "Default for the fastest low-cost responses on Vercel with multimodal support.",
       },
       {
-        id: "google/gemini-2.5-flash",
-        name: "Gemini 2.5 Flash",
+        id: "google/gemini-3-flash",
+        name: "Gemini 3 Flash",
         modality: "text,image->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Fast multimodal tasks that need more headroom than Flash Lite. $0.30/$2.50 per M tokens.",
+          "Fast multimodal tasks that need more headroom than Flash Lite.",
       },
       {
         id: "xai/grok-4.1-fast-non-reasoning",
@@ -610,16 +760,16 @@ Default to Claude Sonnet 4.6 when the task is ambiguous.
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Long-context tool use, operational lookups, and fast text workflows with 2M context. $0.20/$0.50 per M tokens up to 128K input tokens.",
+          "Long-context tool use, operational lookups, and fast text workflows with 2M context.",
       },
       {
-        id: "openai/gpt-5-mini",
-        name: "GPT-5 mini",
+        id: "anthropic/claude-haiku-4.5",
+        name: "Claude Haiku 4.5",
         modality: "text,image->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Fast structured outputs and stricter instruction following when Flash Lite is too loose. $0.25/$2 per M tokens.",
+          "Fast structured outputs and stricter instruction following when Flash Lite is too loose.",
       },
       {
         id: "deepseek/deepseek-v3.2",
@@ -635,11 +785,11 @@ Default to Claude Sonnet 4.6 when the task is ambiguous.
 Route every request to the fastest acceptable model on Vercel AI Gateway. Minimize latency and cost before quality.
 
 MODEL REFERENCE
-  google/gemini-2.5-flash-lite     — $0.10/$0.40 — vision, 1M ctx
-  google/gemini-2.5-flash          — $0.30/$2.50 — vision, 1M ctx
-  xai/grok-4.1-fast-non-reasoning  — $0.20/$0.50 — text only, 2M ctx
-  openai/gpt-5-mini                — $0.25/$2    — vision, 400K ctx
-  deepseek/deepseek-v3.2           — $0.26/$0.38 — text only, 128K ctx
+  google/gemini-3.1-flash-lite-preview  — fastest cheap multimodal default
+  google/gemini-3-flash                 — higher-headroom multimodal speed lane
+  xai/grok-4.1-fast-non-reasoning       — long-context text and operational lane
+  anthropic/claude-haiku-4.5            — stricter structured output lane
+  deepseek/deepseek-v3.2                — cheap text volume fallback
 
 ROUTING RULES (apply in order)
 
@@ -647,29 +797,29 @@ LONG CONTEXT / TOOL-HEAVY TEXT WORKFLOWS
   → xai/grok-4.1-fast-non-reasoning
 
 STRICT JSON / STRUCTURED OUTPUT
-  → openai/gpt-5-mini
+  → anthropic/claude-haiku-4.5
 
 IMAGE INPUT / SCREENSHOTS / FAST MULTIMODAL
-  → google/gemini-2.5-flash
+  → google/gemini-3-flash
 
 CHEAPEST TEXT VOLUME
   → deepseek/deepseek-v3.2
 
 EVERYTHING ELSE
-  → google/gemini-2.5-flash-lite
+  → google/gemini-3.1-flash-lite-preview
 
-Default to Gemini 2.5 Flash Lite when the task is simple or ambiguous.
+Default to Gemini 3.1 Flash Lite Preview when the task is simple or ambiguous.
 `.trim(),
   },
 
-  // ── 8. Cheap Frontier Coding ───────────────────────────────────────────────
+  // ── 10. Cheap Frontier Coding ──────────────────────────────────────────────
   {
     id: "coding-cheap-frontier",
     name: "Cheap Frontier Coding",
     description:
       "OpenRouter coding preset with MiniMax M2.7 as the cheap implementation default, GLM 5 for architecture and complex builds, Kimi K2.5 for UI and multimodal work, Mercury 2 for quick edits, and Gemini 3.1 Flash Lite Preview for long-context overflow",
     gatewayPresetId: "openrouter",
-    classifierModel: "google/gemini-3.1-flash-lite-preview",
+    classifierModel: "nvidia/nemotron-3-super-120b-a12b",
     defaultModel: "minimax/minimax-m2.7",
     models: [
       {
@@ -749,13 +899,13 @@ Default to MiniMax M2.7 when the task is ordinary implementation work and the ro
 `.trim(),
   },
 
-  // ── 9. Vercel Customer Support ─────────────────────────────────────────────
+  // ── 11. Vercel Customer Support ────────────────────────────────────────────
   {
     id: "vercel-customer-support",
     name: "Vercel Customer Support",
-    description: "Customer-support routing for Vercel AI Gateway: Claude default, Gemini Pro for long case history, Gemini Flash for screenshots, GPT-5 mini for strict handoffs, DeepSeek for budget FAQs",
+    description: "Customer-support routing for Vercel AI Gateway: Claude default, Gemini 3.1 Pro for long case history, Gemini 3 Flash for screenshots, GPT-5.4 Mini for strict handoffs, DeepSeek for budget FAQs",
     gatewayPresetId: "vercel",
-    classifierModel: "google/gemini-2.5-flash-lite",
+    classifierModel: "google/gemini-3.1-flash-lite-preview",
     defaultModel: "anthropic/claude-sonnet-4.6",
     models: [
       {
@@ -768,31 +918,31 @@ Default to MiniMax M2.7 when the task is ordinary implementation work and the ro
           "Default for empathetic replies, de-escalation, policy explanations, and high-judgment support work. $3/$15 per M tokens.",
       },
       {
-        id: "google/gemini-2.5-pro",
-        name: "Gemini 2.5 Pro",
-        modality: "text,image->text",
+        id: "google/gemini-3.1-pro-preview",
+        name: "Gemini 3.1 Pro Preview",
+        modality: "text,image,file,audio,video->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Long ticket histories, full account timelines, large policy docs, and case-summary synthesis. $1.25/$10 per M tokens up to 200K input tokens.",
+          "Long ticket histories, full account timelines, large policy docs, and case-summary synthesis.",
       },
       {
-        id: "google/gemini-2.5-flash",
-        name: "Gemini 2.5 Flash",
+        id: "google/gemini-3-flash",
+        name: "Gemini 3 Flash",
         modality: "text,image->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Screenshot troubleshooting, quick support replies, and lower-latency multimodal support flows. $0.30/$2.50 per M tokens.",
+          "Screenshot troubleshooting, quick support replies, and lower-latency multimodal support flows.",
       },
       {
-        id: "openai/gpt-5-mini",
-        name: "GPT-5 mini",
+        id: "openai/gpt-5.4-mini",
+        name: "GPT-5.4 Mini",
         modality: "text,image->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Strict JSON handoffs, CRM/tool workflows, and support automations with exact instruction following. $0.25/$2 per M tokens.",
+          "Strict JSON handoffs, CRM/tool workflows, and support automations with exact instruction following.",
       },
       {
         id: "deepseek/deepseek-v3.2",
@@ -808,22 +958,22 @@ Default to MiniMax M2.7 when the task is ordinary implementation work and the ro
 Route every request to the single best Vercel AI Gateway model for customer support. Optimize for accurate, empathetic resolution with minimal follow-up.
 
 MODEL REFERENCE
-  anthropic/claude-sonnet-4.6  — $3/$15      — vision, 1M ctx
-  google/gemini-2.5-pro        — $1.25/$10   — vision, 1M ctx
-  google/gemini-2.5-flash      — $0.30/$2.50 — vision, 1M ctx
-  openai/gpt-5-mini            — $0.25/$2    — vision, 400K ctx
-  deepseek/deepseek-v3.2       — $0.26/$0.38 — text only, 128K ctx
+  anthropic/claude-sonnet-4.6     — empathetic default and high-judgment lane
+  google/gemini-3.1-pro-preview   — long case history and large-policy lane
+  google/gemini-3-flash           — screenshot and fast multimodal lane
+  openai/gpt-5.4-mini             — strict handoffs and support automation
+  deepseek/deepseek-v3.2          — cheap FAQ volume fallback
 
 ROUTING RULES (apply in order)
 
 LONG CASE HISTORY / LARGE POLICY PASTE / MULTI-THREAD SUMMARY / CONTEXT >50K TOKENS
-  → google/gemini-2.5-pro
+  → google/gemini-3.1-pro-preview
 
 IMAGE INPUT / SCREENSHOT TROUBLESHOOTING / UI WALKTHROUGH
-  → google/gemini-2.5-flash
+  → google/gemini-3-flash
 
 STRICT STRUCTURED HANDOFF / TOOL-DRIVEN SUPPORT AUTOMATION
-  → openai/gpt-5-mini
+  → openai/gpt-5.4-mini
 
 FAQ / MACRO-LIKE REPLIES / LOW-STAKES HIGH-VOLUME SUPPORT WHERE COST MATTERS MOST
   → deepseek/deepseek-v3.2
@@ -835,13 +985,13 @@ Default to Claude Sonnet 4.6 when the support task is ambiguous or emotionally s
 `.trim(),
   },
 
-  // ── 10. Vercel Fast Coding ─────────────────────────────────────────────────
+  // ── 12. Vercel Fast Coding ─────────────────────────────────────────────────
   {
     id: "vercel-coding-fast",
     name: "Vercel Fast Coding",
-    description: "Comparable to the OpenRouter fast-coding preset, but built from Vercel AI Gateway models: Grok Code Fast as the cheap code-first default, GPT-5 Codex for harder implementation work, Claude for review quality, Gemini for repo-wide reads",
+    description: "Comparable to the OpenRouter fast-coding preset, but built from Vercel models: Grok Code Fast as the cheap code-first default, GLM 5 for harder implementation work, Claude for review quality, Gemini 3.1 Pro for repo-wide reads, and DeepSeek for cheap scripts",
     gatewayPresetId: "vercel",
-    classifierModel: "google/gemini-2.5-flash-lite",
+    classifierModel: "google/gemini-3.1-flash-lite-preview",
     defaultModel: "xai/grok-code-fast-1",
     models: [
       {
@@ -854,13 +1004,13 @@ Default to Claude Sonnet 4.6 when the support task is ambiguous or emotionally s
           "Default for everyday coding with a speed and cost bias: implementations, refactors, bug fixes, and interactive iteration. Code-specialized, 256K ctx. $0.20/$1.50 per M tokens.",
       },
       {
-        id: "openai/gpt-5-codex",
-        name: "GPT-5 Codex",
+        id: "zai/glm-5",
+        name: "GLM 5",
         modality: "text->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Harder implementation work, multi-step fixes, exact code edits, and stronger code-generation reliability. 400K ctx. $1.25/$10 per M tokens.",
+          "Harder implementation work, multi-step fixes, and stronger reasoning-heavy code generation.",
       },
       {
         id: "anthropic/claude-sonnet-4.6",
@@ -872,13 +1022,13 @@ Default to Claude Sonnet 4.6 when the support task is ambiguous or emotionally s
           "Code review, architectural tradeoffs, nuanced explanations, and ambiguous engineering tasks where judgment matters. 1M ctx. $3/$15 per M tokens.",
       },
       {
-        id: "google/gemini-2.5-pro",
-        name: "Gemini 2.5 Pro",
-        modality: "text,image->text",
+        id: "google/gemini-3.1-pro-preview",
+        name: "Gemini 3.1 Pro Preview",
+        modality: "text,image,file,audio,video->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Full-repo analysis, long transcripts, giant docs, and read-heavy coding tasks that need 1M context. $1.25/$10 per M tokens up to 200K input tokens.",
+          "Full-repo analysis, long transcripts, giant docs, and read-heavy coding tasks that need very large context.",
       },
       {
         id: "deepseek/deepseek-v3.2",
@@ -894,19 +1044,19 @@ Default to Claude Sonnet 4.6 when the support task is ambiguous or emotionally s
 Route every request to the best Vercel AI Gateway coding model for the task. Optimize for coding quality per dollar, then speed.
 
 MODEL REFERENCE
-  xai/grok-code-fast-1         — $0.20/$1.50 — text only, 256K ctx
-  openai/gpt-5-codex           — $1.25/$10   — text only, 400K ctx
-  anthropic/claude-sonnet-4.6  — $3/$15      — vision, 1M ctx
-  google/gemini-2.5-pro        — $1.25/$10   — vision, 1M ctx
-  deepseek/deepseek-v3.2       — $0.26/$0.38 — text only, 128K ctx
+  xai/grok-code-fast-1            — cheap code-first default
+  zai/glm-5                       — harder implementation and deeper reasoning
+  anthropic/claude-sonnet-4.6     — review quality and tradeoff analysis
+  google/gemini-3.1-pro-preview   — large repo/context lane
+  deepseek/deepseek-v3.2          — cheap scripts and utilities
 
 ROUTING RULES (apply in order)
 
 FULL REPO ANALYSIS / LARGE CODEBASE READS / CONTEXT >100K TOKENS
-  → google/gemini-2.5-pro
+  → google/gemini-3.1-pro-preview
 
 COMPLEX IMPLEMENTATION / MULTI-STEP BUG FIX / PRECISE CODE EDITS / HIGHER CONFIDENCE NEEDED
-  → openai/gpt-5-codex
+  → zai/glm-5
 
 CODE REVIEW / DESIGN DISCUSSION / TRADEOFF ANALYSIS / AMBIGUOUS ENGINEERING QUESTIONS
   → anthropic/claude-sonnet-4.6
@@ -921,13 +1071,13 @@ Default to Grok Code Fast 1 when the task is ordinary coding and the route is am
 `.trim(),
   },
 
-  // ── 11. Vercel Deep Premium Agentic ────────────────────────────────────────
+  // ── 13. Vercel Deep Premium Agentic ────────────────────────────────────────
   {
     id: "vercel-coding-agentic-premium",
     name: "Vercel Deep Premium Agentic",
-    description: "Comparable to the OpenRouter premium-agentic coding preset, built from Vercel AI Gateway models: Claude Sonnet as the premium workhorse, Claude Opus for highest-stakes work, GPT-5.4 and GPT-5 Codex for tool-heavy execution, Gemini Pro for whole-repo reads",
+    description: "Comparable to the OpenRouter premium-agentic coding preset, built from Vercel models: Claude Sonnet as the premium workhorse, Claude Opus for highest-stakes work, GPT-5.4 Mini for tool-heavy execution, GLM 5 for long agent loops, and Gemini 3.1 Pro for whole-repo reads",
     gatewayPresetId: "vercel",
-    classifierModel: "google/gemini-2.5-flash-lite",
+    classifierModel: "google/gemini-3.1-flash-lite-preview",
     defaultModel: "anthropic/claude-sonnet-4.6",
     models: [
       {
@@ -949,42 +1099,42 @@ Default to Grok Code Fast 1 when the task is ordinary coding and the route is am
           "Highest-stakes architecture, security-sensitive changes, and the hardest engineering tasks where cost is justified. 1M ctx. $5/$25 per M tokens.",
       },
       {
-        id: "openai/gpt-5.4",
-        name: "GPT 5.4",
+        id: "openai/gpt-5.4-mini",
+        name: "GPT 5.4 Mini",
         modality: "text,image->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Tool-heavy planning, structured execution, multimodal engineering tasks, and deep reasoning with 1.05M context. $2.50/$15 per M tokens.",
+          "Tool-heavy planning, structured execution, multimodal engineering tasks, and fast frontier-grade reasoning.",
       },
       {
-        id: "openai/gpt-5-codex",
-        name: "GPT-5 Codex",
+        id: "zai/glm-5",
+        name: "GLM 5",
         modality: "text->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Precise code generation, exact code edits, and implementation-heavy agent loops. 400K ctx. $1.25/$10 per M tokens.",
+          "Long agent loops, instruction decomposition, and reasoning-heavy implementation work.",
       },
       {
-        id: "google/gemini-2.5-pro",
-        name: "Gemini 2.5 Pro",
-        modality: "text,image->text",
+        id: "google/gemini-3.1-pro-preview",
+        name: "Gemini 3.1 Pro Preview",
+        modality: "text,image,file,audio,video->text",
         thinking: "none",
         reasoningPreset: "none",
         whenToUse:
-          "Read-heavy whole-repo analysis, giant documents, and repository-scale architecture Q&A. 1M ctx. $1.25/$10 per M tokens up to 200K input tokens.",
+          "Read-heavy whole-repo analysis, giant documents, and repository-scale architecture Q&A.",
       },
     ],
     routingInstructions: `
 Route every request to the best Vercel AI Gateway model for premium agentic coding. Optimize for capability first and cost second.
 
 MODEL REFERENCE
-  anthropic/claude-sonnet-4.6  — $3/$15      — vision, 1M ctx
-  anthropic/claude-opus-4.6    — $5/$25      — vision, 1M ctx
-  openai/gpt-5.4               — $2.50/$15   — vision, 1.05M ctx
-  openai/gpt-5-codex           — $1.25/$10   — text only, 400K ctx
-  google/gemini-2.5-pro        — $1.25/$10   — vision, 1M ctx
+  anthropic/claude-sonnet-4.6     — premium default workhorse
+  anthropic/claude-opus-4.6       — highest-stakes architecture lane
+  openai/gpt-5.4-mini             — tool-heavy multimodal execution
+  zai/glm-5                       — long agent loops and reasoning-heavy execution
+  google/gemini-3.1-pro-preview   — whole-repo reads and long-context synthesis
 
 ROUTING RULES (apply in order)
 
@@ -992,13 +1142,13 @@ HIGHEST-STAKES ARCHITECTURE / SECURITY-SENSITIVE / VERY HARD ENGINEERING DECISIO
   → anthropic/claude-opus-4.6
 
 MULTIMODAL ENGINEERING / TOOL-HEAVY STRUCTURED EXECUTION / DEEP REASONING
-  → openai/gpt-5.4
+  → openai/gpt-5.4-mini
 
 PRECISE IMPLEMENTATION / EXACT CODE EDITS / CODE-FIRST AGENT LOOPS
-  → openai/gpt-5-codex
+  → zai/glm-5
 
 WHOLE-REPO READS / LONG DOCUMENTS / LARGE CONTEXT SYNTHESIS
-  → google/gemini-2.5-pro
+  → google/gemini-3.1-pro-preview
 
 EVERYTHING ELSE
   → anthropic/claude-sonnet-4.6

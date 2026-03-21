@@ -103,7 +103,7 @@ describe("normalizeProfilesForEditor", () => {
 });
 
 describe("createProfileFromPreset", () => {
-  it("binds speed-first nitro models when only base OpenRouter ids are synced", () => {
+  it("binds the speed-first preset to synced OpenRouter models", () => {
     const speedFirst = ROUTING_PRESETS.find((preset) => preset.id === "speed-first");
     expect(speedFirst).toBeTruthy();
 
@@ -116,23 +116,26 @@ describe("createProfileFromPreset", () => {
         updatedAt: "2026-03-16T00:00:00.000Z",
         models: [
           { id: "inception/mercury-2", name: "Mercury 2" },
-          { id: "bytedance-seed/seed-1.6-flash", name: "Seed 1.6 Flash" },
+          { id: "google/gemini-3-flash-preview", name: "Gemini 3 Flash" },
           { id: "x-ai/grok-4.1-fast", name: "Grok 4.1 Fast" },
           { id: "google/gemini-3.1-flash-lite-preview", name: "Google: Gemini 3.1 Flash Lite Preview" },
-          { id: "meta-llama/llama-3.3-70b-instruct", name: "Meta: Llama 3.3 70B Instruct" },
+          { id: "nvidia/nemotron-3-super-120b-a12b", name: "NVIDIA Nemotron 3 Super" },
         ],
       },
     ]);
 
+    expect(profile.defaultModel).toBe("gw_openrouter::inception/mercury-2");
+    expect(profile.classifierModel).toBe("gw_openrouter::nvidia/nemotron-3-super-120b-a12b");
+    expect(profile.models).toHaveLength(5);
     expect(profile.models).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           gatewayId: "gw_openrouter",
-          modelId: "google/gemini-3.1-flash-lite-preview:nitro",
+          modelId: "google/gemini-3-flash-preview",
         }),
         expect.objectContaining({
           gatewayId: "gw_openrouter",
-          modelId: "meta-llama/llama-3.3-70b-instruct:nitro",
+          modelId: "nvidia/nemotron-3-super-120b-a12b",
         }),
       ]),
     );
@@ -151,17 +154,17 @@ describe("createProfileFromPreset", () => {
         updatedAt: "2026-03-16T00:00:00.000Z",
         models: [
           { id: "anthropic/claude-sonnet-4.6", name: "Anthropic: Claude Sonnet 4.6" },
-          { id: "google/gemini-3.1-flash-lite-preview", name: "Google: Gemini 3.1 Flash Lite Preview" },
+          { id: "nvidia/nemotron-3-super-120b-a12b", name: "NVIDIA Nemotron 3 Super" },
           { id: "google/gemini-3.1-pro-preview", name: "Google: Gemini 3.1 Pro Preview" },
           { id: "x-ai/grok-4.1-fast", name: "xAI: Grok 4.1 Fast" },
-          { id: "bytedance-seed/seed-1.6-flash", name: "ByteDance Seed: Seed 1.6 Flash" },
+          { id: "google/gemini-3-flash-preview", name: "Google: Gemini 3 Flash Preview" },
           { id: "deepseek/deepseek-v3.2", name: "DeepSeek: DeepSeek V3.2" },
         ],
       },
     ]);
 
     expect(profile.defaultModel).toBe("gw_openrouter::anthropic/claude-sonnet-4.6");
-    expect(profile.classifierModel).toBe("gw_openrouter::google/gemini-3.1-flash-lite-preview");
+    expect(profile.classifierModel).toBe("gw_openrouter::nvidia/nemotron-3-super-120b-a12b");
     expect(profile.models).toHaveLength(5);
     expect(profile.models).toEqual(
       expect.arrayContaining([
@@ -194,12 +197,13 @@ describe("createProfileFromPreset", () => {
           { id: "moonshotai/kimi-k2.5", name: "MoonshotAI: Kimi K2.5" },
           { id: "inception/mercury-2", name: "Inception: Mercury 2" },
           { id: "google/gemini-3.1-flash-lite-preview", name: "Google: Gemini 3.1 Flash Lite Preview" },
+          { id: "nvidia/nemotron-3-super-120b-a12b", name: "NVIDIA Nemotron 3 Super" },
         ],
       },
     ]);
 
     expect(profile.defaultModel).toBe("gw_openrouter::minimax/minimax-m2.7");
-    expect(profile.classifierModel).toBe("gw_openrouter::google/gemini-3.1-flash-lite-preview");
+    expect(profile.classifierModel).toBe("gw_openrouter::nvidia/nemotron-3-super-120b-a12b");
     expect(profile.models).toHaveLength(5);
     expect(profile.models).toEqual(
       expect.arrayContaining([
@@ -210,6 +214,83 @@ describe("createProfileFromPreset", () => {
         expect.objectContaining({
           gatewayId: "gw_openrouter",
           modelId: "moonshotai/kimi-k2.5",
+        }),
+      ]),
+    );
+  });
+
+  it("binds the frontend UI builder preset to synced OpenRouter models", () => {
+    const frontendUiBuilder = ROUTING_PRESETS.find((preset) => preset.id === "frontend-ui-builder");
+    expect(frontendUiBuilder).toBeTruthy();
+
+    const profile = createProfileFromPreset(frontendUiBuilder!, [
+      {
+        id: "gw_openrouter",
+        name: "OpenRouter",
+        baseUrl: "https://openrouter.ai/api/v1",
+        createdAt: "2026-03-16T00:00:00.000Z",
+        updatedAt: "2026-03-16T00:00:00.000Z",
+        models: [
+          { id: "anthropic/claude-sonnet-4.6", name: "Anthropic: Claude Sonnet 4.6" },
+          { id: "anthropic/claude-opus-4.6", name: "Anthropic: Claude Opus 4.6" },
+          { id: "z-ai/glm-5", name: "Z.ai: GLM 5" },
+          { id: "moonshotai/kimi-k2.5", name: "MoonshotAI: Kimi K2.5" },
+          { id: "inception/mercury-2", name: "Inception: Mercury 2" },
+          { id: "nvidia/nemotron-3-super-120b-a12b", name: "NVIDIA Nemotron 3 Super" },
+        ],
+      },
+    ]);
+
+    expect(profile.defaultModel).toBe("gw_openrouter::anthropic/claude-sonnet-4.6");
+    expect(profile.classifierModel).toBe("gw_openrouter::nvidia/nemotron-3-super-120b-a12b");
+    expect(profile.models).toHaveLength(5);
+    expect(profile.models).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gatewayId: "gw_openrouter",
+          modelId: "inception/mercury-2",
+        }),
+        expect.objectContaining({
+          gatewayId: "gw_openrouter",
+          modelId: "moonshotai/kimi-k2.5",
+        }),
+      ]),
+    );
+  });
+
+  it("binds the open-source sovereign preset to synced OpenRouter models", () => {
+    const openSourceSovereign = ROUTING_PRESETS.find((preset) => preset.id === "open-source-sovereign");
+    expect(openSourceSovereign).toBeTruthy();
+
+    const profile = createProfileFromPreset(openSourceSovereign!, [
+      {
+        id: "gw_openrouter",
+        name: "OpenRouter",
+        baseUrl: "https://openrouter.ai/api/v1",
+        createdAt: "2026-03-16T00:00:00.000Z",
+        updatedAt: "2026-03-16T00:00:00.000Z",
+        models: [
+          { id: "z-ai/glm-5", name: "Z.ai: GLM 5" },
+          { id: "qwen/qwen3.5-397b-a17b", name: "Qwen3.5 397B A17B" },
+          { id: "moonshotai/kimi-k2.5", name: "MoonshotAI: Kimi K2.5" },
+          { id: "deepseek/deepseek-v3.2", name: "DeepSeek: DeepSeek V3.2" },
+          { id: "nvidia/nemotron-3-super-120b-a12b", name: "NVIDIA Nemotron 3 Super" },
+        ],
+      },
+    ]);
+
+    expect(profile.defaultModel).toBe("gw_openrouter::z-ai/glm-5");
+    expect(profile.classifierModel).toBe("gw_openrouter::nvidia/nemotron-3-super-120b-a12b");
+    expect(profile.models).toHaveLength(5);
+    expect(profile.models).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gatewayId: "gw_openrouter",
+          modelId: "qwen/qwen3.5-397b-a17b",
+        }),
+        expect.objectContaining({
+          gatewayId: "gw_openrouter",
+          modelId: "deepseek/deepseek-v3.2",
         }),
       ]),
     );
@@ -228,27 +309,27 @@ describe("createProfileFromPreset", () => {
         updatedAt: "2026-03-16T00:00:00.000Z",
         models: [
           { id: "anthropic/claude-sonnet-4.6", name: "Claude Sonnet 4.6" },
-          { id: "google/gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite" },
-          { id: "google/gemini-2.5-pro", name: "Gemini 2.5 Pro" },
-          { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash" },
-          { id: "openai/gpt-5-mini", name: "GPT-5 mini" },
+          { id: "google/gemini-3.1-flash-lite-preview", name: "Gemini 3.1 Flash Lite Preview" },
+          { id: "google/gemini-3.1-pro-preview", name: "Gemini 3.1 Pro Preview" },
+          { id: "google/gemini-3-flash", name: "Gemini 3 Flash" },
+          { id: "openai/gpt-5.4-mini", name: "GPT-5.4 Mini" },
           { id: "deepseek/deepseek-v3.2", name: "DeepSeek V3.2" },
         ],
       },
     ]);
 
     expect(profile.defaultModel).toBe("gw_vercel::anthropic/claude-sonnet-4.6");
-    expect(profile.classifierModel).toBe("gw_vercel::google/gemini-2.5-flash-lite");
+    expect(profile.classifierModel).toBe("gw_vercel::google/gemini-3.1-flash-lite-preview");
     expect(profile.models).toHaveLength(5);
     expect(profile.models).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           gatewayId: "gw_vercel",
-          modelId: "google/gemini-2.5-pro",
+          modelId: "google/gemini-3.1-pro-preview",
         }),
         expect.objectContaining({
           gatewayId: "gw_vercel",
-          modelId: "openai/gpt-5-mini",
+          modelId: "openai/gpt-5.4-mini",
         }),
       ]),
     );
@@ -268,16 +349,16 @@ describe("createProfileFromPreset", () => {
         models: [
           { id: "anthropic/claude-sonnet-4.6", name: "Claude Sonnet 4.6" },
           { id: "anthropic/claude-opus-4.6", name: "Claude Opus 4.6" },
-          { id: "openai/gpt-5.4", name: "GPT 5.4" },
-          { id: "openai/gpt-5-codex", name: "GPT-5 Codex" },
-          { id: "google/gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite" },
-          { id: "google/gemini-2.5-pro", name: "Gemini 2.5 Pro" },
+          { id: "openai/gpt-5.4-mini", name: "GPT-5.4 Mini" },
+          { id: "zai/glm-5", name: "GLM 5" },
+          { id: "google/gemini-3.1-flash-lite-preview", name: "Gemini 3.1 Flash Lite Preview" },
+          { id: "google/gemini-3.1-pro-preview", name: "Gemini 3.1 Pro Preview" },
         ],
       },
     ]);
 
     expect(profile.defaultModel).toBe("gw_vercel::anthropic/claude-sonnet-4.6");
-    expect(profile.classifierModel).toBe("gw_vercel::google/gemini-2.5-flash-lite");
+    expect(profile.classifierModel).toBe("gw_vercel::google/gemini-3.1-flash-lite-preview");
     expect(profile.models).toHaveLength(5);
     expect(profile.models).toEqual(
       expect.arrayContaining([
@@ -287,7 +368,7 @@ describe("createProfileFromPreset", () => {
         }),
         expect.objectContaining({
           gatewayId: "gw_vercel",
-          modelId: "openai/gpt-5-codex",
+          modelId: "zai/glm-5",
         }),
       ]),
     );
@@ -333,11 +414,11 @@ describe("preset refresh helpers", () => {
           updatedAt: "2026-03-16T00:00:00.000Z",
           models: [
             { id: "anthropic/claude-sonnet-4.6", name: "Anthropic: Claude Sonnet 4.6" },
-            { id: "google/gemini-3.1-flash-lite-preview", name: "Google: Gemini 3.1 Flash Lite Preview" },
+            { id: "nvidia/nemotron-3-super-120b-a12b", name: "NVIDIA Nemotron 3 Super" },
             { id: "google/gemini-3.1-pro-preview", name: "Google: Gemini 3.1 Pro Preview" },
-            { id: "bytedance-seed/seed-1.6-flash", name: "ByteDance Seed: Seed 1.6 Flash" },
+            { id: "google/gemini-3-flash-preview", name: "Google: Gemini 3 Flash Preview" },
             { id: "inception/mercury-2", name: "Mercury 2" },
-            { id: "deepseek/deepseek-v3.2", name: "DeepSeek: DeepSeek V3.2" },
+            { id: "perplexity/sonar-pro-search", name: "Perplexity: Sonar Pro Search" },
           ],
         },
       ],
@@ -347,7 +428,7 @@ describe("preset refresh helpers", () => {
     expect(refreshed.name).toBe("Balanced General-Purpose");
     expect(refreshed.routingInstructions).toContain("Route every request to the single best model.");
     expect(refreshed.defaultModel).toBe("gw_openrouter::anthropic/claude-sonnet-4.6");
-    expect(refreshed.classifierModel).toBe("gw_openrouter::google/gemini-3.1-flash-lite-preview");
+    expect(refreshed.classifierModel).toBe("gw_openrouter::nvidia/nemotron-3-super-120b-a12b");
     expect(refreshed.models).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
