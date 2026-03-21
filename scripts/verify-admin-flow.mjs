@@ -22,6 +22,16 @@ const TEST_USER = {
   password: TEST_PASSWORD,
 };
 
+async function waitForEnabledPrimarySubmit(page, timeout = 5000) {
+  await page.waitForFunction(
+    () => {
+      const button = document.querySelector("button.btn.btn--primary");
+      return button instanceof HTMLButtonElement && !button.disabled;
+    },
+    { timeout }
+  );
+}
+
 async function main() {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
@@ -70,11 +80,23 @@ async function main() {
 
     console.log("Opening /admin and performing UI login...");
     await page.goto(`${BASE}/admin`, { waitUntil: "domcontentloaded" });
-    await page.getByPlaceholder("you@example.com").fill(TEST_USER.email);
-    await page.locator("#password-input").fill(TEST_USER.password);
+    const emailField = page.getByPlaceholder("you@example.com");
+    const passwordField = page.locator("#password-input");
+    await emailField.fill(TEST_USER.email);
+    await passwordField.fill(TEST_USER.password);
 
     const submit = page.locator("button.btn.btn--primary");
     await submit.waitFor({ state: "visible", timeout: 10000 });
+    try {
+      await waitForEnabledPrimarySubmit(page, 5000);
+    } catch {
+      // Remote/static deployments can accept the initial keystrokes before hydration
+      // finishes attaching React handlers. Re-fill once after a short pause.
+      await page.waitForTimeout(1500);
+      await emailField.fill(TEST_USER.email);
+      await passwordField.fill(TEST_USER.password);
+      await waitForEnabledPrimarySubmit(page, 10000);
+    }
     if (await submit.isDisabled()) {
       throw new Error(
         "Login submit button is disabled after entering credentials. " +
