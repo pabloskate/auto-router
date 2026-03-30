@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { RegistrationMode } from "@/src/lib/constants";
 import {
@@ -11,6 +11,8 @@ import {
 } from "@/src/features/account-settings/contracts";
 import type { GatewayInfo } from "@/src/features/gateways/contracts";
 import type { ApiKeyInfo, RoutingDraftState } from "@/src/components/admin/types";
+
+import { createSequentialTaskQueue, SETTINGS_REFRESHED_MESSAGE } from "./save-queue";
 
 interface RegistrationStatus {
   mode: RegistrationMode;
@@ -31,6 +33,13 @@ export function useAdminData() {
   const [profilesDraftState, setProfilesDraftState] = useState<RoutingDraftState>("pristine");
   const [registrationMode, setRegistrationMode] = useState<RegistrationMode>("closed");
   const [registrationStatus, setRegistrationStatus] = useState<RegistrationStatus | null>(null);
+  const userRef = useRef<UserInfo | null>(null);
+  const saveQueueRef = useRef(createSequentialTaskQueue());
+
+  function setCurrentUser(nextUser: UserInfo | null) {
+    userRef.current = nextUser;
+    setUser(nextUser);
+  }
 
   async function fetchAdminData() {
     const [userRes, keysRes, gatewaysRes, registrationRes] = await Promise.all([
@@ -68,7 +77,7 @@ export function useAdminData() {
 
     if (!userRes.ok) {
       setIsAuthenticated(false);
-      setUser(null);
+      setCurrentUser(null);
       setKeys([]);
       setGateways([]);
       setStatus("Please log in");
@@ -93,7 +102,7 @@ export function useAdminData() {
       setGateways([]);
     }
 
-    setUser(hydrateUser(userData.user));
+    setCurrentUser(hydrateUser(userData.user));
     setKeys(keysData.keys);
     setIsAuthenticated(true);
     setReroutingDraftState("pristine");
@@ -112,7 +121,7 @@ export function useAdminData() {
 
     if (!userRes.ok) {
       setIsAuthenticated(false);
-      setUser(null);
+      setCurrentUser(null);
       setKeys([]);
       setGateways([]);
       setStatus("Please log in");
@@ -135,7 +144,7 @@ export function useAdminData() {
       setGateways([]);
     }
 
-    setUser(hydrateUser(userData.user));
+    setCurrentUser(hydrateUser(userData.user));
     setKeys(keysData.keys);
     setIsAuthenticated(true);
     setReroutingDraftState("pristine");
@@ -168,7 +177,7 @@ export function useAdminData() {
   async function handleLogout() {
     await fetch("/api/v1/auth/logout", { method: "POST" });
     setIsAuthenticated(false);
-    setUser(null);
+    setCurrentUser(null);
     setKeys([]);
     setGateways([]);
     setReroutingDraftState("pristine");
@@ -186,37 +195,44 @@ export function useAdminData() {
   }
 
   async function saveUserData(updates: Partial<UserInfo>) {
-    if (!user) {
+    return saveQueueRef.current.run(async () => {
+      const currentUser = userRef.current;
+      if (!currentUser) {
+        return false;
+      }
+
+      setStatus("Saving...");
+      setError(undefined);
+
+      const payload = buildUserInfoUpdateRequest({
+        expectedUpdatedAt: currentUser.updatedAt,
+        updates,
+      });
+
+      const response = await fetch("/api/v1/user/me", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        await loadData();
+        setStatus("Saved successfully");
+        return true;
+      }
+
+      const responsePayload = await response.json().catch(() => ({ error: "Failed to save changes" })) as { error?: string };
+      if (response.status === 409) {
+        await loadData();
+        setError(undefined);
+        setStatus(SETTINGS_REFRESHED_MESSAGE);
+        return true;
+      }
+
+      setError(responsePayload.error ?? "Failed to save changes");
+      setStatus("Error");
       return false;
-    }
-
-    setStatus("Saving...");
-    setError(undefined);
-
-    const payload = buildUserInfoUpdateRequest({
-      expectedUpdatedAt: user.updatedAt,
-      updates,
     });
-
-    const response = await fetch("/api/v1/user/me", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (response.ok) {
-      await loadData();
-      setStatus("Saved successfully");
-      return true;
-    }
-
-    const responsePayload = await response.json().catch(() => ({ error: "Failed to save changes" })) as { error?: string };
-    if (response.status === 409) {
-      await loadData();
-    }
-    setError(responsePayload.error ?? "Failed to save changes");
-    setStatus("Error");
-    return false;
   }
 
   async function saveReroutingData(updates: Partial<UserInfo>) {
