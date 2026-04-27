@@ -94,10 +94,19 @@ describe("normalizeProfilesForEditor", () => {
         updatedAt: "2026-03-16T00:00:00.000Z",
         models: [],
       },
+      {
+        id: "gw_opencode_go",
+        name: "OpenCode Go",
+        baseUrl: "https://opencode.ai/zen/go/v1",
+        createdAt: "2026-04-27T00:00:00.000Z",
+        updatedAt: "2026-04-27T00:00:00.000Z",
+        models: [],
+      },
     ]);
 
-    expect(presets.every((preset) => preset.gatewayPresetId === "vercel")).toBe(true);
+    expect(presets.every((preset) => preset.gatewayPresetId === "vercel" || preset.gatewayPresetId === "opencode-go")).toBe(true);
     expect(presets.some((preset) => preset.id === "vercel-balanced")).toBe(true);
+    expect(presets.some((preset) => preset.id === "opencode-go-coding")).toBe(true);
     expect(presets.some((preset) => preset.id === "general-balanced")).toBe(false);
   });
 });
@@ -214,6 +223,44 @@ describe("createProfileFromPreset", () => {
         expect.objectContaining({
           gatewayId: "gw_openrouter",
           modelId: "moonshotai/kimi-k2.5",
+        }),
+      ]),
+    );
+  });
+
+  it("binds the OpenCode Go coding preset to synced OpenCode Go models", () => {
+    const opencodeGoCoding = ROUTING_PRESETS.find((preset) => preset.id === "opencode-go-coding");
+    expect(opencodeGoCoding).toBeTruthy();
+
+    const profile = createProfileFromPreset(opencodeGoCoding!, [
+      {
+        id: "gw_opencode_go",
+        name: "OpenCode Go",
+        baseUrl: "https://opencode.ai/zen/go/v1",
+        createdAt: "2026-04-27T00:00:00.000Z",
+        updatedAt: "2026-04-27T00:00:00.000Z",
+        models: [
+          { id: "kimi-k2.6", name: "Kimi K2.6" },
+          { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro" },
+          { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" },
+          { id: "glm-5.1", name: "GLM 5.1" },
+          { id: "minimax-m2.7", name: "MiniMax M2.7" },
+        ],
+      },
+    ]);
+
+    expect(profile.defaultModel).toBe("gw_opencode_go::kimi-k2.6");
+    expect(profile.classifierModel).toBe("gw_opencode_go::deepseek-v4-flash");
+    expect(profile.models).toHaveLength(5);
+    expect(profile.models).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gatewayId: "gw_opencode_go",
+          modelId: "deepseek-v4-pro",
+        }),
+        expect.objectContaining({
+          gatewayId: "gw_opencode_go",
+          modelId: "glm-5.1",
         }),
       ]),
     );

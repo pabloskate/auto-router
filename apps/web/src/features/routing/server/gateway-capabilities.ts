@@ -34,6 +34,16 @@ const PRESET_CAPABILITIES: Record<string, GatewayCapabilityProfile> = {
     supportsPreviousResponseLinking: true,
     supportsAdaptiveInFamilyShift: true,
   },
+  "opencode-go": {
+    tier: "basic",
+    supportsReasoningEffort: false,
+    supportsReasoningDetails: false,
+    supportsReasoningRoundTrip: false,
+    supportsPromptCaching: false,
+    supportsFamilyIdentity: false,
+    supportsPreviousResponseLinking: false,
+    supportsAdaptiveInFamilyShift: false,
+  },
   openai: {
     tier: "full",
     supportsReasoningEffort: true,

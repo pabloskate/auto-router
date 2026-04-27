@@ -44,7 +44,7 @@ export interface ProfileBuilderRequest {
 export interface ProfileBuilderExecutor {
   gatewayId: string;
   gatewayName: string;
-  gatewayPresetId: "openrouter" | "vercel";
+  gatewayPresetId: "openrouter" | "vercel" | "opencode-go";
   modelId: string;
   modelName: string;
 }

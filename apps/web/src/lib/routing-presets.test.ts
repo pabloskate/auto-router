@@ -9,6 +9,11 @@ describe("getGatewayPresetId", () => {
     expect(getGatewayPresetId("https://ai-gateway.vercel.sh/v1/")).toBe("vercel");
   });
 
+  it("recognizes the OpenCode Go base URL", () => {
+    expect(getGatewayPresetId("https://opencode.ai/zen/go/v1")).toBe("opencode-go");
+    expect(getGatewayPresetId("https://opencode.ai/zen/go/v1/")).toBe("opencode-go");
+  });
+
   it("returns undefined for unrecognized gateways", () => {
     expect(getGatewayPresetId("https://gateway.example.com/v1")).toBeUndefined();
   });

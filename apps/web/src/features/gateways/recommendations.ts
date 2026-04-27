@@ -76,6 +76,10 @@ export function getGatewayFormHint(presetId?: string): string {
     return "Recommended if you already manage budgets and usage in Vercel. Quick setup profiles work here today.";
   }
 
+  if (presetId === "opencode-go") {
+    return "Use your OpenCode Go subscription key. Model sync uses OpenCode Go's OpenAI-compatible /models endpoint.";
+  }
+
   if (presetId === "__custom__") {
     return "Paste your OpenAI-compatible base URL (e.g. Cloudflare AI Gateway compat endpoint) and API key.";
   }

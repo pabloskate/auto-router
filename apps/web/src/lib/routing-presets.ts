@@ -899,7 +899,94 @@ Default to MiniMax M2.7 when the task is ordinary implementation work and the ro
 `.trim(),
   },
 
-  // ── 11. Vercel Customer Support ────────────────────────────────────────────
+  // ── 11. OpenCode Go Coding Subscription ───────────────────────────────────
+  {
+    id: "opencode-go-coding",
+    name: "OpenCode Go Coding",
+    description:
+      "OpenCode Go subscription preset: DeepSeek V4 Flash as the low-cost router and quick-edit lane, Kimi K2.6 as the quality default, DeepSeek V4 Pro for large-context hard work, GLM 5.1 for structured planning, and MiniMax M2.7 for cost-sensitive implementation",
+    gatewayPresetId: "opencode-go",
+    classifierModel: "deepseek-v4-flash",
+    defaultModel: "kimi-k2.6",
+    models: [
+      {
+        id: "kimi-k2.6",
+        name: "Kimi K2.6",
+        modality: "text,image->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Default for ordinary implementation, bug fixing, frontend work, and ambiguous coding tasks where quality matters more than preserving OpenCode Go request limits.",
+      },
+      {
+        id: "deepseek-v4-pro",
+        name: "DeepSeek V4 Pro",
+        modality: "text->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Hard repo-wide debugging, large-context code reading, deep refactors, and complex multi-step plans where outputs can be checked against code, tests, or supplied context.",
+      },
+      {
+        id: "deepseek-v4-flash",
+        name: "DeepSeek V4 Flash",
+        modality: "text->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Router/classifier model, tiny patches, lint/test assistance, simple edits, and high-volume requests where preserving OpenCode Go limits matters.",
+      },
+      {
+        id: "glm-5.1",
+        name: "GLM 5.1",
+        modality: "text->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Architecture reviews, migration plans, careful step-by-step implementation guidance, and strict workflow or structured-output tasks.",
+      },
+      {
+        id: "minimax-m2.7",
+        name: "MiniMax M2.7",
+        modality: "text->text",
+        thinking: "none",
+        reasoningPreset: "none",
+        whenToUse:
+          "Cost-sensitive implementation, medium-complexity code changes, routine refactors, and practical agentic coding when Kimi-level quality is unnecessary.",
+      },
+    ],
+    routingInstructions: `
+Route every request to the best OpenCode Go model for subscription-limited coding. Optimize for successful implementation first, then preserve OpenCode Go request limits.
+
+MODEL REFERENCE
+  kimi-k2.6            — quality default for everyday coding and ambiguous implementation
+  deepseek-v4-pro      — hard large-context agentic work with verifiable outputs
+  deepseek-v4-flash    — classifier/router, tiny patches, and high-volume cheap text
+  glm-5.1              — structured plans, architecture review, and careful workflow tasks
+  minimax-m2.7         — cost-sensitive implementation and routine refactors
+
+ROUTING RULES (apply in order)
+
+ROUTER / SIMPLE EDIT / TINY PATCH / LINT OR TEST FIX / LOW-STAKES QUICK TURN
+  → deepseek-v4-flash
+
+LARGE REPO / BIG PASTE / LONG CONTEXT / DEEP DEBUGGING / COMPLEX MULTI-STEP REFACTOR
+  → deepseek-v4-pro
+
+ARCHITECTURE / MIGRATION PLAN / STRICT JSON / STRUCTURED OUTPUT / CAREFUL REVIEW
+  → glm-5.1
+
+BUDGET-SENSITIVE IMPLEMENTATION / ROUTINE REFACTOR / MEDIUM-COMPLEXITY CODING
+  → minimax-m2.7
+
+FRONTEND / AMBIGUOUS CODING / GENERAL BUG FIX / QUALITY-SENSITIVE IMPLEMENTATION
+  → kimi-k2.6
+
+Default to Kimi K2.6 when the task is ordinary coding work and the route is ambiguous. Avoid DeepSeek V4 Pro for open-ended factual answers unless the answer is grounded in supplied code or artifacts.
+`.trim(),
+  },
+
+  // ── 12. Vercel Customer Support ────────────────────────────────────────────
   {
     id: "vercel-customer-support",
     name: "Vercel Customer Support",
@@ -985,7 +1072,7 @@ Default to Claude Sonnet 4.6 when the support task is ambiguous or emotionally s
 `.trim(),
   },
 
-  // ── 12. Vercel Fast Coding ─────────────────────────────────────────────────
+  // ── 13. Vercel Fast Coding ─────────────────────────────────────────────────
   {
     id: "vercel-coding-fast",
     name: "Vercel Fast Coding",
@@ -1071,7 +1158,7 @@ Default to Grok Code Fast 1 when the task is ordinary coding and the route is am
 `.trim(),
   },
 
-  // ── 13. Vercel Deep Premium Agentic ────────────────────────────────────────
+  // ── 14. Vercel Deep Premium Agentic ────────────────────────────────────────
   {
     id: "vercel-coding-agentic-premium",
     name: "Vercel Deep Premium Agentic",

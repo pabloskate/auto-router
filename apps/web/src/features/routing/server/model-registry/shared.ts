@@ -10,7 +10,7 @@ export type {
   ProfileBuilderTaskFamily,
 } from "@/src/features/routing/profile-builder-contracts";
 
-export type ModelIntelligenceGatewayPresetId = "openrouter" | "vercel";
+export type ModelIntelligenceGatewayPresetId = "openrouter" | "vercel" | "opencode-go";
 export type ModelIntelligenceContextBand = "standard" | "long" | "ultra";
 export type ModelIntelligenceCostTier = "budget" | "efficient" | "mid" | "premium";
 
@@ -181,6 +181,14 @@ export function vercelModelsSource(): ProfileBuilderSource {
   return source("Vercel AI Gateway models endpoint", "https://ai-gateway.vercel.sh/v1/models");
 }
 
+export function opencodeGoModelsSource(): ProfileBuilderSource {
+  return {
+    label: "OpenCode Go models endpoint",
+    url: "https://opencode.ai/zen/go/v1/models",
+    verifiedAt: "2026-04-27",
+  };
+}
+
 export function arenaSource(path: string, label: string): ProfileBuilderSource {
   return source(label, `https://arena.ai${path}`);
 }
@@ -292,6 +300,21 @@ export function vercelOperationalFacts(args: {
       value: args.outputPricePerMillion,
       unit: "usd_per_million_tokens",
       direction: "lower_better",
+      source: apiSource,
+    }),
+  ];
+}
+
+export function opencodeGoAvailabilityFacts(modelId: string): ModelIntelligenceMetricFact[] {
+  const apiSource = opencodeGoModelsSource();
+  return [
+    fact({
+      metricId: "opencode_go_model_available",
+      label: "OpenCode Go model availability",
+      kind: "capability",
+      value: modelId,
+      unit: "model_id",
+      direction: "neutral",
       source: apiSource,
     }),
   ];

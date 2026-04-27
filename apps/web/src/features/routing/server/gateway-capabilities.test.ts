@@ -16,6 +16,12 @@ describe("gateway capability registry", () => {
     expect(profile.supportsReasoningEffort).toBe(true);
   });
 
+  it("recognizes the OpenCode Go base URL", () => {
+    const profile = resolveGatewayCapabilityForBaseUrl("https://opencode.ai/zen/go/v1/");
+    expect(profile.tier).toBe("basic");
+    expect(profile.supportsReasoningEffort).toBe(false);
+  });
+
   it("falls back when base URL is unknown", () => {
     const profile = resolveGatewayCapabilityForBaseUrl("https://example.com/no-gateway");
     expect(profile.tier).toBe("basic");

@@ -1,5 +1,5 @@
 import type { ModelIntelligenceModel } from "../shared";
-import { MODEL_INTELLIGENCE_LAST_VERIFIED, openRouterOperationalFacts, artificialAnalysisFacts, benchmarkClaimFact, arenaSource, designArenaSource, fact, openRouterSource, vercelOperationalFacts } from "../shared";
+import { MODEL_INTELLIGENCE_LAST_VERIFIED, openRouterOperationalFacts, artificialAnalysisFacts, benchmarkClaimFact, arenaSource, designArenaSource, fact, openRouterSource, opencodeGoAvailabilityFacts, vercelOperationalFacts } from "../shared";
 
 export const SPEED_AND_SPECIALIST_REGISTRY_ENTRIES: readonly ModelIntelligenceModel[] = [
   {
@@ -285,6 +285,7 @@ export const SPEED_AND_SPECIALIST_REGISTRY_ENTRIES: readonly ModelIntelligenceMo
     contextWindow: 204_800,
     lastVerified: MODEL_INTELLIGENCE_LAST_VERIFIED,
     metrics: [
+      ...opencodeGoAvailabilityFacts("minimax-m2.7"),
       ...openRouterOperationalFacts({
         contextWindow: 204_800,
         inputPricePerMillion: 0.3,
@@ -338,7 +339,7 @@ export const SPEED_AND_SPECIALIST_REGISTRY_ENTRIES: readonly ModelIntelligenceMo
     derived: {
       taskFamilies: ["coding", "agentic_coding", "general"],
       strengths: ["Excellent coding value", "Strong cited agentic benchmarks", "High AA intelligence for the price"],
-      caveats: ["Not a latency-first choice", "OpenRouter-only exact ID"],
+      caveats: ["Not a latency-first choice", "Gateway-specific IDs vary across OpenRouter and OpenCode Go"],
       whenToUse: "Primary coding value pick when you want frontier-adjacent agentic coding without paying premium output prices.",
       profileBuilder: {
         contextBand: "long",

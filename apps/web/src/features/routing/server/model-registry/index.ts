@@ -21,12 +21,14 @@ import { FRONTIER_REGISTRY_ENTRIES } from "./entries/frontier";
 import { WORKHORSE_REGISTRY_ENTRIES } from "./entries/workhorses";
 import { SPEED_AND_SPECIALIST_REGISTRY_ENTRIES } from "./entries/speed-and-specialists";
 import { IMAGE_AND_OPEN_REGISTRY_ENTRIES } from "./entries/image-and-open";
+import { OPENCODE_GO_REGISTRY_ENTRIES } from "./entries/opencode-go";
 
 export const MODEL_INTELLIGENCE: readonly ModelIntelligenceModel[] = [
   ...FRONTIER_REGISTRY_ENTRIES,
   ...WORKHORSE_REGISTRY_ENTRIES,
   ...SPEED_AND_SPECIALIST_REGISTRY_ENTRIES,
   ...IMAGE_AND_OPEN_REGISTRY_ENTRIES,
+  ...OPENCODE_GO_REGISTRY_ENTRIES,
 ] as const;
 
 const MODEL_INTELLIGENCE_BY_ID = new Map(
@@ -126,13 +128,74 @@ const GATEWAY_MAPPING_OVERRIDES = new Map<string, readonly GatewayMappingOverrid
       },
     ],
   ],
+  [
+    "moonshotai/kimi-k2.6",
+    [
+      {
+        gatewayPresetId: "opencode-go",
+        modelId: "kimi-k2.6",
+        displayName: "Kimi K2.6",
+      },
+    ],
+  ],
+  [
+    "deepseek/deepseek-v4-pro",
+    [
+      {
+        gatewayPresetId: "opencode-go",
+        modelId: "deepseek-v4-pro",
+        displayName: "DeepSeek V4 Pro",
+      },
+    ],
+  ],
+  [
+    "deepseek/deepseek-v4-flash",
+    [
+      {
+        gatewayPresetId: "opencode-go",
+        modelId: "deepseek-v4-flash",
+        displayName: "DeepSeek V4 Flash",
+      },
+    ],
+  ],
+  [
+    "z-ai/glm-5.1",
+    [
+      {
+        gatewayPresetId: "opencode-go",
+        modelId: "glm-5.1",
+        displayName: "GLM 5.1",
+      },
+    ],
+  ],
+  [
+    "minimax/minimax-m2.7",
+    [
+      {
+        gatewayPresetId: "openrouter",
+        modelId: "minimax/minimax-m2.7",
+        displayName: "MiniMax M2.7",
+      },
+      {
+        gatewayPresetId: "opencode-go",
+        modelId: "minimax-m2.7",
+        displayName: "MiniMax M2.7",
+      },
+    ],
+  ],
 ]);
+
+const GATEWAY_METRIC_PREFIX: Record<ModelRegistryGatewayPresetId, string> = {
+  openrouter: "openrouter_",
+  vercel: "vercel_",
+  "opencode-go": "opencode_go_",
+};
 
 function buildGatewayOperationalData(
   model: ModelIntelligenceModel,
   gatewayPresetId: ModelRegistryGatewayPresetId,
 ): ModelRegistryGatewayOperationalData {
-  const prefix = gatewayPresetId === "openrouter" ? "openrouter_" : "vercel_";
+  const prefix = GATEWAY_METRIC_PREFIX[gatewayPresetId];
   const metrics = model.metrics.filter((metric) => metric.metricId.startsWith(prefix));
   const contextMetric = metrics.find((metric) => metric.metricId.endsWith("_context_window_tokens"));
   const inputMetric = metrics.find((metric) => metric.metricId.endsWith("_input_price_per_million"));

@@ -28,12 +28,14 @@ describe("gateway recommendations", () => {
 
   it("keeps direct providers out of the recommended preset group", () => {
     expect(getDirectProviderPresets().some((preset) => preset.id === "openai")).toBe(true);
+    expect(getDirectProviderPresets().some((preset) => preset.id === "opencode-go")).toBe(true);
     expect(getDirectProviderPresets().some((preset) => preset.id === "openrouter")).toBe(false);
   });
 
   it("provides hints for default, custom, and direct provider setups", () => {
     expect(getGatewayFormHint()).toContain("dropdown");
     expect(getGatewayFormHint("__custom__")).toContain("OpenAI-compatible");
+    expect(getGatewayFormHint("opencode-go")).toContain("OpenCode Go subscription");
     expect(getGatewayFormHint("openai")).toContain("Direct providers");
   });
 });

@@ -58,6 +58,7 @@ describe("model-registry", () => {
     expect(getTopModelRegistryEntryForLens({ lens: "image_generation" })?.canonicalModelId).toBe("google/gemini-3.1-flash-image-preview");
     expect(getTopModelRegistryEntryForLens({ lens: "frontend_ui" })?.canonicalModelId).toBe("anthropic/claude-opus-4.6");
     expect(getTopModelRegistryEntryForLens({ lens: "classifier_candidate", gatewayPresetId: "openrouter" })?.canonicalModelId).toBe("nvidia/nemotron-3-super-120b-a12b");
+    expect(getTopModelRegistryEntryForLens({ lens: "classifier_candidate", gatewayPresetId: "opencode-go" })?.canonicalModelId).toBe("deepseek/deepseek-v4-flash");
   });
 
   it("does not require TTFT or throughput facts for lens ranking helpers", () => {
@@ -132,6 +133,24 @@ describe("model-registry", () => {
           gatewayPresetId: "vercel",
           modelId: "perplexity/sonar-pro",
           displayName: "Sonar Pro",
+        }),
+      ]),
+    );
+    expect(getModelRegistryEntry("moonshotai/kimi-k2.6")?.gatewayMappings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gatewayPresetId: "opencode-go",
+          modelId: "kimi-k2.6",
+          displayName: "Kimi K2.6",
+        }),
+      ]),
+    );
+    expect(getModelRegistryEntry("deepseek/deepseek-v4-flash")?.gatewayMappings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gatewayPresetId: "opencode-go",
+          modelId: "deepseek-v4-flash",
+          displayName: "DeepSeek V4 Flash",
         }),
       ]),
     );
