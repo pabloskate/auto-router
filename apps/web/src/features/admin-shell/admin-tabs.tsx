@@ -1,14 +1,15 @@
 import React, { type Dispatch, type SetStateAction } from "react";
+import type { RouterProfile } from "@custom-router/core";
 
 import { ApiKeyPanel } from "@/src/components/admin/ApiKeyPanel";
 import { InviteCodePanel } from "@/src/components/admin/InviteCodePanel";
-import { ProfilesPanel, type RouterProfile } from "@/src/components/admin/ProfilesPanel";
 import { RouterConfigPanel } from "@/src/components/admin/RouterConfigPanel";
 import { type AdminExtensionContext, type AdminTabDefinition, type ApiKeyInfo, type RoutingDraftState, type UserInfo } from "./types";
 import { GatewayPanel } from "@/src/features/gateways/components/GatewayPanel";
 import type { GatewayInfo, GatewayModel } from "@/src/features/gateways/contracts";
 import { PlaygroundPanel } from "@/src/features/playground/PlaygroundPanel";
 import { LogsPanelWithState } from "@/src/features/routing-logs/LogsPanel";
+import { RoutingProfilesEditor as ProfilesPanel } from "@/src/features/routing/components/RoutingProfilesEditor";
 import { QuickstartPanel } from "@/src/features/routing-quickstart/QuickstartPanel";
 import { type RegistrationMode } from "@/src/lib/constants";
 

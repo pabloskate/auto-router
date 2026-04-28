@@ -27,11 +27,6 @@ This folder holds the server-side seams for routing, recommendation, and setup w
 - `profile-builder-store.ts`
   - Persistence for setup/profile-builder runs.
 
-## Compatibility
-
-- `model-intelligence.ts`
-  - Deprecated shim that re-exports the registry under the older name.
-
 ## Mental Model
 
 - Runtime routing uses live gateway inventory plus saved profiles.

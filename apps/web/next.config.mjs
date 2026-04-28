@@ -5,9 +5,9 @@ import { fileURLToPath } from "node:url";
 const contentSecurityPolicy = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https:",
-  "font-src 'self' data:",
+  "font-src 'self' data: https://fonts.gstatic.com",
   "connect-src 'self' https://openrouter.ai https://artificialanalysis.ai",
   "object-src 'none'",
   "base-uri 'self'",

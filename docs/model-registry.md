@@ -29,11 +29,11 @@ This repo now reserves different words for different model datasets.
 ## Current Module Map
 
 - Recommendation registry:
-  - [model-registry.ts](/Users/pablomartinez/Documents/Custom Router/OSS/apps/web/src/features/routing/server/model-registry.ts)
+  - `apps/web/src/features/routing/server/model-registry.ts`
 - Profile-builder adapter over the registry:
-  - [profile-builder-knowledge.ts](/Users/pablomartinez/Documents/Custom Router/OSS/apps/web/src/features/routing/server/profile-builder-knowledge.ts)
+  - `apps/web/src/features/routing/server/profile-builder-knowledge.ts`
 - Runtime routing inventory resolution:
-  - [router-context.ts](/Users/pablomartinez/Documents/Custom Router/OSS/apps/web/src/features/routing/server/router-context.ts)
+  - `apps/web/src/features/routing/server/router-context.ts`
 
 ## Naming Guidance
 

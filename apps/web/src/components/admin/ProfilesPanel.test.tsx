@@ -2,7 +2,7 @@ import React, { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { ProfilesPanel } from "./ProfilesPanel";
+import { RoutingProfilesEditor as ProfilesPanel } from "@/src/features/routing/components/RoutingProfilesEditor";
 
 const GATEWAYS = [
   {

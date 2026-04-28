@@ -67,13 +67,13 @@ Recommended repo split:
 
 ```bash
 npm install
-npm run db:seed
+npm run local:env
 npm run local:stable
 BASE_URL=http://localhost:3010 npm run verify:admin
 ```
 
-1. Copy `.env.example` to `.env.local`.
-2. Set `BYOK_ENCRYPTION_SECRET`.
+1. Run `npm run local:env` to create `.env.local` and a local BYOK encryption secret.
+2. Review `.env.local` if you need non-default registration, upstream, or password reset settings.
 3. If you want password reset emails, also set `RESEND_API_KEY`, `PASSWORD_RESET_FROM_EMAIL`, and `PASSWORD_RESET_BASE_URL`.
 4. Add a gateway in the admin console.
 5. Open `http://localhost:3010/admin`.
@@ -84,6 +84,7 @@ BASE_URL=http://localhost:3010 npm run verify:admin
 
 - [Quickstart](docs/quickstart.md)
 - [Usage Guide](docs/usage.md)
+- [Architecture](docs/ARCHITECTURE.md)
 - [Complexity audit](docs/complexity-audit.md)
 - [Local dev troubleshooting](docs/local-dev-troubleshooting.md)
 - [Cloudflare deployment](docs/deployment-cloudflare.md)
@@ -100,7 +101,7 @@ npm run typecheck
 npm run build
 ```
 
-Current automated coverage is strongest in `packages/core`. The web app remains lightly tested, so changes to routes and auth flows should be verified manually as well.
+Run `npm run doctor:agent` when local setup behaves unexpectedly. Auth, admin, gateway, or user-settings changes also require the browser smoke flow documented in `AGENTS.md`.
 
 ## Managed Hosting
 

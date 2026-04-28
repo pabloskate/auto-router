@@ -2,6 +2,8 @@
 
 Date: 2026-03-24
 
+Status: historical audit. Some file paths and cleanup recommendations have since been acted on. Use `docs/ARCHITECTURE.md` and the current source tree for active architecture rules.
+
 ## Core Thesis
 
 CustomRouter's durable value is not "lots of routing-adjacent UX." Its real product is a multi-user, BYOK, OpenAI-compatible routing proxy that can explain its decisions and stay usable in both OSS and hosted form.

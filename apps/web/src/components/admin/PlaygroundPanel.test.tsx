@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { RecentModelHistoryCard } from "@/src/features/routing-logs/LogsPanel";
-import { MessageBubble, RouteCard } from "./PlaygroundPanel";
+import { MessageBubble, RouteCard } from "@/src/features/playground/PlaygroundPanel";
 
 describe("PlaygroundPanel", () => {
   it("renders inspect-provided confidence in the route card", () => {

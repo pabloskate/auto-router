@@ -2,6 +2,8 @@
 
 Date: 2026-03-12
 
+Status: historical audit. Several findings have since been addressed. Use `docs/ARCHITECTURE.md`, root `AGENTS.md`, and the scoped `AGENTS.md` files as the current source of truth.
+
 ## Goal
 
 Assess whether the repo is easy for an AI agent or a new engineer to navigate, change safely, and deploy without hidden context.

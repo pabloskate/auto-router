@@ -123,7 +123,6 @@ PUT  /api/v1/router/config     → verifyAdminSecret
 | `ApiKeyPanel.tsx` | Generate, list, revoke API keys |
 | `RouterConfigPanel.tsx` | Conversation re-routing controls: routing frequency and trigger keywords. Autosaves without a manual save button. |
 | `ProfilesPanel.tsx` | Alias for the routing profile editor. Create/edit named profiles, use quick setup presets, bind routed models, choose fallback/classifier bindings, and autosave changes. |
-| `CatalogEditorPanel.tsx` | Per-user model catalog editor ("constitution") |
 
 Admin compatibility rule:
 - `apps/web/src/features/*` owns the real admin-shell, gateway, quickstart, playground, and account-settings server logic.
@@ -214,14 +213,15 @@ All guardrail logic is in `apps/web/src/lib/routing/guardrail-manager.ts`. Thres
 
 ```bash
 npm install
+npm run local:env              # Creates .env.local with a local BYOK secret
 npm run db:seed                  # Creates local D1 + applies schema (required for login/signup)
 npm run typecheck
 npm run dev -w @custom-router/web  # starts Next.js on localhost:3000
 ```
 
-Auth (users, sessions, API keys) requires D1. With `initOpenNextCloudflareForDev` in next.config, local D1/KV emulation runs when using `next dev`; run `npm run db:seed` once to create the schema. Without it, login/signup returns 500 "Server misconfigured."
+Auth (users, sessions, API keys) requires D1. BYOK persistence requires `BYOK_ENCRYPTION_SECRET`; run `npm run local:env` to generate a local-only value. With `initOpenNextCloudflareForDev` in next.config, local D1/KV emulation runs when using `next dev`; run `npm run db:seed` once to create the schema. Without it, login/signup returns 500 "Server misconfigured."
 
-Copy `.env.example` → `.env.local` and fill in `BYOK_ENCRYPTION_SECRET`.
+Copy `.env.example` → `.env.local` manually only when you need custom env values beyond the generated local defaults.
 
 ### Localhost Reliability Policy (for agents)
 
@@ -270,6 +270,18 @@ This repo now includes local skills under `.codex/skills/`:
 - `custom-router-release-guard`
 
 Use them when touching feature seams, routing behavior, or release/deploy work.
+
+## Agent-Scoped Docs
+
+The root `AGENTS.md` is the starting map. More specific guidance lives closer to the code:
+
+- `docs/ARCHITECTURE.md` — dependency direction, route rules, data ownership, verification policy
+- `apps/web/AGENTS.md` — Next.js app, route adapter, and feature-slice rules
+- `apps/web/src/features/routing/AGENTS.md` — runtime routing and profile setup rules
+- `packages/core/AGENTS.md` — framework-agnostic routing engine rules
+- `packages/data/AGENTS.md` — catalog adapter rules
+
+When a scoped `AGENTS.md` applies, read it before editing that subtree.
 
 ---
 

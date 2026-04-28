@@ -10,7 +10,7 @@
  *     -> skip signup and only validate UI login with existing credentials
  */
 import { chromium } from "playwright";
-import { writeFile } from "fs/promises";
+import { mkdir, writeFile } from "fs/promises";
 
 const BASE = process.env.BASE_URL || `http://localhost:${process.env.PORT || "3000"}`;
 const VERIFY_EMAIL = process.env.VERIFY_EMAIL || "";
@@ -151,7 +151,8 @@ async function main() {
       console.error("Runtime issues observed:");
       for (const issue of runtimeIssues.slice(0, 15)) console.error(`- ${issue}`);
     }
-    const outDir = "scripts";
+    const outDir = "scripts/.artifacts";
+    await mkdir(outDir, { recursive: true });
     await page.screenshot({ path: `${outDir}/verify-admin-failure.png` });
     const html = await page.content();
     await writeFile(`${outDir}/verify-admin-failure.html`, html);

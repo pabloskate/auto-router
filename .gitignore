@@ -11,3 +11,6 @@ coverage
 *.log
 security_best_practices_report.md
 prototype/
+scripts/.artifacts/
+scripts/verify-*.png
+scripts/verify-*.html

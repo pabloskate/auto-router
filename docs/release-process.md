@@ -15,6 +15,15 @@ npm run typecheck
 npm run build
 ```
 
+5. For auth, admin UI, gateways, user settings, or local setup changes, also run:
+
+```bash
+npm run local:stable
+BASE_URL=http://localhost:3010 npm run verify:admin
+```
+
+6. Run `npm run doctor:agent` before handing the release to another agent or operator.
+
 ## Tagging
 
 - Tag releases from the public repo.

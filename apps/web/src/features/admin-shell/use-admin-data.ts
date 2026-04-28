@@ -42,10 +42,8 @@ export function useAdminData() {
   }
 
   async function fetchAdminData() {
-    const [userRes, keysRes, gatewaysRes, registrationRes] = await Promise.all([
+    const [userRes, registrationRes] = await Promise.all([
       fetch("/api/v1/user/me", { cache: "no-store" }),
-      fetch("/api/v1/user/keys", { cache: "no-store" }),
-      fetch("/api/v1/user/gateways", { cache: "no-store" }),
       fetch("/api/v1/auth/registration-status", { cache: "no-store" }),
     ]);
 
@@ -57,6 +55,20 @@ export function useAdminData() {
           firstUser: false,
           requiresInviteCode: false,
         } satisfies RegistrationStatus;
+
+    if (!userRes.ok) {
+      return {
+        userRes,
+        keysRes: null,
+        gatewaysRes: null,
+        registrationData,
+      };
+    }
+
+    const [keysRes, gatewaysRes] = await Promise.all([
+      fetch("/api/v1/user/keys", { cache: "no-store" }),
+      fetch("/api/v1/user/gateways", { cache: "no-store" }),
+    ]);
 
     return {
       userRes,
@@ -85,7 +97,7 @@ export function useAdminData() {
       return;
     }
 
-    if (!keysRes.ok) {
+    if (!keysRes?.ok) {
       setError("Failed to load API keys");
       setStatus("Error");
       setIsCheckingAuth(false);
@@ -95,7 +107,7 @@ export function useAdminData() {
     const userData = await userRes.json() as { user: ServerUserInfo };
     const keysData = await keysRes.json() as { keys: ApiKeyInfo[] };
 
-    if (gatewaysRes.ok) {
+    if (gatewaysRes?.ok) {
       const gatewaysData = await gatewaysRes.json() as { gateways?: GatewayInfo[] };
       setGateways(gatewaysData.gateways ?? []);
     } else {
@@ -128,7 +140,7 @@ export function useAdminData() {
       return;
     }
 
-    if (!keysRes.ok) {
+    if (!keysRes?.ok) {
       setError("Failed to load API keys");
       setStatus("Error");
       return;
@@ -137,7 +149,7 @@ export function useAdminData() {
     const userData = await userRes.json() as { user: ServerUserInfo };
     const keysData = await keysRes.json() as { keys: ApiKeyInfo[] };
 
-    if (gatewaysRes.ok) {
+    if (gatewaysRes?.ok) {
       const gatewaysData = await gatewaysRes.json() as { gateways?: GatewayInfo[] };
       setGateways(gatewaysData.gateways ?? []);
     } else {

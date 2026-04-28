@@ -2,12 +2,13 @@
 
 import React, { useState } from "react";
 
-import type { SaveActionState } from "./SaveActionBar";
 import {
   normalizeRoutingSettingsDraft,
   useRoutingSettingsAutosave,
   type RoutingSettingsDraft,
 } from "@/src/features/routing/components/useRoutingSettingsAutosave";
+
+export type SaveActionState = "pristine" | "dirty" | "saving" | "saved";
 
 interface Props {
   config: RoutingSettingsDraft;

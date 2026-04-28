@@ -38,7 +38,7 @@ const checks = [
         pass: hasSecret,
         detail: hasSecret
           ? 'BYOK_ENCRYPTION_SECRET found in .env.local'
-          : 'BYOK_ENCRYPTION_SECRET missing in .env.local',
+          : 'BYOK_ENCRYPTION_SECRET missing in .env.local. Run: npm run local:env',
       };
     },
   },
