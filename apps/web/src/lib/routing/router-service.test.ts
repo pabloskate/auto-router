@@ -1233,7 +1233,7 @@ describe("routeAndProxy", () => {
     );
   });
 
-  it("does not rewrite payload fields for non-OpenRouter gateways", async () => {
+  it("strips reasoning payload fields for non-OpenRouter gateways without reasoning support", async () => {
     const secret = "1234567890abcdef";
     const defaultApiKeyEnc = await encryptByokSecret({
       plaintext: "gateway-default-key",
@@ -1303,7 +1303,7 @@ describe("routeAndProxy", () => {
 
     const payload = upstreamMock.mock.calls[0]?.[0]?.payload as Record<string, unknown>;
     expect(payload.model).toBe("openai/gpt-5.2:high");
-    expect(payload.reasoning).toEqual({ effort: "xhigh" });
+    expect(payload.reasoning).toBeUndefined();
   });
 
   it("rejects legacy gateways whose hosts are not permitted on this deployment", async () => {

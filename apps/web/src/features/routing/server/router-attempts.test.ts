@@ -115,6 +115,30 @@ describe("buildAttemptPayload", () => {
     expect(payload.reasoning).toEqual({ effort: "xhigh" });
   });
 
+  it("strips explicit reasoning settings for gateways that do not support reasoning effort", () => {
+    const payload = buildAttemptPayload({
+      body: {
+        model: "opencode-go-coding",
+        reasoning: { effort: "none" },
+        messages: [{ role: "user", content: "Patch this." }],
+      },
+      selectedModelId: "deepseek/deepseek-v4-flash",
+      selectedEffort: "none",
+      catalog: [
+        {
+          id: "deepseek/deepseek-v4-flash",
+          name: "DeepSeek V4 Flash",
+          reasoningPreset: "none",
+        },
+      ],
+      baseUrl: "https://opencode.ai/zen/go/v1",
+      apiPath: "/chat/completions",
+    });
+
+    expect(payload.model).toBe("deepseek/deepseek-v4-flash");
+    expect(payload.reasoning).toBeUndefined();
+  });
+
   it("omits reasoning.effort for provider-default routing while still using the family model", () => {
     const payload = buildAttemptPayload({
       body: { model: "planning-backend", messages: [{ role: "user", content: "Plan this." }] },

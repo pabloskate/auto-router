@@ -84,11 +84,15 @@ export function buildAttemptPayload(args: {
     payload.model = selectedItem.upstreamModelId;
   }
 
+  if (!capability.supportsReasoningEffort) {
+    delete payload.reasoning;
+    return payload;
+  }
+
   if (
     hasExplicitReasoningEffort
     || !args.selectedEffort
     || args.selectedEffort === "provider_default"
-    || !capability.supportsReasoningEffort
   ) {
     return payload;
   }

@@ -1,6 +1,7 @@
 import type { CatalogItem, RouterConfig, RouterProfile } from "@custom-router/core";
 
 import { parseProfileModelKey, profileModelToCatalogItem } from "@/src/lib/routing/profile-config";
+import { ROUTING_PRESETS } from "@/src/lib/routing-presets";
 import { getRouterRepository, type RouterRepository } from "@/src/lib/storage/repository";
 
 import { findMatchedProfile, isRoutedRequestModel } from "./router-decision";
@@ -14,6 +15,16 @@ export interface ResolvedRoutingContext {
   requestedModel: string;
   matchedProfile?: RouterProfile;
   routedRequest: boolean;
+}
+
+function getPresetModelForProfileModel(profileId: string, modelId: string) {
+  const preset = ROUTING_PRESETS.find((candidate) => candidate.id === profileId);
+  if (!preset) {
+    return undefined;
+  }
+
+  const shortModelId = modelId.includes("/") ? modelId.slice(modelId.lastIndexOf("/") + 1) : modelId;
+  return preset.models.find((model) => model.id === modelId || model.id === shortModelId || modelId.endsWith(`/${model.id}`));
 }
 
 export async function resolveUserRoutingContext(args: {
@@ -55,7 +66,27 @@ export async function resolveUserRoutingContext(args: {
   const activeProfile = routedRequest ? matchedProfile : undefined;
 
   const profileInventory = (activeProfile?.models ?? [])
-    .map(profileModelToCatalogItem)
+    .map((model) => {
+      const item = profileModelToCatalogItem(model);
+      if (!item || !activeProfile) {
+        return item;
+      }
+
+      const presetModel = getPresetModelForProfileModel(activeProfile.id, item.id);
+      if (!presetModel) {
+        return item;
+      }
+
+      return {
+        ...item,
+        name: item.name ?? presetModel.name,
+        modality: item.modality ?? presetModel.modality,
+        reasoningPreset: item.reasoningPreset ?? presetModel.reasoningPreset ?? presetModel.thinking,
+        thinking: item.thinking ?? presetModel.reasoningPreset ?? presetModel.thinking,
+        whenToUse: item.whenToUse ?? presetModel.whenToUse,
+        description: item.description ?? presetModel.description,
+      };
+    })
     .filter((item): item is CatalogItem => Boolean(item))
     .map((item) => {
       const capability = item.gatewayId ? gatewayCapabilityById.get(item.gatewayId) : undefined;

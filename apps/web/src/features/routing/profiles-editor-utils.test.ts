@@ -76,6 +76,39 @@ describe("normalizeProfilesForEditor", () => {
     });
   });
 
+  it("normalizes short OpenCode Go model ids to synced provider-prefixed aliases", () => {
+    const profiles = normalizeProfilesForEditor(
+      [
+        {
+          id: "opencode-go-coding",
+          name: "OpenCode Go Coding",
+          models: [
+            { gatewayId: "gw_opencode_go", modelId: "kimi-k2.6", name: "Kimi K2.6" },
+            { gatewayId: "gw_opencode_go", modelId: "glm-5.1", name: "GLM 5.1" },
+          ],
+        },
+      ],
+      [
+        {
+          id: "gw_opencode_go",
+          name: "OpenCode Go",
+          baseUrl: "https://opencode.ai/zen/go/v1",
+          createdAt: "2026-04-27T00:00:00.000Z",
+          updatedAt: "2026-04-27T00:00:00.000Z",
+          models: [
+            { id: "moonshotai/kimi-k2.6", name: "Kimi K2.6" },
+            { id: "z-ai/glm-5.1", name: "GLM 5.1" },
+          ],
+        },
+      ],
+    );
+
+    expect(profiles[0]?.models).toEqual([
+      expect.objectContaining({ gatewayId: "gw_opencode_go", modelId: "moonshotai/kimi-k2.6" }),
+      expect.objectContaining({ gatewayId: "gw_opencode_go", modelId: "z-ai/glm-5.1" }),
+    ]);
+  });
+
   it("filters quick setup presets to the configured compatible gateways", () => {
     const presets = getQuickSetupPresets([
       {
@@ -264,6 +297,61 @@ describe("createProfileFromPreset", () => {
         }),
       ]),
     );
+  });
+
+  it("prefers OpenCode Go alias bindings over OpenRouter exact model IDs for the OpenCode Go preset", () => {
+    const opencodeGoCoding = ROUTING_PRESETS.find((preset) => preset.id === "opencode-go-coding");
+    expect(opencodeGoCoding).toBeTruthy();
+
+    const profile = createProfileFromPreset(opencodeGoCoding!, [
+      {
+        id: "gw_openrouter",
+        name: "OpenRouter",
+        baseUrl: "https://openrouter.ai/api/v1",
+        createdAt: "2026-04-27T00:00:00.000Z",
+        updatedAt: "2026-04-27T00:00:00.000Z",
+        models: [
+          { id: "deepseek/deepseek-v4-pro", name: "DeepSeek V4 Pro" },
+          { id: "deepseek/deepseek-v4-flash", name: "DeepSeek V4 Flash" },
+          { id: "z-ai/glm-5.1", name: "GLM 5.1" },
+          { id: "minimax/minimax-m2.7", name: "MiniMax M2.7" },
+        ],
+      },
+      {
+        id: "gw_opencode_go",
+        name: "OpenCode Go",
+        baseUrl: "https://opencode.ai/zen/go/v1",
+        createdAt: "2026-04-27T00:00:00.000Z",
+        updatedAt: "2026-04-27T00:00:00.000Z",
+        models: [
+          { id: "moonshotai/kimi-k2.6", name: "Kimi K2.6" },
+          { id: "deepseek/deepseek-v4-pro", name: "DeepSeek V4 Pro" },
+          { id: "deepseek/deepseek-v4-flash", name: "DeepSeek V4 Flash" },
+          { id: "z-ai/glm-5.1", name: "GLM 5.1" },
+          { id: "minimax/minimax-m2.7", name: "MiniMax M2.7" },
+        ],
+      },
+    ]);
+
+    expect(profile.defaultModel).toBe("gw_opencode_go::moonshotai/kimi-k2.6");
+    expect(profile.classifierModel).toBe("gw_opencode_go::deepseek/deepseek-v4-flash");
+    expect(profile.models).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gatewayId: "gw_opencode_go",
+          modelId: "deepseek/deepseek-v4-pro",
+        }),
+        expect.objectContaining({
+          gatewayId: "gw_opencode_go",
+          modelId: "z-ai/glm-5.1",
+        }),
+        expect.objectContaining({
+          gatewayId: "gw_opencode_go",
+          modelId: "minimax/minimax-m2.7",
+        }),
+      ]),
+    );
+    expect(profile.models?.every((model) => model.gatewayId === "gw_opencode_go")).toBe(true);
   });
 
   it("binds the affordable deep research preset to synced OpenRouter models", () => {
